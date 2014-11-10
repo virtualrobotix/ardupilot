@@ -36,6 +36,38 @@ const AP_Param::GroupInfo RCMapper::var_info[] PROGMEM = {
     // @User: Advanced
     AP_GROUPINFO("YAW",         3, RCMapper, _ch_yaw, 4),
 
+    // @Param: MODE
+    // @DisplayName: Mode change channel
+    // @Description: Mode change channel number. This is useful when you have a RC transmitter that can't change the channel order easily. Mode change is normally on channel 5, but you can move it to any channel with this parameter.
+    // @Range: 1 8
+    // @Increment: 1
+    // @User: Advanced
+    AP_GROUPINFO("MODE",    4, RCMapper, _ch_mode, 5),
+
+    // @Param: TUNE
+    // @DisplayName: Tune channel
+    // @Description: Tune channel number. This is useful when you have a RC transmitter that can't change the channel order easily. Tune is normally on channel 6, but you can move it to any channel with this parameter.
+    // @Range: 1 8
+    // @Increment: 1
+    // @User: Advanced
+    AP_GROUPINFO("TUNE",         5, RCMapper, _ch_tune, 6),
+
+    // @Param: CH7
+    // @DisplayName: CH7 channel
+    // @Description: Aux CH7 channel number. This is useful when you have a RC transmitter that can't change the channel order easily. CH7 is normally on channel 7, but you can move it to any channel with this parameter.
+    // @Range: 1 8
+    // @Increment: 1
+    // @User: Advanced
+    AP_GROUPINFO("CH7",    6, RCMapper, _ch_aux1, 7),
+
+    // @Param: CH8
+    // @DisplayName: CH8 channel
+    // @Description: Aux CH8 channel number. This is useful when you have a RC transmitter that can't change the channel order easily. CH8  is normally on channel 8, but you can move it to any channel with this parameter.
+    // @Range: 1 8
+    // @Increment: 1
+    // @User: Advanced
+    AP_GROUPINFO("CH8",         7, RCMapper, _ch_aux2, 8),
+
     AP_GROUPEND
 };
 
