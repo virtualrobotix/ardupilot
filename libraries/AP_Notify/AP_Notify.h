@@ -24,8 +24,26 @@
 #include <ToshibaLED_I2C.h>
 #include <ToshibaLED_PX4.h>
 #include <ToneAlarm_PX4.h>
+#include <ToneAlarm_Linux.h>
+#include <NavioLED_I2C.h>
 #include <ExternalLED.h>
 #include <Buzzer.h>
+
+#if CONFIG_HAL_BOARD == HAL_BOARD_PX4
+    #define CONFIG_NOTIFY_DEVICES_COUNT 3
+#elif CONFIG_HAL_BOARD == HAL_BOARD_APM1 || CONFIG_HAL_BOARD == HAL_BOARD_APM2 
+    #define CONFIG_NOTIFY_DEVICES_COUNT 3
+#elif CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
+    #define CONFIG_NOTIFY_DEVICES_COUNT 4
+#elif CONFIG_HAL_BOARD == HAL_BOARD_LINUX
+    #if CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_NAVIO
+        #define CONFIG_NOTIFY_DEVICES_COUNT 2
+    #else
+        #define CONFIG_NOTIFY_DEVICES_COUNT 3
+    #endif
+#else
+    #define CONFIG_NOTIFY_DEVICES_COUNT 2
+#endif
 
 class AP_Notify
 {
@@ -38,7 +56,6 @@ public:
         uint16_t baro_glitching     : 1;    // 1 if baro altitude is not good
         uint16_t armed              : 1;    // 0 = disarmed, 1 = armed
         uint16_t pre_arm_check      : 1;    // 0 = failing checks, 1 = passed
-        uint16_t pre_arm_gps_check  : 1;    // 0 = failing pre-arm GPS checks, 1 = passed
         uint16_t save_trim          : 1;    // 1 if gathering trim data
         uint16_t esc_calibration    : 1;    // 1 if calibrating escs
         uint16_t failsafe_radio     : 1;    // 1 if radio failsafe
@@ -63,21 +80,7 @@ public:
     void update(void);
 
 private:
-    // individual drivers
-    AP_BoardLED boardled;
-#if CONFIG_HAL_BOARD == HAL_BOARD_PX4
-    ToshibaLED_PX4 toshibaled;
-    ToneAlarm_PX4 tonealarm;
-#elif CONFIG_HAL_BOARD == HAL_BOARD_APM1 || CONFIG_HAL_BOARD == HAL_BOARD_APM2 
-    ExternalLED externalled;
-    Buzzer buzzer;
-#elif CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
-    ToshibaLED_I2C toshibaled;
-    ExternalLED externalled;
-    Buzzer buzzer;
-#else
-    ToshibaLED_I2C toshibaled;
-#endif
+    static NotifyDevice* _devices[CONFIG_NOTIFY_DEVICES_COUNT];
 };
 
-#endif	// __AP_NOTIFY_H__
+#endif    // __AP_NOTIFY_H__
