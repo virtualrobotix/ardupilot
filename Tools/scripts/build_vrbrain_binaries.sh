@@ -27,11 +27,11 @@ checkout() {
     tag="$2"
     git stash
     if [ "$tag" = "latest" ]; then
-	vbranch="for_merge"
-	vbranch2="for_merge"
+	vbranch="for_build"
+	vbranch2="for_build"
     else
 	vbranch="$vehicle-$tag"
-	vbranch2="for_merge"
+	vbranch2="for_build"
     fi
 
     echo "Checkout with branch $branch"
