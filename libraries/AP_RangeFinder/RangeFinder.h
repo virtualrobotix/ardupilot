@@ -38,11 +38,12 @@ public:
 
     // RangeFinder driver types
     enum RangeFinder_Type {
-        RangeFinder_TYPE_NONE   = 0,
-        RangeFinder_TYPE_ANALOG = 1,
-        RangeFinder_TYPE_MBI2C  = 2,
-        RangeFinder_TYPE_PLI2C  = 3,
-        RangeFinder_TYPE_PX4    = 4
+        RangeFinder_TYPE_NONE    = 0,
+        RangeFinder_TYPE_ANALOG  = 1,
+        RangeFinder_TYPE_MBI2C   = 2,
+        RangeFinder_TYPE_PLI2C   = 3,
+        RangeFinder_TYPE_PX4     = 4,
+        RangeFinder_TYPE_VRBRAIN = 5
     };
 
     enum RangeFinder_Function {
