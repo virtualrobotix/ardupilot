@@ -61,6 +61,8 @@ extern const AP_HAL::HAL& hal;
  #define ARSPD_DEFAULT_PIN 0
 #elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V51)
  #define ARSPD_DEFAULT_PIN 0
+#elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V52)
+ #define ARSPD_DEFAULT_PIN 0
 #elif defined(CONFIG_ARCH_BOARD_VRHERO_V10)
  #define ARSPD_DEFAULT_PIN 0
 #endif

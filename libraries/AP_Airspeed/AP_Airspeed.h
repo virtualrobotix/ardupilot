@@ -11,6 +11,7 @@
 #include <AP_Airspeed_Backend.h>
 #include <AP_Airspeed_analog.h>
 #include <AP_Airspeed_PX4.h>
+#include <AP_Airspeed_VRBRAIN.h>
 #include <AP_Airspeed_I2C.h>
 
 class Airspeed_Calibration {
@@ -190,6 +191,8 @@ private:
     AP_Airspeed_Analog analog;
 #if CONFIG_HAL_BOARD == HAL_BOARD_PX4
     AP_Airspeed_PX4    digital;
+#elif CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
+    AP_Airspeed_VRBRAIN    digital;
 #else
     AP_Airspeed_I2C    digital;
 #endif
