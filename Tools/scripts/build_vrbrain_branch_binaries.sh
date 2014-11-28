@@ -161,7 +161,7 @@ build_arduplane() {
 	    copyit ArduPlane-vrubrain-v52P.hex $ddir $tag
 	}
     }
-    checkout Plane "latest"
+    checkout Plane $tag
     popd
 }
 
@@ -222,7 +222,7 @@ build_arducopter() {
 	    copyit ArduCopter-vrubrain-v52P.hex $ddir $tag
 	done
     }
-    checkout Copter "latest"
+    checkout Copter $tag
     popd
 }
 
@@ -284,10 +284,10 @@ build_rover() {
     popd
 }
 
-for build in stable beta latest; do
-    build_arduplane $build
+for build in stable; do
+    #build_arduplane $build
     build_arducopter $build
-    build_rover $build
+    #build_rover $build
 done
 
 rm -rf $TMPDIR
