@@ -43,6 +43,10 @@ VRBRAIN_VB51_CONFIG_FILE=config_vrbrain-v51_APM.mk
 VRBRAIN_VB51P_CONFIG_FILE=config_vrbrain-v51P_APM.mk
 VRBRAIN_VB51PRO_CONFIG_FILE=config_vrbrain-v51Pro_APM.mk
 VRBRAIN_VB51PROP_CONFIG_FILE=config_vrbrain-v51ProP_APM.mk
+VRBRAIN_VB52_CONFIG_FILE=config_vrbrain-v52_APM.mk
+VRBRAIN_VB52P_CONFIG_FILE=config_vrbrain-v52P_APM.mk
+VRBRAIN_VB52PRO_CONFIG_FILE=config_vrbrain-v52Pro_APM.mk
+VRBRAIN_VB52PROP_CONFIG_FILE=config_vrbrain-v52ProP_APM.mk
 VRBRAIN_VU51_CONFIG_FILE=config_vrubrain-v51_APM.mk
 VRBRAIN_VU51P_CONFIG_FILE=config_vrubrain-v51P_APM.mk
 VRBRAIN_VU52_CONFIG_FILE=config_vrubrain-v52_APM.mk
@@ -179,6 +183,62 @@ vrbrain-v51ProP: $(BUILDROOT)/make.flags $(VRBRAIN_ROOT)/Archives/vrbrain-v51Pro
 	$(v) cp $(VRBRAIN_ROOT)/Images/vrbrain-v51ProP_APM.bin $(SKETCH)-vrbrain-v51ProP.bin
 	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrbrain-v51ProP.vrx"
 
+vrbrain-v52: $(BUILDROOT)/make.flags $(VRBRAIN_ROOT)/Archives/vrbrain-v52.export $(SKETCHCPP) module_mk
+	$(RULEHDR)
+	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/$(VRBRAIN_VB52_CONFIG_FILE)
+	$(v) cp $(VRBRAIN_MK_DIR)/$(VRBRAIN_VB52_CONFIG_FILE) $(VRBRAIN_ROOT)/makefiles/
+	$(v) $(VRBRAIN_MAKE) vrbrain-v52_APM
+	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/$(VRBRAIN_VB52_CONFIG_FILE)
+	$(v) rm -f $(SKETCH)-vrbrain-v52.vrx
+	$(v) rm -f $(SKETCH)-vrbrain-v52.hex
+	$(v) rm -f $(SKETCH)-vrbrain-v52.bin
+	$(v) cp $(VRBRAIN_ROOT)/Images/vrbrain-v52_APM.vrx $(SKETCH)-vrbrain-v52.vrx
+	$(v) cp $(VRBRAIN_ROOT)/Images/vrbrain-v52_APM.hex $(SKETCH)-vrbrain-v52.hex
+	$(v) cp $(VRBRAIN_ROOT)/Images/vrbrain-v52_APM.bin $(SKETCH)-vrbrain-v52.bin
+	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrbrain-v52.vrx"
+
+vrbrain-v52P: $(BUILDROOT)/make.flags $(VRBRAIN_ROOT)/Archives/vrbrain-v52P.export $(SKETCHCPP) module_mk
+	$(RULEHDR)
+	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/$(VRBRAIN_VB52P_CONFIG_FILE)
+	$(v) cp $(VRBRAIN_MK_DIR)/$(VRBRAIN_VB52P_CONFIG_FILE) $(VRBRAIN_ROOT)/makefiles/
+	$(v) $(VRBRAIN_MAKE) vrbrain-v52P_APM
+	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/$(VRBRAIN_VB52P_CONFIG_FILE)
+	$(v) rm -f $(SKETCH)-vrbrain-v52P.vrx
+	$(v) rm -f $(SKETCH)-vrbrain-v52P.hex
+	$(v) rm -f $(SKETCH)-vrbrain-v52P.bin
+	$(v) cp $(VRBRAIN_ROOT)/Images/vrbrain-v52P_APM.vrx $(SKETCH)-vrbrain-v52P.vrx
+	$(v) cp $(VRBRAIN_ROOT)/Images/vrbrain-v52P_APM.hex $(SKETCH)-vrbrain-v52P.hex
+	$(v) cp $(VRBRAIN_ROOT)/Images/vrbrain-v52P_APM.bin $(SKETCH)-vrbrain-v52P.bin
+	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrbrain-v52P.vrx"
+
+vrbrain-v52Pro: $(BUILDROOT)/make.flags $(VRBRAIN_ROOT)/Archives/vrbrain-v52Pro.export $(SKETCHCPP) module_mk
+	$(RULEHDR)
+	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/$(VRBRAIN_VB52PRO_CONFIG_FILE)
+	$(v) cp $(VRBRAIN_MK_DIR)/$(VRBRAIN_VB52PRO_CONFIG_FILE) $(VRBRAIN_ROOT)/makefiles/
+	$(v) $(VRBRAIN_MAKE) vrbrain-v52Pro_APM
+	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/$(VRBRAIN_VB52PRO_CONFIG_FILE)
+	$(v) rm -f $(SKETCH)-vrbrain-v52Pro.vrx
+	$(v) rm -f $(SKETCH)-vrbrain-v52Pro.hex
+	$(v) rm -f $(SKETCH)-vrbrain-v52Pro.bin
+	$(v) cp $(VRBRAIN_ROOT)/Images/vrbrain-v52Pro_APM.vrx $(SKETCH)-vrbrain-v52Pro.vrx
+	$(v) cp $(VRBRAIN_ROOT)/Images/vrbrain-v52Pro_APM.hex $(SKETCH)-vrbrain-v52Pro.hex
+	$(v) cp $(VRBRAIN_ROOT)/Images/vrbrain-v52Pro_APM.bin $(SKETCH)-vrbrain-v52Pro.bin
+	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrbrain-v52Pro.vrx"
+
+vrbrain-v52ProP: $(BUILDROOT)/make.flags $(VRBRAIN_ROOT)/Archives/vrbrain-v52ProP.export $(SKETCHCPP) module_mk
+	$(RULEHDR)
+	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/$(VRBRAIN_VB52PROP_CONFIG_FILE)
+	$(v) cp $(VRBRAIN_MK_DIR)/$(VRBRAIN_VB52PROP_CONFIG_FILE) $(VRBRAIN_ROOT)/makefiles/
+	$(v) $(VRBRAIN_MAKE) vrbrain-v52ProP_APM
+	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/$(VRBRAIN_VB52PROP_CONFIG_FILE)
+	$(v) rm -f $(SKETCH)-vrbrain-v52ProP.vrx
+	$(v) rm -f $(SKETCH)-vrbrain-v52ProP.hex
+	$(v) rm -f $(SKETCH)-vrbrain-v52ProP.bin
+	$(v) cp $(VRBRAIN_ROOT)/Images/vrbrain-v52ProP_APM.vrx $(SKETCH)-vrbrain-v52ProP.vrx
+	$(v) cp $(VRBRAIN_ROOT)/Images/vrbrain-v52ProP_APM.hex $(SKETCH)-vrbrain-v52ProP.hex
+	$(v) cp $(VRBRAIN_ROOT)/Images/vrbrain-v52ProP_APM.bin $(SKETCH)-vrbrain-v52ProP.bin
+	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrbrain-v52ProP.vrx"
+
 vrubrain-v51: $(BUILDROOT)/make.flags $(VRBRAIN_ROOT)/Archives/vrubrain-v51.export $(SKETCHCPP) module_mk
 	$(RULEHDR)
 	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/$(VRBRAIN_VU51_CONFIG_FILE)
@@ -249,10 +309,10 @@ vrhero-v10: $(BUILDROOT)/make.flags $(VRBRAIN_ROOT)/Archives/vrhero-v10.export $
 	$(v) cp $(VRBRAIN_ROOT)/Images/vrhero-v10_APM.bin $(SKETCH)-vrhero-v10.bin
 	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrhero-v10.vrx"
 
-vrbrainStd: vrbrain-v45 vrbrain-v51 vrubrain-v51 vrubrain-v52
-vrbrainStdP: vrbrain-v45P vrbrain-v51P vrubrain-v51P
-vrbrainPro: vrbrain-v51Pro
-vrbrainProP: vrbrain-v51ProP
+vrbrainStd: vrbrain-v45 vrbrain-v51 vrbrain-v52 vrubrain-v51 vrubrain-v52
+vrbrainStdP: vrbrain-v45P vrbrain-v51P vrbrain-v52P vrubrain-v51P
+vrbrainPro: vrbrain-v51Pro vrbrain-v52Pro
+vrbrainProP: vrbrain-v51ProP vrbrain-v52ProP
 
 vrbrain: vrbrainStd vrbrainStdP vrbrainPro vrbrainProP
 
@@ -296,6 +356,22 @@ vrbrain-v51Pro-upload: vrbrain-v51Pro
 vrbrain-v51ProP-upload: vrbrain-v51ProP
 	$(RULEHDR)
 	$(v) $(VRBRAIN_MAKE) vrbrain-v51ProP_APM upload
+
+vrbrain-v52-upload: vrbrain-v52
+	$(RULEHDR)
+	$(v) $(VRBRAIN_MAKE) vrbrain-v52_APM upload
+
+vrbrain-v52P-upload: vrbrain-v52P
+	$(RULEHDR)
+	$(v) $(VRBRAIN_MAKE) vrbrain-v52P_APM upload
+
+vrbrain-v52Pro-upload: vrbrain-v52Pro
+	$(RULEHDR)
+	$(v) $(VRBRAIN_MAKE) vrbrain-v52Pro_APM upload
+
+vrbrain-v52ProP-upload: vrbrain-v52ProP
+	$(RULEHDR)
+	$(v) $(VRBRAIN_MAKE) vrbrain-v52ProP_APM upload
 
 vrubrain-v51-upload: vrubrain-v51
 	$(RULEHDR)
@@ -344,6 +420,18 @@ $(VRBRAIN_ROOT)/Archives/vrbrain-v51Pro.export:
 	$(v) $(VRBRAIN_MAKE_ARCHIVES)
 
 $(VRBRAIN_ROOT)/Archives/vrbrain-v51ProP.export:
+	$(v) $(VRBRAIN_MAKE_ARCHIVES)
+
+$(VRBRAIN_ROOT)/Archives/vrbrain-v52.export:
+	$(v) $(VRBRAIN_MAKE_ARCHIVES)
+
+$(VRBRAIN_ROOT)/Archives/vrbrain-v52P.export:
+	$(v) $(VRBRAIN_MAKE_ARCHIVES)
+
+$(VRBRAIN_ROOT)/Archives/vrbrain-v52Pro.export:
+	$(v) $(VRBRAIN_MAKE_ARCHIVES)
+
+$(VRBRAIN_ROOT)/Archives/vrbrain-v52ProP.export:
 	$(v) $(VRBRAIN_MAKE_ARCHIVES)
 
 $(VRBRAIN_ROOT)/Archives/vrubrain-v51.export:
