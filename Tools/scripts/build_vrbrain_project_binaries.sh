@@ -27,11 +27,11 @@ checkout() {
     tag="$2"
     git stash
     if [ "$tag" = "latest" ]; then
-    vbranch="for_build"
-    vbranch2="for_build"
+	vbranch="for_build"
+	vbranch2="for_build"
     else
-    vbranch="$vehicle-$tag"
-    vbranch2="for_build"
+	vbranch="$vehicle-$tag"
+	vbranch2="for_build"
     fi
 
     echo "Checkout with branch $branch"
@@ -63,14 +63,14 @@ skip_build() {
     bname=$(basename $ddir)
     ldir=$(dirname $(dirname $(dirname $ddir)))/$tag/$bname
     [ -d "$ldir" ] || {
-    echo "$ldir doesn't exist - building"
-    return 1
+	echo "$ldir doesn't exist - building"
+	return 1
     }
     oldversion=$(cat "$ldir/git-version.txt" | head -1)
     newversion=$(git log -1 | head -1)
     [ "$oldversion" = "$newversion" ] && {
-    echo "Skipping build - version match $newversion"
-    return 0
+	echo "Skipping build - version match $newversion"
+	return 0
     }
     echo "$ldir needs rebuild"
     return 1
@@ -80,9 +80,9 @@ addfwversion() {
     destdir="$1"
     git log -1 > "$destdir/git-version.txt"
     [ -f APM_Config.h ] && {
-    version=$(grep 'define.THISFIRMWARE' *.pde 2> /dev/null | cut -d'"' -f2)
-    echo >> "$destdir/git-version.txt"
-    echo "APMVERSION: $version" >> "$destdir/git-version.txt"
+	version=$(grep 'define.THISFIRMWARE' *.pde 2> /dev/null | cut -d'"' -f2)
+	echo >> "$destdir/git-version.txt"
+	echo "APMVERSION: $version" >> "$destdir/git-version.txt"
     }    
 }
 
@@ -94,9 +94,9 @@ copyit() {
     bname=$(basename $dir)
     tdir=$(dirname $(dirname $(dirname $dir)))/$tag/$bname
     if [ "$tag" = "latest" ]; then
-    mkdir -p "$dir"
-    /bin/cp "$file" "$dir"
-    addfwversion "$dir"
+	mkdir -p "$dir"
+	/bin/cp "$file" "$dir"
+	addfwversion "$dir"
     fi
     echo "Copying $file to $tdir"
     mkdir -p "$tdir"
@@ -111,48 +111,60 @@ build_arduplane() {
     echo "Building ArduPlane $tag binaries"
     pushd ArduPlane
     test -n "$VRBRAIN_ROOT" && {
-        echo "Building ArduPlane VRBRAIN binaries"
-        ddir=$binaries/Plane/$hdate/VRX
-        skip_build $tag $ddir || {
-            make vrbrain-clean &&
-            make vrbrain || {
-                    echo "Failed build of ArduPlane VRBRAIN $tag"
-                    error_count=$((error_count+1))
-                    checkout Plane "latest"
-                    popd
-                    return
-                }
-            copyit ArduPlane-vrbrain-v45.vrx $ddir $tag && 
-            copyit ArduPlane-vrbrain-v45.bin $ddir $tag && 
-            copyit ArduPlane-vrbrain-v45.hex $ddir $tag &&
-            copyit ArduPlane-vrbrain-v45P.vrx $ddir $tag && 
-            copyit ArduPlane-vrbrain-v45P.bin $ddir $tag && 
-            copyit ArduPlane-vrbrain-v45P.hex $ddir $tag &&
-            copyit ArduPlane-vrbrain-v51.vrx $ddir $tag && 
-            copyit ArduPlane-vrbrain-v51.bin $ddir $tag && 
-            copyit ArduPlane-vrbrain-v51.hex $ddir $tag &&
-            copyit ArduPlane-vrbrain-v51P.vrx $ddir $tag && 
-            copyit ArduPlane-vrbrain-v51P.bin $ddir $tag && 
-            copyit ArduPlane-vrbrain-v51P.hex $ddir $tag &&
-            copyit ArduPlane-vrbrain-v51Pro.vrx $ddir $tag && 
-            copyit ArduPlane-vrbrain-v51Pro.bin $ddir $tag && 
-            copyit ArduPlane-vrbrain-v51Pro.hex $ddir $tag &&
-            copyit ArduPlane-vrbrain-v51ProP.vrx $ddir $tag && 
-            copyit ArduPlane-vrbrain-v51ProP.bin $ddir $tag && 
-            copyit ArduPlane-vrbrain-v51ProP.hex $ddir $tag &&
-            copyit ArduPlane-vrubrain-v51.vrx $ddir $tag && 
-            copyit ArduPlane-vrubrain-v51.bin $ddir $tag && 
-            copyit ArduPlane-vrubrain-v51.hex $ddir $tag && 
-            copyit ArduPlane-vrubrain-v51P.vrx $ddir $tag && 
-            copyit ArduPlane-vrubrain-v51P.bin $ddir $tag && 
-            copyit ArduPlane-vrubrain-v51P.hex $ddir $tag && 
-            copyit ArduPlane-vrubrain-v52.vrx $ddir $tag && 
-            copyit ArduPlane-vrubrain-v52.bin $ddir $tag && 
-            copyit ArduPlane-vrubrain-v52.hex $ddir $tag && 
-            copyit ArduPlane-vrubrain-v52P.vrx $ddir $tag && 
-            copyit ArduPlane-vrubrain-v52P.bin $ddir $tag && 
-            copyit ArduPlane-vrubrain-v52P.hex $ddir $tag
-        }
+	echo "Building ArduPlane VRBRAIN binaries"
+	ddir=$binaries/Plane/$hdate/VRX
+	skip_build $tag $ddir || {
+	    make vrbrain-clean &&
+	    make vrbrain || {
+                echo "Failed build of ArduPlane VRBRAIN $tag"
+                error_count=$((error_count+1))
+                checkout Plane "latest"
+                popd
+                return
+            }
+	    copyit ArduPlane-vrbrain-v45.vrx $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v45.bin $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v45.hex $ddir $tag &&
+	    copyit ArduPlane-vrbrain-v45P.vrx $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v45P.bin $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v45P.hex $ddir $tag &&
+	    copyit ArduPlane-vrbrain-v51.vrx $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v51.bin $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v51.hex $ddir $tag &&
+	    copyit ArduPlane-vrbrain-v51P.vrx $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v51P.bin $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v51P.hex $ddir $tag &&
+	    copyit ArduPlane-vrbrain-v51Pro.vrx $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v51Pro.bin $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v51Pro.hex $ddir $tag &&
+	    copyit ArduPlane-vrbrain-v51ProP.vrx $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v51ProP.bin $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v51ProP.hex $ddir $tag &&
+	    copyit ArduPlane-vrbrain-v52.vrx $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v52.bin $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v52.hex $ddir $tag &&
+	    copyit ArduPlane-vrbrain-v52P.vrx $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v52P.bin $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v52P.hex $ddir $tag &&
+	    copyit ArduPlane-vrbrain-v52Pro.vrx $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v52Pro.bin $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v52Pro.hex $ddir $tag &&
+	    copyit ArduPlane-vrbrain-v52ProP.vrx $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v52ProP.bin $ddir $tag && 
+	    copyit ArduPlane-vrbrain-v52ProP.hex $ddir $tag &&
+	    copyit ArduPlane-vrubrain-v51.vrx $ddir $tag && 
+	    copyit ArduPlane-vrubrain-v51.bin $ddir $tag && 
+	    copyit ArduPlane-vrubrain-v51.hex $ddir $tag && 
+	    copyit ArduPlane-vrubrain-v51P.vrx $ddir $tag && 
+	    copyit ArduPlane-vrubrain-v51P.bin $ddir $tag && 
+	    copyit ArduPlane-vrubrain-v51P.hex $ddir $tag &&
+	    copyit ArduPlane-vrubrain-v52.vrx $ddir $tag && 
+	    copyit ArduPlane-vrubrain-v52.bin $ddir $tag && 
+	    copyit ArduPlane-vrubrain-v52.hex $ddir $tag && 
+	    copyit ArduPlane-vrubrain-v52P.vrx $ddir $tag && 
+	    copyit ArduPlane-vrubrain-v52P.bin $ddir $tag && 
+	    copyit ArduPlane-vrubrain-v52P.hex $ddir $tag
+	}
     }
 }
 
@@ -163,49 +175,61 @@ build_arducopter() {
     pushd ArduCopter
     frames="quad tri hexa y6 octa octa-quad heli"
     test -n "$VRBRAIN_ROOT"
-    make vrbrain-clean || return
-    for f in $frames quad-hil heli-hil; do
-        echo "Building ArduCopter VRBRAIN-$f binaries"
-        ddir="$binaries/Copter/$hdate/VRX-$f"
-        skip_build $tag $ddir && continue
-        rm -rf ../Build.ArduCopter
-        make vrbrain-$f || {
+	make vrbrain-clean || return
+	for f in $frames quad-hil heli-hil; do
+	    echo "Building ArduCopter VRBRAIN-$f binaries"
+	    ddir="$binaries/Copter/$hdate/VRX-$f"
+	    skip_build $tag $ddir && continue
+            rm -rf ../Build.ArduCopter
+	    make vrbrain-$f || {
                 echo "Failed build of ArduCopter VRBRAIN $tag"
                 error_count=$((error_count+1))
                 continue
             }
-        copyit ArduCopter-vrbrain-v45.vrx $ddir $tag && 
-        copyit ArduCopter-vrbrain-v45.bin $ddir $tag && 
-        copyit ArduCopter-vrbrain-v45.hex $ddir $tag &&
-        copyit ArduCopter-vrbrain-v45P.vrx $ddir $tag && 
-        copyit ArduCopter-vrbrain-v45P.bin $ddir $tag && 
-        copyit ArduCopter-vrbrain-v45P.hex $ddir $tag &&
-        copyit ArduCopter-vrbrain-v51.vrx $ddir $tag && 
-        copyit ArduCopter-vrbrain-v51.bin $ddir $tag && 
-        copyit ArduCopter-vrbrain-v51.hex $ddir $tag &&
-        copyit ArduCopter-vrbrain-v51P.vrx $ddir $tag && 
-        copyit ArduCopter-vrbrain-v51P.bin $ddir $tag && 
-        copyit ArduCopter-vrbrain-v51P.hex $ddir $tag &&
-        copyit ArduCopter-vrbrain-v51Pro.vrx $ddir $tag && 
-        copyit ArduCopter-vrbrain-v51Pro.bin $ddir $tag && 
-        copyit ArduCopter-vrbrain-v51Pro.hex $ddir $tag &&
-        copyit ArduCopter-vrbrain-v51ProP.vrx $ddir $tag && 
-        copyit ArduCopter-vrbrain-v51ProP.bin $ddir $tag && 
-        copyit ArduCopter-vrbrain-v51ProP.hex $ddir $tag &&
-        copyit ArduCopter-vrubrain-v51.vrx $ddir $tag && 
-        copyit ArduCopter-vrubrain-v51.bin $ddir $tag && 
-        copyit ArduCopter-vrubrain-v51.hex $ddir $tag && 
-        copyit ArduCopter-vrubrain-v51P.vrx $ddir $tag && 
-        copyit ArduCopter-vrubrain-v51P.bin $ddir $tag && 
-        copyit ArduCopter-vrubrain-v51P.hex $ddir $tag &&
-        copyit ArduCopter-vrubrain-v52.vrx $ddir $tag && 
-        copyit ArduCopter-vrubrain-v52.bin $ddir $tag && 
-        copyit ArduCopter-vrubrain-v52.hex $ddir $tag && 
-        copyit ArduCopter-vrubrain-v52P.vrx $ddir $tag && 
-        copyit ArduCopter-vrubrain-v52P.bin $ddir $tag && 
-        copyit ArduCopter-vrubrain-v52P.hex $ddir $tag
-    done
-}
+	    copyit ArduCopter-vrbrain-v45.vrx $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v45.bin $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v45.hex $ddir $tag &&
+	    copyit ArduCopter-vrbrain-v45P.vrx $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v45P.bin $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v45P.hex $ddir $tag &&
+	    copyit ArduCopter-vrbrain-v51.vrx $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v51.bin $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v51.hex $ddir $tag &&
+	    copyit ArduCopter-vrbrain-v51P.vrx $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v51P.bin $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v51P.hex $ddir $tag &&
+	    copyit ArduCopter-vrbrain-v51Pro.vrx $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v51Pro.bin $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v51Pro.hex $ddir $tag &&
+	    copyit ArduCopter-vrbrain-v51ProP.vrx $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v51ProP.bin $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v51ProP.hex $ddir $tag &&
+	    copyit ArduCopter-vrbrain-v52.vrx $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v52.bin $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v52.hex $ddir $tag &&
+	    copyit ArduCopter-vrbrain-v52P.vrx $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v52P.bin $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v52P.hex $ddir $tag &&
+	    copyit ArduCopter-vrbrain-v52Pro.vrx $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v52Pro.bin $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v52Pro.hex $ddir $tag &&
+	    copyit ArduCopter-vrbrain-v52ProP.vrx $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v52ProP.bin $ddir $tag && 
+	    copyit ArduCopter-vrbrain-v52ProP.hex $ddir $tag &&
+	    copyit ArduCopter-vrubrain-v51.vrx $ddir $tag && 
+	    copyit ArduCopter-vrubrain-v51.bin $ddir $tag && 
+	    copyit ArduCopter-vrubrain-v51.hex $ddir $tag && 
+	    copyit ArduCopter-vrubrain-v51P.vrx $ddir $tag && 
+	    copyit ArduCopter-vrubrain-v51P.bin $ddir $tag && 
+	    copyit ArduCopter-vrubrain-v51P.hex $ddir $tag &&
+	    copyit ArduCopter-vrubrain-v52.vrx $ddir $tag && 
+	    copyit ArduCopter-vrubrain-v52.bin $ddir $tag && 
+	    copyit ArduCopter-vrubrain-v52.hex $ddir $tag && 
+	    copyit ArduCopter-vrubrain-v52P.vrx $ddir $tag && 
+	    copyit ArduCopter-vrubrain-v52P.bin $ddir $tag && 
+	    copyit ArduCopter-vrubrain-v52P.hex $ddir $tag
+	done
+    }
 
 # build rover binaries
 build_rover() {
@@ -213,46 +237,58 @@ build_rover() {
     echo "Building APMrover2 $tag binaries from $(pwd)"
     pushd APMrover2
     test -n "$VRBRAIN_ROOT" && {
-        echo "Building APMrover2 VRBRAIN binaries"
-        ddir=$binaries/Rover/$hdate/VRX
-        skip_build $tag $ddir || {
-            make vrbrain-clean &&
-            make vrbrain || {
-                    echo "Failed build of APMrover2 VRBRAIN $tag"
-                    error_count=$((error_count+1))
-                    return
-                }
-            copyit APMrover2-vrbrain-v45.vrx $ddir $tag && 
-            copyit APMrover2-vrbrain-v45.bin $ddir $tag && 
-            copyit APMrover2-vrbrain-v45.hex $ddir $tag &&
-            copyit APMrover2-vrbrain-v45P.vrx $ddir $tag && 
-            copyit APMrover2-vrbrain-v45P.bin $ddir $tag && 
-            copyit APMrover2-vrbrain-v45P.hex $ddir $tag &&
-            copyit APMrover2-vrbrain-v51.vrx $ddir $tag && 
-            copyit APMrover2-vrbrain-v51.bin $ddir $tag && 
-            copyit APMrover2-vrbrain-v51.hex $ddir $tag &&
-            copyit APMrover2-vrbrain-v51P.vrx $ddir $tag && 
-            copyit APMrover2-vrbrain-v51P.bin $ddir $tag && 
-            copyit APMrover2-vrbrain-v51P.hex $ddir $tag &&
-            copyit APMrover2-vrbrain-v51Pro.vrx $ddir $tag && 
-            copyit APMrover2-vrbrain-v51Pro.bin $ddir $tag && 
-            copyit APMrover2-vrbrain-v51Pro.hex $ddir $tag &&
-            copyit APMrover2-vrbrain-v51ProP.vrx $ddir $tag && 
-            copyit APMrover2-vrbrain-v51ProP.bin $ddir $tag && 
-            copyit APMrover2-vrbrain-v51ProP.hex $ddir $tag &&
-            copyit APMrover2-vrubrain-v51.vrx $ddir $tag && 
-            copyit APMrover2-vrubrain-v51.bin $ddir $tag && 
-            copyit APMrover2-vrubrain-v51.hex $ddir $tag && 
-            copyit APMrover2-vrubrain-v51P.vrx $ddir $tag && 
-            copyit APMrover2-vrubrain-v51P.bin $ddir $tag && 
-            copyit APMrover2-vrubrain-v51P.hex $ddir $tag &&
-            copyit APMrover2-vrubrain-v52.vrx $ddir $tag && 
-            copyit APMrover2-vrubrain-v52.bin $ddir $tag && 
-            copyit APMrover2-vrubrain-v52.hex $ddir $tag && 
-            copyit APMrover2-vrubrain-v52P.vrx $ddir $tag && 
-            copyit APMrover2-vrubrain-v52P.bin $ddir $tag && 
-            copyit APMrover2-vrubrain-v52P.hex $ddir $tag
-        }
+	echo "Building APMrover2 VRBRAIN binaries"
+	ddir=$binaries/Rover/$hdate/VRX
+	skip_build $tag $ddir || {
+	    make vrbrain-clean &&
+	    make vrbrain || {
+                echo "Failed build of APMrover2 VRBRAIN $tag"
+                error_count=$((error_count+1))
+                return
+            }
+	    copyit APMrover2-vrbrain-v45.vrx $ddir $tag && 
+	    copyit APMrover2-vrbrain-v45.bin $ddir $tag && 
+	    copyit APMrover2-vrbrain-v45.hex $ddir $tag &&
+	    copyit APMrover2-vrbrain-v45P.vrx $ddir $tag && 
+	    copyit APMrover2-vrbrain-v45P.bin $ddir $tag && 
+	    copyit APMrover2-vrbrain-v45P.hex $ddir $tag &&
+	    copyit APMrover2-vrbrain-v51.vrx $ddir $tag && 
+	    copyit APMrover2-vrbrain-v51.bin $ddir $tag && 
+	    copyit APMrover2-vrbrain-v51.hex $ddir $tag &&
+	    copyit APMrover2-vrbrain-v51P.vrx $ddir $tag && 
+	    copyit APMrover2-vrbrain-v51P.bin $ddir $tag && 
+	    copyit APMrover2-vrbrain-v51P.hex $ddir $tag &&
+	    copyit APMrover2-vrbrain-v51Pro.vrx $ddir $tag && 
+	    copyit APMrover2-vrbrain-v51Pro.bin $ddir $tag && 
+	    copyit APMrover2-vrbrain-v51Pro.hex $ddir $tag &&
+	    copyit APMrover2-vrbrain-v51ProP.vrx $ddir $tag && 
+	    copyit APMrover2-vrbrain-v51ProP.bin $ddir $tag && 
+	    copyit APMrover2-vrbrain-v51ProP.hex $ddir $tag &&
+	    copyit APMrover2-vrbrain-v52.vrx $ddir $tag && 
+	    copyit APMrover2-vrbrain-v52.bin $ddir $tag && 
+	    copyit APMrover2-vrbrain-v52.hex $ddir $tag &&
+	    copyit APMrover2-vrbrain-v52P.vrx $ddir $tag && 
+	    copyit APMrover2-vrbrain-v52P.bin $ddir $tag && 
+	    copyit APMrover2-vrbrain-v52P.hex $ddir $tag &&
+	    copyit APMrover2-vrbrain-v52Pro.vrx $ddir $tag && 
+	    copyit APMrover2-vrbrain-v52Pro.bin $ddir $tag && 
+	    copyit APMrover2-vrbrain-v52Pro.hex $ddir $tag &&
+	    copyit APMrover2-vrbrain-v52ProP.vrx $ddir $tag && 
+	    copyit APMrover2-vrbrain-v52ProP.bin $ddir $tag && 
+	    copyit APMrover2-vrbrain-v52ProP.hex $ddir $tag &&
+	    copyit APMrover2-vrubrain-v51.vrx $ddir $tag && 
+	    copyit APMrover2-vrubrain-v51.bin $ddir $tag && 
+	    copyit APMrover2-vrubrain-v51.hex $ddir $tag && 
+	    copyit APMrover2-vrubrain-v51P.vrx $ddir $tag && 
+	    copyit APMrover2-vrubrain-v51P.bin $ddir $tag && 
+	    copyit APMrover2-vrubrain-v51P.hex $ddir $tag &&
+	    copyit APMrover2-vrubrain-v52.vrx $ddir $tag && 
+	    copyit APMrover2-vrubrain-v52.bin $ddir $tag && 
+	    copyit APMrover2-vrubrain-v52.hex $ddir $tag && 
+	    copyit APMrover2-vrubrain-v52P.vrx $ddir $tag && 
+	    copyit APMrover2-vrubrain-v52P.bin $ddir $tag && 
+	    copyit APMrover2-vrubrain-v52P.hex $ddir $tag
+	}
     }
 }
 
