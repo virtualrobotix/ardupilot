@@ -91,23 +91,46 @@ void ExternalLED::update(void)
     if (AP_Notify::flags.armed) {
         armed_led(true);
     }else{
-        // blink arming led at 2hz
-        switch(_counter2) {
-            case 0:
-            case 1:
-            case 2:
-            case 5:
-            case 6:
-            case 7:
-                armed_led(false);
-                break;
-            case 3:
-            case 4:
-            case 8:
-            case 9:
-                armed_led(true);
-                break;
-        }
+    	if(AP_Notify::flags.pre_arm_check){
+    		// blink arming led at 2hz
+    		switch(_counter2) {
+    		            case 0:
+    		            case 1:
+    		            case 2:
+    		            case 5:
+    		            case 6:
+    		            case 7:
+    		                armed_led(false);
+    		                break;
+    		            case 3:
+    		            case 4:
+    		            case 8:
+    		            case 9:
+    		                armed_led(true);
+    		                break;
+    		        }
+    	} else {
+    		switch(_counter2) {
+    		            case 0:
+    		            case 1:
+    		            case 2:
+    		            	armed_led(true);
+    		            	break;
+    		            case 3:
+    		            	armed_led(false);
+    		            case 5:
+    		            case 6:
+    		            case 7:
+    		                armed_led(true);
+    		                break;
+    		            case 8:
+    		            case 9:
+    		                armed_led(false);
+    		                break;
+    		        }
+    	}
+
+
     }
 
     // GPS led control
@@ -182,7 +205,7 @@ void ExternalLED::update(void)
                 break;
             case OSCILLATE:
                 switch(_pattern_counter) {
-                    case 1:
+                    case 0:
                         motor_led1(true);
                         motor_led2(false);
                         armed_led(true);
