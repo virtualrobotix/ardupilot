@@ -35,7 +35,8 @@ struct AP_Notify::notify_events_type AP_Notify::events;
     AP_BoardLED boardled;
     ToshibaLED_I2C toshibaled;
     ExternalLED externalled;
-    NotifyDevice *AP_Notify::_devices[CONFIG_NOTIFY_DEVICES_COUNT] = {&boardled, &toshibaled, &externalled, &buzzer};
+    VRBRAIN_LED RGBboardled;
+    NotifyDevice *AP_Notify::_devices[CONFIG_NOTIFY_DEVICES_COUNT] = {&boardled, &toshibaled, &externalled, &buzzer, &RGBboardled};
 #elif CONFIG_HAL_BOARD == HAL_BOARD_LINUX
     #if CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_NAVIO
         AP_BoardLED boardled;
