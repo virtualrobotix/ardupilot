@@ -47,9 +47,9 @@ bool VRBRAIN_LED::hw_init(void){
 bool VRBRAIN_LED::hw_set_rgb(uint8_t r, uint8_t g, uint8_t b){
 
     if(r > 0){
-    	hal.gpio->write(HAL_GPIO_B_LED_PIN, HAL_GPIO_LED_ON);
+    	hal.gpio->write(HAL_GPIO_C_LED_PIN, HAL_GPIO_LED_ON);
     } else {
-    	hal.gpio->write(HAL_GPIO_B_LED_PIN, HAL_GPIO_LED_OFF);
+    	hal.gpio->write(HAL_GPIO_C_LED_PIN, HAL_GPIO_LED_OFF);
     }
     if (g > 0) {
     	hal.gpio->write(HAL_GPIO_A_LED_PIN, HAL_GPIO_LED_ON);
@@ -57,9 +57,9 @@ bool VRBRAIN_LED::hw_set_rgb(uint8_t r, uint8_t g, uint8_t b){
     	hal.gpio->write(HAL_GPIO_A_LED_PIN, HAL_GPIO_LED_OFF);
     }
     if (b > 0) {
-    	hal.gpio->write(HAL_GPIO_C_LED_PIN, HAL_GPIO_LED_ON);
+    	hal.gpio->write(HAL_GPIO_B_LED_PIN, HAL_GPIO_LED_ON);
     } else {
-    	hal.gpio->write(HAL_GPIO_C_LED_PIN, HAL_GPIO_LED_OFF);
+    	hal.gpio->write(HAL_GPIO_B_LED_PIN, HAL_GPIO_LED_OFF);
     }
 
 	return true;
