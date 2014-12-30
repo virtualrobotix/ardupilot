@@ -19,7 +19,6 @@
 #include "AP_RangeFinder_PulsedLightLRF.h"
 #include "AP_RangeFinder_MaxsonarI2CXL.h"
 #include "AP_RangeFinder_PX4.h"
-#include "AP_RangeFinder_VRBRAIN.h"
 
 // table of user settable parameters
 const AP_Param::GroupInfo RangeFinder::var_info[] PROGMEM = {
@@ -221,7 +220,7 @@ void RangeFinder::detect_instance(uint8_t instance)
             return;
         }
     }
-#if CONFIG_HAL_BOARD == HAL_BOARD_PX4
+#if CONFIG_HAL_BOARD == HAL_BOARD_PX4  || CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
     if (_type[instance] == RangeFinder_TYPE_PX4) {
         if (AP_RangeFinder_PX4::detect(*this, instance)) {
             state[instance].instance = instance;
