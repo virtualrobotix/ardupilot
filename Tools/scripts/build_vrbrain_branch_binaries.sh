@@ -320,7 +320,7 @@ build_rover() {
     popd
 }
 
-for build in stable; do
+for build in beta; do
     #build_arduplane $build
     build_arducopter $build
     #build_rover $build
