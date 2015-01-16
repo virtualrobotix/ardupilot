@@ -159,6 +159,8 @@ void ExternalLED::update(void)
                     case 9:
                         motor_led1(true);
                         motor_led2(true);
+                        armed_led(true);
+                        gps_led(true);
                         break;
                     case 2:
                     case 4:
@@ -166,10 +168,14 @@ void ExternalLED::update(void)
                     case 8:
                         motor_led1(false);
                         motor_led2(false);
+                        armed_led(false);
+                        gps_led(false);
                         break;
                     case 10:
                         motor_led1(false);
                         motor_led2(false);
+                        armed_led(false);
+                        gps_led(false);
                         set_pattern(NONE);
                         break;
                 }
@@ -179,10 +185,14 @@ void ExternalLED::update(void)
                     case 1:
                         motor_led1(true);
                         motor_led2(false);
+                        armed_led(true);
+                        gps_led(false);
                         break;
                     case 4:
                         motor_led1(false);
                         motor_led2(true);
+                        armed_led(false);
+                        gps_led(true);
                         break;
                     case 6:
                         set_pattern(NONE);
