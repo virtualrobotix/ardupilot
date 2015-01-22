@@ -74,7 +74,7 @@ void AP_GPS::init(DataFlash_Class *dataflash)
     hal.uartB->begin(38400UL, 256, 16);
     primary_instance = 0;
 #if GPS_MAX_INSTANCES > 1
-    secondary_instance = 0;
+    secondary_instance = 1;
     if (hal.uartE != NULL) {
         hal.uartE->begin(38400UL, 256, 16);        
     }
