@@ -68,7 +68,7 @@ bool AP_Compass_VRBRAIN::init(void)
 
         // remember if the compass is external
         _is_external[i] = (ioctl(_mag_fd[i], MAGIOCGEXTERNAL, 0) > 0);
-#if defined(CONFIG_ARCH_BOARD_VRBRAIN_V45)
+#if defined(CONFIG_ARCH_BOARD_VRBRAIN_V45) || defined(CONFIG_ARCH_BOARD_VRBRAIN_V52)
 		//deal with situations where user has cut internal mag on VRBRAIN 4.5 
 		//and uses only one external mag attached to the internal I2C bus
 		_is_external[i] = _external.load() ? _external.get() : _is_external[i];
