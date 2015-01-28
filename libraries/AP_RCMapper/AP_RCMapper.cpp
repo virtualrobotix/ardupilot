@@ -36,13 +36,13 @@ const AP_Param::GroupInfo RCMapper::var_info[] PROGMEM = {
     // @User: Advanced
     AP_GROUPINFO("YAW",         3, RCMapper, _ch_yaw, 4),
 
-    // @Param: MODE
-    // @DisplayName: Mode change channel
-    // @Description: Mode change channel number. This is useful when you have a RC transmitter that can't change the channel order easily. Mode change is normally on channel 5, but you can move it to any channel with this parameter.
+    // @Param: FLTMODE
+    // @DisplayName: Flight mode change channel
+    // @Description: Flight mode change channel number. This is useful when you have a RC transmitter that can't change the channel order easily. Flight mode change is normally on channel 5, but you can move it to any channel with this parameter.
     // @Range: 1 8
     // @Increment: 1
     // @User: Advanced
-    AP_GROUPINFO("MODE",    4, RCMapper, _ch_mode, 5),
+    AP_GROUPINFO("FLTMODE",     4, RCMapper, _ch_fltmode, 5),
 
     // @Param: TUNE
     // @DisplayName: Tune channel
