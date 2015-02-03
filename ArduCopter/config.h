@@ -85,7 +85,7 @@
  # define PARACHUTE DISABLED
  # define AC_RALLY DISABLED
  # define CLI_ENABLED           DISABLED
- # define FRSKY_TELEM_ENABLED   DISABLED
+ # define FRSKY_TELEM_ENABLED   ENABLED
 #endif
 
 // disable sonar on APM1 and TradHeli/APM2

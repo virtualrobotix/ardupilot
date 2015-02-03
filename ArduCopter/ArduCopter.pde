@@ -552,6 +552,8 @@ static AP_BattMonitor battery;
 static AP_Frsky_Telem frsky_telemetry(ahrs, battery);
 #endif
 
+uint8_t textId=0, g_severity;
+
 ////////////////////////////////////////////////////////////////////////////////
 // Altitude
 ////////////////////////////////////////////////////////////////////////////////
@@ -810,7 +812,7 @@ static const AP_Scheduler::Task scheduler_tasks[] PROGMEM = {
     { perf_update,        4000,     20 },
     { read_receiver_rssi,   40,      5 },
 #if FRSKY_TELEM_ENABLED == ENABLED
-    { telemetry_send,       80,     10 },	
+    { telemetry_send,        2,     10 },	
 #endif
 #ifdef USERHOOK_FASTLOOP
     { userhook_FastLoop,     4,     10 },
@@ -875,7 +877,7 @@ static const AP_Scheduler::Task scheduler_tasks[] PROGMEM = {
     { perf_update,        1000,     200 },
     { read_receiver_rssi,   10,      50 },
 #if FRSKY_TELEM_ENABLED == ENABLED
-    { telemetry_send,       20,     100 },	
+    { telemetry_send,        2,     100 },
 #endif
 #ifdef USERHOOK_FASTLOOP
     { userhook_FastLoop,     1,    100  },
