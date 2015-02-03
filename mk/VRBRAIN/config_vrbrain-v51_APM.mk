@@ -24,6 +24,7 @@ MODULES		+= drivers/boards/vrbrain-v51
 MODULES		+= drivers/vrbrain/vroutput
 MODULES		+= drivers/vrbrain/vrinput/controls
 MODULES		+= drivers/vrbrain/vrinput
+MODULES		+= drivers/rgbled
 
 
 
