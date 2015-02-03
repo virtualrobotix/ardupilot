@@ -50,7 +50,6 @@ VRBRAIN_VB52PROP_CONFIG_FILE=config_vrbrain-v52ProP_APM.mk
 VRBRAIN_VU51_CONFIG_FILE=config_vrubrain-v51_APM.mk
 VRBRAIN_VU51P_CONFIG_FILE=config_vrubrain-v51P_APM.mk
 VRBRAIN_VU52_CONFIG_FILE=config_vrubrain-v52_APM.mk
-VRBRAIN_VU52P_CONFIG_FILE=config_vrubrain-v52P_APM.mk
 
 VRBRAIN_VH10_CONFIG_FILE=config_vrhero-v10_APM.mk
 
@@ -281,20 +280,6 @@ vrubrain-v52: $(BUILDROOT)/make.flags $(VRBRAIN_ROOT)/Archives/vrubrain-v52.expo
 	$(v) cp $(VRBRAIN_ROOT)/Images/vrubrain-v52_APM.bin $(SKETCH)-vrubrain-v52.bin
 	$(v) echo "MICRO VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrubrain-v52.vrx"
 
-vrubrain-v52P: $(BUILDROOT)/make.flags $(VRBRAIN_ROOT)/Archives/vrubrain-v52P.export $(SKETCHCPP) module_mk
-	$(RULEHDR)
-	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/$(VRBRAIN_VU52P_CONFIG_FILE)
-	$(v) cp $(VRBRAIN_MK_DIR)/$(VRBRAIN_VU52P_CONFIG_FILE) $(VRBRAIN_ROOT)/makefiles/
-	$(v) $(VRBRAIN_MAKE) vrubrain-v52P_APM
-	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/$(VRBRAIN_VU52P_CONFIG_FILE)
-	$(v) rm -f $(SKETCH)-vrubrain-v52P.vrx
-	$(v) rm -f $(SKETCH)-vrubrain-v52P.hex
-	$(v) rm -f $(SKETCH)-vrubrain-v52P.bin
-	$(v) cp $(VRBRAIN_ROOT)/Images/vrubrain-v52P_APM.vrx $(SKETCH)-vrubrain-v52P.vrx
-	$(v) cp $(VRBRAIN_ROOT)/Images/vrubrain-v52P_APM.hex $(SKETCH)-vrubrain-v52P.hex
-	$(v) cp $(VRBRAIN_ROOT)/Images/vrubrain-v52P_APM.bin $(SKETCH)-vrubrain-v52P.bin
-	$(v) echo "MICRO VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrubrain-v52P.vrx"
-
 vrhero-v10: $(BUILDROOT)/make.flags $(VRBRAIN_ROOT)/Archives/vrhero-v10.export $(SKETCHCPP) module_mk
 	$(RULEHDR)
 	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/$(VRBRAIN_VH10_CONFIG_FILE)
@@ -385,10 +370,6 @@ vrubrain-v52-upload: vrubrain-v52
 	$(RULEHDR)
 	$(v) $(VRBRAIN_MAKE) vrubrain-v52_APM upload
 
-vrubrain-v52P-upload: vrubrain-v52P
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrubrain-v52P_APM upload
-
 vrhero-v10-upload: vrhero-v10
 	$(RULEHDR)
 	$(v) $(VRBRAIN_MAKE) vrhero-v10_APM upload
@@ -441,9 +422,6 @@ $(VRBRAIN_ROOT)/Archives/vrubrain-v51P.export:
 	$(v) $(VRBRAIN_MAKE_ARCHIVES)
 
 $(VRBRAIN_ROOT)/Archives/vrubrain-v52.export:
-	$(v) $(VRBRAIN_MAKE_ARCHIVES)
-
-$(VRBRAIN_ROOT)/Archives/vrubrain-v52P.export:
 	$(v) $(VRBRAIN_MAKE_ARCHIVES)
 
 $(VRBRAIN_ROOT)/Archives/vrhero-v10.export:
