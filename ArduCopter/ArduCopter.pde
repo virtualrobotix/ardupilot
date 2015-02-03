@@ -101,6 +101,7 @@
 // Application dependencies
 #include <GCS.h>
 #include <GCS_MAVLink.h>        // MAVLink GCS definitions
+#include <AP_SerialManager.h>   // Serial manager library
 #include <AP_GPS.h>             // ArduPilot GPS library
 #include <AP_GPS_Glitch.h>      // GPS glitch protection library
 #include <DataFlash.h>          // ArduPilot Mega Flash Memory Library
@@ -321,6 +322,7 @@ static AP_OpticalFlow_ADNS3080 optflow;
 ////////////////////////////////////////////////////////////////////////////////
 // GCS selection
 ////////////////////////////////////////////////////////////////////////////////
+static AP_SerialManager serial_manager;
 static const uint8_t num_gcs = MAVLINK_COMM_NUM_BUFFERS;
 static GCS_MAVLINK gcs[MAVLINK_COMM_NUM_BUFFERS];
 
