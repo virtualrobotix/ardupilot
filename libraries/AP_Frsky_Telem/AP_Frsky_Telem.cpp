@@ -1,3 +1,4 @@
+// -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
 /*
 
    Inspired by work done here https://github.com/PX4/Firmware/tree/master/src/drivers/frsky_telemetry from Stefan Rado <px4@sradonia.net>
@@ -18,24 +19,72 @@
 
 /* 
    FRSKY Telemetry library
-   for the moment it only handle hub port telemetry
-   the sport reference are only here to simulate the frsky module and use opentx simulator. it will eventually be removed
 */
-
 #include <AP_Frsky_Telem.h>
 
 extern const AP_HAL::HAL& hal;
 
-void AP_Frsky_Telem::init(AP_HAL::UARTDriver *port, uint8_t frsky_type)
+//constructor
+AP_Frsky_Telem::AP_Frsky_Telem(AP_AHRS &ahrs, AP_BattMonitor &battery) :
+    _ahrs(ahrs),
+    _battery(battery),
+    _port(NULL),
+    _initialised_uart(false),
+    _protocol(FrSkyUnknown)
+    {}
+
+// init - perform require initialisation including detecting which protocol to use
+void AP_Frsky_Telem::init(const AP_SerialManager& serial_manager)
 {
-    if (port == NULL) {
-	return;
+    // check for FRSky_DPort
+    if ((_port = serial_manager.find_serial(AP_SerialManager::SerialProtocol_FRSky_DPort))) {
+        _protocol = FrSkyDPORT;
+        _port->begin(AP_SERIALMANAGER_FRSKY_DPORT_BAUD, AP_SERIALMANAGER_FRSKY_BUFSIZE_RX, AP_SERIALMANAGER_FRSKY_BUFSIZE_TX);
+        _initialised_uart = true;   // SerialManager initialises uart for us
+    } else if ((_port = serial_manager.find_serial(AP_SerialManager::SerialProtocol_FRSky_SPort))) {
+        // check for FRSky_SPort
+        _protocol = FrSkySPORT;
+        _port->begin(AP_SERIALMANAGER_FRSKY_SPORT_BAUD, AP_SERIALMANAGER_FRSKY_BUFSIZE_RX, AP_SERIALMANAGER_FRSKY_BUFSIZE_TX);
+        _initialised_uart = true;   // SerialManager initialises uart for us
     }
-    _port = port;    
-    _port->begin(9600);
-    _initialised = true;    
+
+    if (_port != NULL) {
+
+
+    }
 }
 
+/*
+  send_frames - sends updates down telemetry link for both DPORT and SPORT protocols
+  should be called by main program at 50hz to allow poll for serial bytes
+  coming from the receiver for the SPort protocol
+*/
+void AP_Frsky_Telem::send_frames(uint8_t control_mode)
+{
+    // return immediately if not initialised
+    if (!_initialised_uart) {
+        return;
+    }
+
+    if (_protocol == FrSkySPORT) {
+        // check for sport bytes
+        check_sport_input();
+    }
+    
+    uint32_t now = hal.scheduler->millis();
+
+    // send frame1 every 200ms
+    if (now - _last_frame1_ms > 200) {
+        _last_frame1_ms = now;
+        frsky_send_frame1(control_mode);        
+    }
+
+    // send frame2 every second
+    if (now - _last_frame2_ms > 1000) {
+        _last_frame2_ms = now;
+        frsky_send_frame2();
+    }
+}
 void AP_Frsky_Telem::frsky_send_byte(uint8_t value)
 {
     const uint8_t x5E[] = { 0x5D, 0x3E };
@@ -82,47 +131,6 @@ void  AP_Frsky_Telem::frsky_send_data(uint8_t id, int16_t data)
 }
 
 /**
- * Sends frame 1 (every 200ms):
- *  barometer altitude,  battery voltage & current
- */
-void AP_Frsky_Telem::frsky_send_frame1(uint8_t mode)
-{
-    struct Location loc;
-    float battery_amps = _battery.current_amps();
-    float baro_alt = 0; // in meters
-    bool posok = _ahrs.get_position(loc);
-    if  (posok) {
-	baro_alt = loc.alt * 0.01f; // convert to meters
-        if (!loc.flags.relative_alt) {
-            baro_alt -= _ahrs.get_home().alt * 0.01f; // subtract home if set
-        }
-    }
-    const AP_GPS &gps = _ahrs.get_gps();
-
-    // GPS status is sent as num_sats*10 + status, to fit into a
-    // uint8_t
-    uint8_t T2 = gps.num_sats() * 10 + gps.status();
-  
-    frsky_send_data(FRSKY_ID_TEMP1, mode);
-    frsky_send_data(FRSKY_ID_TEMP2, T2);
-
-    /*
-      Note that this isn't actually barometric altitdue, it is the
-      AHRS estimate of altitdue above home.
-     */
-    uint16_t baro_alt_meters = (uint16_t)baro_alt;
-    uint16_t baro_alt_cm = (baro_alt - baro_alt_meters) * 100;
-    frsky_send_data(FRSKY_ID_BARO_ALT_BP, baro_alt_meters);
-    frsky_send_data(FRSKY_ID_BARO_ALT_AP, baro_alt_cm);
-  
-    frsky_send_data(FRSKY_ID_FUEL, roundf(_battery.capacity_remaining_pct()));
- 
-    frsky_send_data(FRSKY_ID_VFAS, roundf(_battery.voltage() * 10.0f));
-    frsky_send_data(FRSKY_ID_CURRENT, (battery_amps < 0) ? 0 : roundf(battery_amps * 10.0f));
-  
-}
-
-/**
  * Formats the decimal latitude/longitude to the required degrees/minutes.
  */
 float  AP_Frsky_Telem::frsky_format_gps(float dec)
@@ -131,11 +139,12 @@ float  AP_Frsky_Telem::frsky_format_gps(float dec)
     return (dm_deg * 100.0f) + (dec - dm_deg) * 60;
 }
 
+
 /**
  * Sends frame 2 (every 1000ms):
  * course(heading), latitude, longitude, ground speed, GPS altitude
  */
-void  AP_Frsky_Telem::frsky_send_frame2()
+void  AP_Frsky_Telem::frsky_send_frame2(void)
 {
 
     // we send the heading based on the ahrs instead of GPS course which is not very usefull
@@ -186,7 +195,6 @@ void  AP_Frsky_Telem::frsky_send_frame2()
     }
 }
 
-
 /*
   check for input bytes from sport
  */
@@ -196,33 +204,44 @@ void AP_Frsky_Telem::check_sport_input(void)
 }
 
 
-/*
-  send telemetry frames. Should be called at 50Hz. The high rate is to
-  allow this code to poll for serial bytes coming from the receiver
-  for the SPort protocol
+/**
+ * Sends frame 1 (every 200ms):
+ *  barometer altitude,  battery voltage & current
  */
-void AP_Frsky_Telem::send_frames(uint8_t control_mode, enum FrSkyProtocol protocol)
+void AP_Frsky_Telem::frsky_send_frame1(uint8_t mode)
 {
-    if (!_initialised) {
-        return;
+    struct Location loc;
+    float battery_amps = _battery.current_amps();
+    float baro_alt = 0; // in meters
+    bool posok = _ahrs.get_position(loc);
+    if  (posok) {
+	baro_alt = loc.alt * 0.01f; // convert to meters
+        if (!loc.flags.relative_alt) {
+            baro_alt -= _ahrs.get_home().alt * 0.01f; // subtract home if set
+        }
     }
-    
-    if (protocol == FrSkySPORT) {
-        // check for sport bytes
-        check_sport_input();
-    }
-    
-    uint32_t now = hal.scheduler->millis();
+    const AP_GPS &gps = _ahrs.get_gps();
 
-    // send frame1 every 200ms
-    if (now - _last_frame1_ms > 200) {
-        _last_frame1_ms = now;
-        frsky_send_frame1(control_mode);        
-    }
+    // GPS status is sent as num_sats*10 + status, to fit into a
+    // uint8_t
+    uint8_t T2 = gps.num_sats() * 10 + gps.status();
+  
+    frsky_send_data(FRSKY_ID_TEMP1, mode);
+    frsky_send_data(FRSKY_ID_TEMP2, T2);
 
-    // send frame2 every second
-    if (now - _last_frame2_ms > 1000) {
-        _last_frame2_ms = now;
-        frsky_send_frame2();
-    }
+    /*
+      Note that this isn't actually barometric altitdue, it is the
+      AHRS estimate of altitdue above home.
+     */
+    uint16_t baro_alt_meters = (uint16_t)baro_alt;
+    uint16_t baro_alt_cm = (baro_alt - baro_alt_meters) * 100;
+    frsky_send_data(FRSKY_ID_BARO_ALT_BP, baro_alt_meters);
+    frsky_send_data(FRSKY_ID_BARO_ALT_AP, baro_alt_cm);
+  
+    frsky_send_data(FRSKY_ID_FUEL, roundf(_battery.capacity_remaining_pct()));
+ 
+    frsky_send_data(FRSKY_ID_VFAS, roundf(_battery.voltage() * 10.0f));
+    frsky_send_data(FRSKY_ID_CURRENT, (battery_amps < 0) ? 0 : roundf(battery_amps * 10.0f));
+  
 }
+

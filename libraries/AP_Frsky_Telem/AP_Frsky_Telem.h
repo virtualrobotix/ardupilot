@@ -23,6 +23,7 @@
 #include <AP_AHRS.h>
 #include <AP_Baro.h>
 #include <AP_BattMonitor.h>
+#include <AP_SerialManager.h>
 
 /* FrSky sensor hub data IDs */
 #define FRSKY_ID_GPS_ALT_BP     0x01
@@ -62,38 +63,45 @@
 
 class AP_Frsky_Telem
 {
- public:
+public:
     //constructor
-    AP_Frsky_Telem(AP_AHRS &ahrs, AP_BattMonitor &battery) :
-    _initialised(false),
-    _ahrs(ahrs),
-    _battery(battery)
-        {}
+    AP_Frsky_Telem(AP_AHRS &ahrs, AP_BattMonitor &battery);
 
-    // these enums must match up with TELEM2_PROTOCOL in vehicle code
+    // supported protocols
     enum FrSkyProtocol {
+        FrSkyUnknown = 0,
         FrSkyDPORT = 2,
         FrSkySPORT = 3
     };
 
-    void init(AP_HAL::UARTDriver *port, uint8_t frsky_type);
-    void send_frames(uint8_t control_mode, enum FrSkyProtocol protocol);
+    // init - perform require initialisation including detecting which protocol to use
+    void init(const AP_SerialManager& serial_manager);
 
+    // send_frames - sends updates down telemetry link for both DPORT and SPORT protocols
+    //  should be called by main program at 50hz to allow poll for serial bytes
+    //  coming from the receiver for the SPort protocol
+    void send_frames(uint8_t control_mode);
 
- private:
-    void frsky_send_data(uint8_t id, int16_t data);
-    void frsky_send_frame1(uint8_t mode);
-    void frsky_send_frame2();
-    void check_sport_input(void);
-	
-    float frsky_format_gps(float dec);
+private:
+
+    // methods related to the nuts-and-bolts of sending data
     void frsky_send_byte(uint8_t value);
     void frsky_send_hub_startstop();
+    void frsky_send_data(uint8_t id, int16_t data);
 
-    AP_HAL::UARTDriver *_port;
-    bool _initialised;
-    AP_AHRS &_ahrs;
-    AP_BattMonitor &_battery;
+    // methods to convert flight controller data to frsky telemetry format
+    float frsky_format_gps(float dec);
+
+    void frsky_send_frame1(uint8_t mode);
+    void frsky_send_frame2(void);
+    void check_sport_input(void);
+
+    AP_AHRS &_ahrs;                         // reference to attitude estimate
+    AP_BattMonitor &_battery;               // reference to battery monitor object
+    AP_HAL::UARTDriver *_port;              // UART used to send data to receiver
+    bool _initialised_uart;                 // true when we have detected the protocol and UART has been initialised
+    enum FrSkyProtocol _protocol;           // protocol used - detected using SerialManager's SERIALX_PROTOCOL parameter
+
     uint32_t _last_frame1_ms;
     uint32_t _last_frame2_ms;
 };
