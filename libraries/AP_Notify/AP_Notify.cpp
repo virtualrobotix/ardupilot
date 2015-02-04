@@ -33,7 +33,7 @@ struct AP_Notify::notify_events_type AP_Notify::events;
 #elif CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
     Buzzer buzzer;
     AP_BoardLED boardled;
-    ToshibaLED_I2C toshibaled;
+    ToshibaLED_PX4 toshibaled;
     ExternalLED externalled;
     NotifyDevice *AP_Notify::_devices[CONFIG_NOTIFY_DEVICES_COUNT] = {&boardled, &toshibaled, &externalled, &buzzer};
 #elif CONFIG_HAL_BOARD == HAL_BOARD_LINUX
