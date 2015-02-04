@@ -25,9 +25,9 @@
 #include "AP_BoardLED.h"
 
 
-class VRBRAIN_LED: public RGBLed {
+class VRBoard_LED: public RGBLed {
 public:
-    VRBRAIN_LED();
+	VRBoard_LED();
 
     bool hw_init(void);
     bool hw_set_rgb(uint8_t r, uint8_t g, uint8_t b);

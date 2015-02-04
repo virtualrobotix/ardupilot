@@ -17,7 +17,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "VRBRAIN_LED.h"
+#include "VRBoard_LED.h"
 #include <AP_HAL.h>
 
 #define VRBRAIN_LED_BRIGHT  1    // full brightness
@@ -27,12 +27,12 @@
 
 extern const AP_HAL::HAL& hal;
 
-VRBRAIN_LED::VRBRAIN_LED():
+VRBoard_LED::VRBoard_LED():
     RGBLed(VRBRAIN_LED_OFF, VRBRAIN_LED_BRIGHT, VRBRAIN_LED_MEDIUM, VRBRAIN_LED_DIM)
 {
 
 }
-bool VRBRAIN_LED::hw_init(void){
+bool VRBoard_LED::hw_init(void){
     // setup the main LEDs as outputs
     hal.gpio->pinMode(HAL_GPIO_A_LED_PIN, HAL_GPIO_OUTPUT);
     hal.gpio->pinMode(HAL_GPIO_B_LED_PIN, HAL_GPIO_OUTPUT);
@@ -44,7 +44,7 @@ bool VRBRAIN_LED::hw_init(void){
     hal.gpio->write(HAL_GPIO_C_LED_PIN, HAL_GPIO_LED_OFF);
 	return true;
 }
-bool VRBRAIN_LED::hw_set_rgb(uint8_t r, uint8_t g, uint8_t b){
+bool VRBoard_LED::hw_set_rgb(uint8_t r, uint8_t g, uint8_t b){
 
     if(r > 0){
     	hal.gpio->write(HAL_GPIO_C_LED_PIN, HAL_GPIO_LED_ON);
