@@ -15,6 +15,7 @@
 #include "../AP_BattMonitor/AP_BattMonitor.h"
 #include <stdint.h>
 #include <MAVLink_routing.h>
+#include <AP_SerialManager.h>
 
 //  GCS Message ID's
 /// NOTE: to ensure we never block on sending MAVLink messages
@@ -66,8 +67,8 @@ class GCS_MAVLINK
 public:
     GCS_MAVLINK();
     void        update(void (*run_cli)(AP_HAL::UARTDriver *));
-    void        init(AP_HAL::UARTDriver *port);
-    void        setup_uart(AP_HAL::UARTDriver *port, uint32_t baudrate, uint16_t rxS, uint16_t txS);
+    void        init(AP_HAL::UARTDriver *port, mavlink_channel_t mav_chan);
+    void        setup_uart(const AP_SerialManager& serial_manager, AP_SerialManager::SerialProtocol protocol);
     void        send_message(enum ap_message id);
     void        send_text(gcs_severity severity, const char *str);
     void        send_text_P(gcs_severity severity, const prog_char_t *str);
@@ -77,6 +78,9 @@ public:
     void        set_snoop(void (*_msg_snoop)(const mavlink_message_t* msg)) {
         msg_snoop = _msg_snoop;
     }
+
+    // accessor for uart
+    AP_HAL::UARTDriver *get_uart() { return _port; }
 
     static const struct AP_Param::GroupInfo        var_info[];
 
