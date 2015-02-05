@@ -68,7 +68,7 @@ bool AP_Compass_VRBRAIN::init(void)
 
         // remember if the compass is external
         _external[i] = (ioctl(_mag_fd[i], MAGIOCGEXTERNAL, 0) > 0);
-#if defined(CONFIG_ARCH_BOARD_VRBRAIN_V45)
+#if defined(CONFIG_ARCH_BOARD_VRBRAIN_V45) || defined(CONFIG_ARCH_BOARD_VRBRAIN_V52)
 		//deal with situations where user has cut internal mag on VRBRAIN 4.5 
 		//and uses only one external mag attached to the internal I2C bus
         bool external_tmp = _external[i];
@@ -113,9 +113,6 @@ bool AP_Compass_VRBRAIN::read(void)
         // apply default board orientation for this compass type. This is
         // a noop on most boards
         _sum[i].rotate(MAG_BOARD_ORIENTATION);
-
-        // override any user setting of COMPASS_EXTERNAL 
-        //_external.set(_is_external[0]);
 
         if (_external[i]) {
             // add user selectable orientation
