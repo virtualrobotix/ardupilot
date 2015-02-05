@@ -92,23 +92,46 @@ void ExternalLED::update(void)
     if (AP_Notify::flags.armed) {
         armed_led(true);
     }else{
-        // blink arming led at 2hz
-        switch(_counter2) {
-            case 0:
-            case 1:
-            case 2:
-            case 5:
-            case 6:
-            case 7:
-                armed_led(false);
-                break;
-            case 3:
-            case 4:
-            case 8:
-            case 9:
-                armed_led(true);
-                break;
-        }
+    	if(AP_Notify::flags.pre_arm_check){
+    		// blink arming led at 2hz
+    		switch(_counter2) {
+    		            case 0:
+    		            case 1:
+    		            case 2:
+    		            case 5:
+    		            case 6:
+    		            case 7:
+    		                armed_led(false);
+    		                break;
+    		            case 3:
+    		            case 4:
+    		            case 8:
+    		            case 9:
+    		                armed_led(true);
+    		                break;
+    		        }
+    	} else {
+    		switch(_counter2) {
+    		            case 0:
+    		            case 1:
+    		            case 2:
+    		            	armed_led(true);
+    		            	break;
+    		            case 3:
+    		            	armed_led(false);
+    		            case 5:
+    		            case 6:
+    		            case 7:
+    		                armed_led(true);
+    		                break;
+    		            case 8:
+    		            case 9:
+    		                armed_led(false);
+    		                break;
+    		        }
+    	}
+
+
     }
 
     // GPS led control
@@ -160,6 +183,8 @@ void ExternalLED::update(void)
                     case 9:
                         motor_led1(true);
                         motor_led2(true);
+                        armed_led(true);
+                        gps_led(true);
                         break;
                     case 2:
                     case 4:
@@ -167,23 +192,31 @@ void ExternalLED::update(void)
                     case 8:
                         motor_led1(false);
                         motor_led2(false);
+                        armed_led(false);
+                        gps_led(false);
                         break;
                     case 10:
                         motor_led1(false);
                         motor_led2(false);
+                        armed_led(false);
+                        gps_led(false);
                         set_pattern(NONE);
                         break;
                 }
                 break;
             case OSCILLATE:
                 switch(_pattern_counter) {
-                    case 1:
+                    case 0:
                         motor_led1(true);
                         motor_led2(false);
+                        armed_led(true);
+                        gps_led(false);
                         break;
                     case 4:
                         motor_led1(false);
                         motor_led2(true);
+                        armed_led(false);
+                        gps_led(true);
                         break;
                     case 6:
                         set_pattern(NONE);
