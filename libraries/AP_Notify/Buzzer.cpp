@@ -61,8 +61,17 @@ void Buzzer::update()
         _pattern_counter++;
         switch (_pattern) {
             case SINGLE_BUZZ:
-                // buzz for 10th of a second
-                if (_pattern_counter == 1) {
+                // buzz for 2 10th of a second
+                if (_pattern_counter <= 1) {
+                    on(true);
+                }else{
+                    on(false);
+                    _pattern = NONE;
+                }
+                return;
+            case SINGLE_LONG_BUZZ:
+                // buzz for 1/2 of a second
+                if (_pattern_counter < 5) {
                     on(true);
                 }else{
                     on(false);
@@ -197,7 +206,7 @@ void Buzzer::update()
         _flags.arming_failed = AP_Notify::flags.arming_failed;
         if (_flags.arming_failed) {
             // arming failed buzz
-            play_pattern(SINGLE_BUZZ);
+            play_pattern(SINGLE_LONG_BUZZ);
         }
         return;
     }
