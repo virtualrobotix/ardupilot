@@ -106,12 +106,8 @@ bool VRBRAINUtil::get_system_id(char buf[40])
     uint8_t serialid[12];
     memset(serialid, 0, sizeof(serialid));
     get_board_serial(serialid);
-#if defined(CONFIG_ARCH_BOARD_VRBRAIN_V40)
-    const char *board_type = "VRBRAINv40";
-#elif defined(CONFIG_ARCH_BOARD_VRBRAIN_V45)
+#if defined(CONFIG_ARCH_BOARD_VRBRAIN_V45)
     const char *board_type = "VRBRAINv45";
-#elif defined(CONFIG_ARCH_BOARD_VRBRAIN_V50)
-    const char *board_type = "VRBRAINv50";
 #elif defined(CONFIG_ARCH_BOARD_VRBRAIN_V51)
     const char *board_type = "VRBRAINv51";
 #elif defined(CONFIG_ARCH_BOARD_VRBRAIN_V52)
@@ -120,8 +116,6 @@ bool VRBRAINUtil::get_system_id(char buf[40])
     const char *board_type = "VRUBRAINv51";
 #elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V52)
     const char *board_type = "VRUBRAINv52";
-#elif defined(CONFIG_ARCH_BOARD_VRHERO_V10)
-    const char *board_type = "VRHEROv10";
 #endif
     // this format is chosen to match the human_readable_serial()
     // function in auth.c
