@@ -52,11 +52,6 @@ static const struct {
     {  2, 3.3f/4096 },
     {  3, 3.3f/4096 },
     { 10, 3.3f/4096 },
-#elif defined(CONFIG_ARCH_BOARD_VRHERO_V10)
-    { 10, 3.3f/4096 },
-    { 11, 3.3f/4096 },
-    { 14, 3.3f/4096 },
-    { 15, 3.3f/4096 },
 #else
 #error "Unknown board type for AnalogIn scaling"
 #endif
