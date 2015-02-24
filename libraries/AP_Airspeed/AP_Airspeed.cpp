@@ -41,11 +41,7 @@ extern const AP_HAL::HAL& hal;
  #include <systemlib/airspeed.h>
  #include <drivers/drv_airspeed.h>
  #include <uORB/topics/differential_pressure.h>
-#if defined(CONFIG_ARCH_BOARD_VRBRAIN_V40)
- #define ARSPD_DEFAULT_PIN 0
-#elif defined(CONFIG_ARCH_BOARD_VRBRAIN_V45)
- #define ARSPD_DEFAULT_PIN 0
-#elif defined(CONFIG_ARCH_BOARD_VRBRAIN_V50)
+#if defined(CONFIG_ARCH_BOARD_VRBRAIN_V45)
  #define ARSPD_DEFAULT_PIN 0
 #elif defined(CONFIG_ARCH_BOARD_VRBRAIN_V51)
  #define ARSPD_DEFAULT_PIN 0
@@ -54,8 +50,6 @@ extern const AP_HAL::HAL& hal;
 #elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V51)
  #define ARSPD_DEFAULT_PIN 0
 #elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V52)
- #define ARSPD_DEFAULT_PIN 0
-#elif defined(CONFIG_ARCH_BOARD_VRHERO_V10)
  #define ARSPD_DEFAULT_PIN 0
 #elif defined(CONFIG_ARCH_BOARD_PX4FMU_V1)
  #define ARSPD_DEFAULT_PIN 11
