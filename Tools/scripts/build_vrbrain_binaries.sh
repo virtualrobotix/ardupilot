@@ -167,8 +167,7 @@ build_arduplane() {
 	    copyit ArduPlane-vrubrain-v51P.hex $ddir $tag &&
 	    copyit ArduPlane-vrubrain-v52.vrx $ddir $tag && 
 	    copyit ArduPlane-vrubrain-v52.bin $ddir $tag && 
-	    copyit ArduPlane-vrubrain-v52.hex $ddir $tag && 
-	    copyit ArduPlane-vrubrain-v52P.vrx $ddir $tag
+	    copyit ArduPlane-vrubrain-v52.hex $ddir $tag
 	}
     }
     checkout Plane "latest"
