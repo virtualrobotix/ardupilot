@@ -41,10 +41,18 @@ static const struct {
     uint8_t pin;
     float scaling;
 } pin_scaling[] = {
-#if defined(CONFIG_ARCH_BOARD_VRBRAIN_V45) || defined(CONFIG_ARCH_BOARD_VRBRAIN_V51) || defined(CONFIG_ARCH_BOARD_VRBRAIN_V52)
+#if defined(CONFIG_ARCH_BOARD_VRBRAIN_V45)
+#if APM_BUILD_TYPE(APM_BUILD_ArduPlane)
     {  0, 3.3f/4096 },
+#endif
     { 10, 3.3f/4096 },
     { 11, 3.3f/4096 },
+#elif defined(CONFIG_ARCH_BOARD_VRBRAIN_V51) || defined(CONFIG_ARCH_BOARD_VRBRAIN_V52)
+    { 10, 3.3f/4096 },
+    { 11, 3.3f/4096 },
+#if APM_BUILD_TYPE(APM_BUILD_ArduPlane)
+    { 14, 3.3f/4096 },
+#endif
 #elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V51)
     { 10, 3.3f/4096 },
 #elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V52)
