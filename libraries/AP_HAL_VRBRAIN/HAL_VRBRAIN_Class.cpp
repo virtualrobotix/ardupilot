@@ -51,45 +51,39 @@ static VRBRAINGPIO gpioDriver;
 //We only support 3 serials for VRBRAIN at the moment
 #if  defined(CONFIG_ARCH_BOARD_VRBRAIN_V45)
 #define UARTA_DEFAULT_DEVICE "/dev/ttyACM0"
-#define UARTB_DEFAULT_DEVICE "/dev/ttyS1"
+#define UARTB_DEFAULT_DEVICE "/dev/null"
 #define UARTC_DEFAULT_DEVICE "/dev/ttyS2"
-#define UARTD_DEFAULT_DEVICE "/dev/null"
+#define UARTD_DEFAULT_DEVICE "/dev/ttyS1"
 #define UARTE_DEFAULT_DEVICE "/dev/null"
 #elif defined(CONFIG_ARCH_BOARD_VRBRAIN_V51)
 #define UARTA_DEFAULT_DEVICE "/dev/ttyACM0"
 #define UARTB_DEFAULT_DEVICE "/dev/ttyS0"
 #define UARTC_DEFAULT_DEVICE "/dev/ttyS2"
-#define UARTD_DEFAULT_DEVICE "/dev/null"
-#define UARTE_DEFAULT_DEVICE "/dev/ttyS1"
+#define UARTD_DEFAULT_DEVICE "/dev/ttyS1"
+#define UARTE_DEFAULT_DEVICE "/dev/null"
 #elif defined(CONFIG_ARCH_BOARD_VRBRAIN_V52)
 #define UARTA_DEFAULT_DEVICE "/dev/ttyACM0"
 #define UARTB_DEFAULT_DEVICE "/dev/ttyS0"
 #define UARTC_DEFAULT_DEVICE "/dev/ttyS2"
-#define UARTD_DEFAULT_DEVICE "/dev/null"
-#define UARTE_DEFAULT_DEVICE "/dev/ttyS1"
+#define UARTD_DEFAULT_DEVICE "/dev/ttyS1"
+#define UARTE_DEFAULT_DEVICE "/dev/null"
 #elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V51)
 #define UARTA_DEFAULT_DEVICE "/dev/ttyACM0"
-#define UARTB_DEFAULT_DEVICE "/dev/ttyS0"
+#define UARTB_DEFAULT_DEVICE "/dev/null"
 #define UARTC_DEFAULT_DEVICE "/dev/ttyS2"
-#define UARTD_DEFAULT_DEVICE "/dev/null"
+#define UARTD_DEFAULT_DEVICE "/dev/ttyS0"
 #define UARTE_DEFAULT_DEVICE "/dev/null"
 #elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V52)
 #define UARTA_DEFAULT_DEVICE "/dev/ttyACM0"
-#define UARTB_DEFAULT_DEVICE "/dev/ttyS0"
+#define UARTB_DEFAULT_DEVICE "/dev/null"
 #define UARTC_DEFAULT_DEVICE "/dev/ttyS2"
-#define UARTD_DEFAULT_DEVICE "/dev/null"
-#define UARTE_DEFAULT_DEVICE "/dev/null"
-#elif defined(CONFIG_ARCH_BOARD_VRHERO_V10)
-#define UARTA_DEFAULT_DEVICE "/dev/ttyACM0"
-#define UARTB_DEFAULT_DEVICE "/dev/ttyS1"
-#define UARTC_DEFAULT_DEVICE "/dev/ttyS2"
-#define UARTD_DEFAULT_DEVICE "/dev/null"
+#define UARTD_DEFAULT_DEVICE "/dev/ttyS0"
 #define UARTE_DEFAULT_DEVICE "/dev/null"
 #else
 #define UARTA_DEFAULT_DEVICE "/dev/ttyACM0"
-#define UARTB_DEFAULT_DEVICE "/dev/ttyS1"
+#define UARTB_DEFAULT_DEVICE "/dev/null"
 #define UARTC_DEFAULT_DEVICE "/dev/ttyS2"
-#define UARTD_DEFAULT_DEVICE "/dev/null"
+#define UARTD_DEFAULT_DEVICE "/dev/ttyS1"
 #define UARTE_DEFAULT_DEVICE "/dev/null"
 #endif
 
@@ -134,7 +128,7 @@ extern const AP_HAL::HAL& hal;
 /*
   set the priority of the main APM task
  */
-static void set_priority(uint8_t priority)
+void hal_vrbrain_set_priority(uint8_t priority)
 {
     struct sched_param param;
     param.sched_priority = priority;
@@ -149,7 +143,7 @@ static void set_priority(uint8_t priority)
  */
 static void loop_overtime(void *)
 {
-    set_priority(APM_OVERTIME_PRIORITY);
+    hal_vrbrain_set_priority(APM_OVERTIME_PRIORITY);
     vrbrain_ran_overtime = true;
 }
 
@@ -175,7 +169,7 @@ static int main_loop(int argc, char **argv)
       run setup() at low priority to ensure CLI doesn't hang the
       system, and to allow initial sensor read loops to run
      */
-    set_priority(APM_STARTUP_PRIORITY);
+    hal_vrbrain_set_priority(APM_STARTUP_PRIORITY);
 
     schedulerInstance.hal_initialized();
 
@@ -191,7 +185,7 @@ static int main_loop(int argc, char **argv)
     /*
       switch to high priority for main loop
      */
-    set_priority(APM_MAIN_PRIORITY);
+    hal_vrbrain_set_priority(APM_MAIN_PRIORITY);
 
     while (!_vrbrain_thread_should_exit) {
         perf_begin(perf_loop);
@@ -211,7 +205,7 @@ static int main_loop(int argc, char **argv)
               we ran over 1s in loop(), and our priority was lowered
               to let a driver run. Set it back to high priority now.
              */
-            set_priority(APM_MAIN_PRIORITY);
+            hal_vrbrain_set_priority(APM_MAIN_PRIORITY);
             perf_count(perf_overrun);
             vrbrain_ran_overtime = false;
         }
@@ -219,11 +213,11 @@ static int main_loop(int argc, char **argv)
         perf_end(perf_loop);
 
         /*
-          give up 500 microseconds of time, to ensure drivers get a
+          give up 250 microseconds of time, to ensure drivers get a
           chance to run. This relies on the accurate semaphore wait
           using hrt in semaphore.cpp
          */
-        hal.scheduler->delay_microseconds(500);
+        hal.scheduler->delay_microseconds(250);
     }
     thread_running = false;
     return 0;
@@ -276,11 +270,11 @@ void HAL_VRBRAIN::run(int argc, char * const argv[], Callbacks* callbacks) const
 
             _vrbrain_thread_should_exit = false;
             daemon_task = task_spawn_cmd(SKETCHNAME,
-                                     SCHED_FIFO,
-                                     APM_MAIN_PRIORITY,
-                                     8192,
-                                     main_loop,
-                                     NULL);
+                                         SCHED_FIFO,
+                                         APM_MAIN_PRIORITY,
+                                         APM_MAIN_THREAD_STACK_SIZE,
+                                         main_loop,
+                                         NULL);
             exit(0);
         }
 
