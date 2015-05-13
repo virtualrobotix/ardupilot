@@ -32,7 +32,7 @@ endif
 
 
 
-# we have different config files for vrbrain_v40, vrbrain_v45, vrbrain_v50, vrbrain_v51, vrbrain_v52, vrubrain_v51, vrubrain_v52 and vrhero_v10
+# we have different config files for vrbrain_v45, vrbrain_v51, vrbrain_v52, vrubrain_v51, vrubrain_v52
 VRBRAIN_MK_DIR=$(SRCROOT)/$(MK_DIR)/VRBRAIN
 
 VRBRAIN_VB40_CONFIG_FILE=config_vrbrain-v40_APM.mk
@@ -50,13 +50,10 @@ VRBRAIN_VB52PROP_CONFIG_FILE=config_vrbrain-v52ProP_APM.mk
 VRBRAIN_VU51_CONFIG_FILE=config_vrubrain-v51_APM.mk
 VRBRAIN_VU51P_CONFIG_FILE=config_vrubrain-v51P_APM.mk
 VRBRAIN_VU52_CONFIG_FILE=config_vrubrain-v52_APM.mk
-VRBRAIN_VU52P_CONFIG_FILE=config_vrubrain-v52P_APM.mk
-
-VRBRAIN_VH10_CONFIG_FILE=config_vrhero-v10_APM.mk
 
 SKETCHFLAGS=$(SKETCHLIBINCLUDES) -I$(PWD) -DARDUPILOT_BUILD -DTESTS_MATHLIB_DISABLE -DCONFIG_HAL_BOARD=HAL_BOARD_VRBRAIN -DSKETCHNAME="\\\"$(SKETCH)\\\"" -DSKETCH_MAIN=ArduPilot_main -DAPM_BUILD_DIRECTORY=APM_BUILD_$(SKETCH)
 
-WARNFLAGS = -Wall -Wextra -Wlogical-op -Wno-redundant-decls -Wno-psabi -Wno-packed
+WARNFLAGS = -Werror -Wno-psabi -Wno-packed -Wno-error=double-promotion -Wno-error=unused-variable -Wno-error=reorder -Wno-error=float-equal -Wno-error=pmf-conversions -Wno-error=missing-declarations -Wno-error=unused-function
 
 VRBRAIN_MAKE = $(v) make -C $(SKETCHBOOK) -f $(VRBRAIN_ROOT)/Makefile EXTRADEFINES="$(SKETCHFLAGS) $(WARNFLAGS) "'$(EXTRAFLAGS)' APM_MODULE_DIR=$(SKETCHBOOK) SKETCHBOOK=$(SKETCHBOOK) CCACHE=$(CCACHE) VRBRAIN_ROOT=$(VRBRAIN_ROOT) VRBRAIN_NUTTX_SRC=$(VRBRAIN_NUTTX_SRC) MAXOPTIMIZATION="-Os"
 VRBRAIN_MAKE_ARCHIVES = make -C $(VRBRAIN_ROOT) VRBRAIN_NUTTX_SRC=$(VRBRAIN_NUTTX_SRC) CCACHE=$(CCACHE) archives MAXOPTIMIZATION="-Os"
@@ -281,34 +278,6 @@ vrubrain-v52: $(BUILDROOT)/make.flags $(VRBRAIN_ROOT)/Archives/vrubrain-v52.expo
 	$(v) cp $(VRBRAIN_ROOT)/Images/vrubrain-v52_APM.bin $(SKETCH)-vrubrain-v52.bin
 	$(v) echo "MICRO VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrubrain-v52.vrx"
 
-vrubrain-v52P: $(BUILDROOT)/make.flags $(VRBRAIN_ROOT)/Archives/vrubrain-v52P.export $(SKETCHCPP) module_mk
-	$(RULEHDR)
-	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/$(VRBRAIN_VU52P_CONFIG_FILE)
-	$(v) cp $(VRBRAIN_MK_DIR)/$(VRBRAIN_VU52P_CONFIG_FILE) $(VRBRAIN_ROOT)/makefiles/
-	$(v) $(VRBRAIN_MAKE) vrubrain-v52P_APM
-	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/$(VRBRAIN_VU52P_CONFIG_FILE)
-	$(v) rm -f $(SKETCH)-vrubrain-v52P.vrx
-	$(v) rm -f $(SKETCH)-vrubrain-v52P.hex
-	$(v) rm -f $(SKETCH)-vrubrain-v52P.bin
-	$(v) cp $(VRBRAIN_ROOT)/Images/vrubrain-v52P_APM.vrx $(SKETCH)-vrubrain-v52P.vrx
-	$(v) cp $(VRBRAIN_ROOT)/Images/vrubrain-v52P_APM.hex $(SKETCH)-vrubrain-v52P.hex
-	$(v) cp $(VRBRAIN_ROOT)/Images/vrubrain-v52P_APM.bin $(SKETCH)-vrubrain-v52P.bin
-	$(v) echo "MICRO VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrubrain-v52P.vrx"
-
-vrhero-v10: $(BUILDROOT)/make.flags $(VRBRAIN_ROOT)/Archives/vrhero-v10.export $(SKETCHCPP) module_mk
-	$(RULEHDR)
-	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/$(VRBRAIN_VH10_CONFIG_FILE)
-	$(v) cp $(VRBRAIN_MK_DIR)/$(VRBRAIN_VH10_CONFIG_FILE) $(VRBRAIN_ROOT)/makefiles/
-	$(v) $(VRBRAIN_MAKE) vrhero-v10_APM
-	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/$(VRBRAIN_VH10_CONFIG_FILE)
-	$(v) rm -f $(SKETCH)-vrhero-v10.vrx
-	$(v) rm -f $(SKETCH)-vrhero-v10.hex
-	$(v) rm -f $(SKETCH)-vrhero-v10.bin
-	$(v) cp $(VRBRAIN_ROOT)/Images/vrhero-v10_APM.vrx $(SKETCH)-vrhero-v10.vrx
-	$(v) cp $(VRBRAIN_ROOT)/Images/vrhero-v10_APM.hex $(SKETCH)-vrhero-v10.hex
-	$(v) cp $(VRBRAIN_ROOT)/Images/vrhero-v10_APM.bin $(SKETCH)-vrhero-v10.bin
-	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrhero-v10.vrx"
-
 vrbrainStd: vrbrain-v45 vrbrain-v51 vrbrain-v52 vrubrain-v51 vrubrain-v52
 vrbrainStdP: vrbrain-v45P vrbrain-v51P vrbrain-v52P vrubrain-v51P
 vrbrainPro: vrbrain-v51Pro vrbrain-v52Pro
@@ -385,14 +354,6 @@ vrubrain-v52-upload: vrubrain-v52
 	$(RULEHDR)
 	$(v) $(VRBRAIN_MAKE) vrubrain-v52_APM upload
 
-vrubrain-v52P-upload: vrubrain-v52P
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrubrain-v52P_APM upload
-
-vrhero-v10-upload: vrhero-v10
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrhero-v10_APM upload
-
 vrbrain-upload: vrbrain-v40-upload
 
 vrbrain-archives-clean:
@@ -441,12 +402,6 @@ $(VRBRAIN_ROOT)/Archives/vrubrain-v51P.export:
 	$(v) $(VRBRAIN_MAKE_ARCHIVES)
 
 $(VRBRAIN_ROOT)/Archives/vrubrain-v52.export:
-	$(v) $(VRBRAIN_MAKE_ARCHIVES)
-
-$(VRBRAIN_ROOT)/Archives/vrubrain-v52P.export:
-	$(v) $(VRBRAIN_MAKE_ARCHIVES)
-
-$(VRBRAIN_ROOT)/Archives/vrhero-v10.export:
 	$(v) $(VRBRAIN_MAKE_ARCHIVES)
 
 vrbrain-archives:
