@@ -33,10 +33,11 @@ extern bool _vrbrain_thread_should_exit;
 VRBRAINScheduler::VRBRAINScheduler() :
     _perf_timers(perf_alloc(PC_ELAPSED, "APM_timers")),
     _perf_io_timers(perf_alloc(PC_ELAPSED, "APM_IO_timers")),
+    _perf_storage_timer(perf_alloc(PC_ELAPSED, "APM_storage_timers")),
 	_perf_delay(perf_alloc(PC_ELAPSED, "APM_delay"))
 {}
 
-void VRBRAINScheduler::init()
+void VRBRAINScheduler::init(void *unused)
 {
     _main_task_pid = getpid();
 
@@ -72,6 +73,36 @@ void VRBRAINScheduler::init()
     pthread_attr_setschedpolicy(&thread_attr, SCHED_FIFO);
 
 	pthread_create(&_io_thread_ctx, &thread_attr, (pthread_startroutine_t)&VRBRAIN::VRBRAINScheduler::_io_thread, this);
+
+    // the storage thread runs at just above IO priority
+    pthread_attr_init(&thread_attr);
+    pthread_attr_setstacksize(&thread_attr, 1024);
+
+    param.sched_priority = APM_STORAGE_PRIORITY;
+    (void)pthread_attr_setschedparam(&thread_attr, &param);
+    pthread_attr_setschedpolicy(&thread_attr, SCHED_FIFO);
+
+    pthread_create(&_storage_thread_ctx, &thread_attr, (pthread_startroutine_t)&VRBRAIN::VRBRAINScheduler::_storage_thread, this);
+}
+
+uint64_t VRBRAINScheduler::micros64() 
+{
+    return hrt_absolute_time();
+}
+
+uint64_t VRBRAINScheduler::millis64() 
+{
+    return micros64() / 1000;
+}
+
+uint32_t VRBRAINScheduler::micros() 
+{
+    return micros64() & 0xFFFFFFFF;
+}
+
+uint32_t VRBRAINScheduler::millis() 
+{
+    return millis64() & 0xFFFFFFFF;
 }
 
 /**
@@ -82,6 +113,7 @@ void VRBRAINScheduler::delay_microseconds_semaphore(uint16_t usec)
     sem_t wait_semaphore;
     struct hrt_call wait_call;
     sem_init(&wait_semaphore, 0, 0);
+    memset(&wait_call, 0, sizeof(wait_call));
     hrt_call_after(&wait_call, usec, (hrt_callout)sem_post, &wait_semaphore);
     sem_wait(&wait_semaphore);
 }
@@ -89,17 +121,41 @@ void VRBRAINScheduler::delay_microseconds_semaphore(uint16_t usec)
 void VRBRAINScheduler::delay_microseconds(uint16_t usec)
 {
     perf_begin(_perf_delay);
-    if (usec >= 500) {
-        delay_microseconds_semaphore(usec);
-        perf_end(_perf_delay);
-        return;
-    }
-	uint64_t start = AP_HAL::micros64();
-    uint64_t dt;
-	while ((dt=(AP_HAL::micros64() - start)) < usec) {
-		up_udelay(usec - dt);
-	}
+    delay_microseconds_semaphore(usec);
     perf_end(_perf_delay);
+}
+
+/*
+  wrapper around sem_post that boosts main thread priority
+ */
+static void sem_post_boost(sem_t *sem)
+{
+    hal_vrbrain_set_priority(APM_MAIN_PRIORITY_BOOST);
+    sem_post(sem);
+}
+
+/*
+  return the main thread to normal priority
+ */
+static void set_normal_priority(void *sem)
+{
+    hal_vrbrain_set_priority(APM_MAIN_PRIORITY);
+}
+
+/*
+  a varient of delay_microseconds that boosts priority to
+  APM_MAIN_PRIORITY_BOOST for APM_MAIN_PRIORITY_BOOST_USEC
+  microseconds when the time completes. This significantly improves
+  the regularity of timing of the main loop as it takes 
+ */
+void VRBRAINScheduler::delay_microseconds_boost(uint16_t usec) 
+{
+    sem_t wait_semaphore;
+    static struct hrt_call wait_call;
+    sem_init(&wait_semaphore, 0, 0);
+    hrt_call_after(&wait_call, usec, (hrt_callout)sem_post_boost, &wait_semaphore);
+    sem_wait(&wait_semaphore);
+    hrt_call_after(&wait_call, APM_MAIN_PRIORITY_BOOST_USEC, (hrt_callout)set_normal_priority, NULL);
 }
 
 void VRBRAINScheduler::delay(uint16_t ms)
@@ -109,9 +165,9 @@ void VRBRAINScheduler::delay(uint16_t ms)
         return;
     }
     perf_begin(_perf_delay);
-	uint64_t start = AP_HAL::micros64();
+	uint64_t start = micros64();
     
-    while ((AP_HAL::micros64() - start)/1000 < ms && 
+    while ((micros64() - start)/1000 < ms && 
            !_vrbrain_thread_should_exit) {
         delay_microseconds_semaphore(1000);
         if (_min_delay_cb_ms <= ms) {
@@ -240,8 +296,8 @@ void *VRBRAINScheduler::_timer_thread(void)
         // process any pending RC input requests
         ((VRBRAINRCInput *)hal.rcin)->_timer_tick();
 
-        if (vrbrain_ran_overtime && AP_HAL::millis() - last_ran_overtime > 2000) {
-            last_ran_overtime = AP_HAL::millis();
+        if (vrbrain_ran_overtime && millis() - last_ran_overtime > 2000) {
+            last_ran_overtime = millis();
 //            printf("Overtime in task %d\n", (int)AP_Scheduler::current_task);
 //            hal.console->printf("Overtime in task %d\n", (int)AP_Scheduler::current_task);
         }
@@ -294,9 +350,6 @@ void *VRBRAINScheduler::_io_thread(void)
     while (!_vrbrain_thread_should_exit) {
         poll(NULL, 0, 1);
 
-        // process any pending storage writes
-        ((VRBRAINStorage *)hal.storage)->_timer_tick();
-
         // run registered IO processes
         perf_begin(_perf_io_timers);
         _run_io();
@@ -305,15 +358,44 @@ void *VRBRAINScheduler::_io_thread(void)
     return NULL;
 }
 
+void *VRBRAINScheduler::_storage_thread(void)
+{
+    while (!_hal_initialized) {
+        poll(NULL, 0, 1);        
+    }
+    while (!_vrbrain_thread_should_exit) {
+        poll(NULL, 0, 10);
+
+        // process any pending storage writes
+        perf_begin(_perf_storage_timer);
+        ((VRBRAINStorage *)hal.storage)->_timer_tick();
+        perf_end(_perf_storage_timer);
+    }
+    return NULL;
+}
+
+void VRBRAINScheduler::panic(const prog_char_t *errormsg)
+{
+    write(1, errormsg, strlen(errormsg));
+    write(1, "\n", 1);
+    hal.scheduler->delay_microseconds(10000);
+    _vrbrain_thread_should_exit = true;
+    exit(1);
+}
+
 bool VRBRAINScheduler::in_timerprocess()
 {
     return getpid() != _main_task_pid;
 }
 
+bool VRBRAINScheduler::system_initializing() {
+    return !_initialized;
+}
+
 void VRBRAINScheduler::system_initialized() {
     if (_initialized) {
-        AP_HAL::panic("PANIC: scheduler::system_initialized called"
-                   "more than once");
+        panic(PSTR("PANIC: scheduler::system_initialized called"
+                   "more than once"));
     }
     _initialized = true;
 }
