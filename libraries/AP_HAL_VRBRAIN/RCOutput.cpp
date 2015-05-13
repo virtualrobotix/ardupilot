@@ -11,17 +11,20 @@
 #include <unistd.h>
 
 #include <drivers/drv_pwm_output.h>
+#include <uORB/topics/actuator_direct.h>
+#include <drivers/drv_hrt.h>
+#include <drivers/drv_gpio.h>
 
 extern const AP_HAL::HAL& hal;
 
 using namespace VRBRAIN;
 
-void VRBRAINRCOutput::init()
+void VRBRAINRCOutput::init(void* unused)
 {
     _perf_rcout = perf_alloc(PC_ELAPSED, "APM_rcout");
-    _pwm_fd = open(PWM_OUTPUT_DEVICE_PATH, O_RDWR);
+    _pwm_fd = open(VROUTPUT_DEVICE_PATH, O_RDWR);
     if (_pwm_fd == -1) {
-        AP_HAL::panic("Unable to open " PWM_OUTPUT_DEVICE_PATH);
+        hal.scheduler->panic("Unable to open " VROUTPUT_DEVICE_PATH);
     }
     if (ioctl(_pwm_fd, PWM_SERVO_ARM, 0) != 0) {
         hal.console->printf("RCOutput: Unable to setup IO arming\n");
@@ -38,6 +41,24 @@ void VRBRAINRCOutput::init()
         hal.console->printf("RCOutput: Unable to get servo count\n");        
         return;
     }
+
+	_pwm_sub = orb_subscribe(ORB_ID(actuator_outputs));
+
+    // mark number of outputs given by px4io as zero
+    _outputs.noutputs = 0;
+
+
+    // ensure not to write zeros to disabled channels
+    _enabled_channels = 0;
+    for (int i=0; i < VRBRAIN_NUM_OUTPUT_CHANNELS; i++) {
+        _period[i] = PWM_IGNORE_THIS_CHANNEL;
+    }
+
+    // publish actuator vaules on demand
+    _actuator_direct_pub = -1;
+
+    // and armed state
+    _actuator_armed_pub = -1;
 }
 
 
@@ -109,11 +130,19 @@ uint16_t VRBRAINRCOutput::get_freq(uint8_t ch)
 
 void VRBRAINRCOutput::enable_ch(uint8_t ch)
 {
+    if (ch >= VRBRAIN_NUM_OUTPUT_CHANNELS) {
+        return;
+    }
+
     _enabled_channels |= (1U<<ch);
 }
 
 void VRBRAINRCOutput::disable_ch(uint8_t ch)
 {
+    if (ch >= VRBRAIN_NUM_OUTPUT_CHANNELS) {
+        return;
+    }
+
     _enabled_channels &= ~(1U<<ch);
 }
 
@@ -182,6 +211,13 @@ void VRBRAINRCOutput::write(uint8_t ch, uint16_t period_us)
     }
 }
 
+void VRBRAINRCOutput::write(uint8_t ch, uint16_t* period_us, uint8_t len)
+{
+    for (uint8_t i=0; i<len; i++) {
+        write(i, period_us[i]);
+    }
+}
+
 uint16_t VRBRAINRCOutput::read(uint8_t ch)
 {
     if (ch >= VRBRAIN_NUM_OUTPUT_CHANNELS) {
@@ -197,9 +233,72 @@ void VRBRAINRCOutput::read(uint16_t* period_us, uint8_t len)
     }
 }
 
+/*
+  update actuator armed state
+ */
+void VRBRAINRCOutput::_arm_actuators(bool arm)
+{
+    if (_armed.armed == arm) {
+        // already armed;
+        return;
+    }
+
+	_armed.timestamp = hrt_absolute_time();
+    _armed.armed = arm;
+    _armed.ready_to_arm = arm;
+    _armed.lockdown = false;
+    _armed.force_failsafe = false;
+
+    if (_actuator_armed_pub == -1) {
+        _actuator_armed_pub = orb_advertise(ORB_ID(actuator_armed), &_armed);
+    } else {
+        orb_publish(ORB_ID(actuator_armed), _actuator_armed_pub, &_armed);
+    }
+}
+
+/*
+  publish new outputs to the actuator_direct topic
+ */
+void VRBRAINRCOutput::_publish_actuators(void)
+{
+	struct actuator_direct_s actuators;
+
+	actuators.nvalues = _max_channel;
+    if (actuators.nvalues > NUM_ACTUATORS_DIRECT) {
+        actuators.nvalues = NUM_ACTUATORS_DIRECT;
+    }
+    // don't publish more than 8 actuators for now, as the uavcan ESC
+    // driver refuses to update any motors if you try to publish more
+    // than 8
+    if (actuators.nvalues > 8) {
+        actuators.nvalues = 8;
+    }
+	actuators.timestamp = hrt_absolute_time();
+    for (uint8_t i=0; i<actuators.nvalues; i++) {
+        actuators.values[i] = (_period[i] - _esc_pwm_min) / (float)(_esc_pwm_max - _esc_pwm_min);
+        // actuator values are from -1 to 1
+        actuators.values[i] = actuators.values[i]*2 - 1;
+    }
+
+    if (_actuator_direct_pub == -1) {
+        _actuator_direct_pub = orb_advertise(ORB_ID(actuator_direct), &actuators);
+    } else {
+        orb_publish(ORB_ID(actuator_direct), _actuator_direct_pub, &actuators);
+    }
+    if (hal.util->safety_switch_state() != AP_HAL::Util::SAFETY_DISARMED) {
+        _arm_actuators(true);
+    }
+}
+
 void VRBRAINRCOutput::_timer_tick(void)
 {
-    uint32_t now = AP_HAL::micros();
+    uint32_t now = hal.scheduler->micros();
+
+    if ((_enabled_channels & ((1U<<_servo_count)-1)) == 0) {
+        // no channels enabled
+        _arm_actuators(false);
+        goto update_pwm;
+    }
 
     // always send at least at 20Hz, otherwise the IO board may think
     // we are dead
@@ -211,9 +310,20 @@ void VRBRAINRCOutput::_timer_tick(void)
         _need_update = false;
         perf_begin(_perf_rcout);
         ::write(_pwm_fd, _period, _max_channel*sizeof(_period[0]));
+
+        // also publish to actuator_direct
+        _publish_actuators();
+
         perf_end(_perf_rcout);
         _last_output = now;
     }
+
+update_pwm:
+	bool rc_updated = false;
+	if (_pwm_sub >= 0 && orb_check(_pwm_sub, &rc_updated) == 0 && rc_updated) {
+        orb_copy(ORB_ID(actuator_outputs), _pwm_sub, &_outputs);
+	}
+
 }
 
 #endif // CONFIG_HAL_BOARD
