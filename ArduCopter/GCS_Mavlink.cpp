@@ -1030,8 +1030,12 @@ void GCS_MAVLINK::handleMessage(mavlink_message_t* msg)
         // mark the firmware version in the tlog
         send_text(MAV_SEVERITY_INFO, FIRMWARE_STRING);
 
-#if defined(PX4_GIT_VERSION) && defined(NUTTX_GIT_VERSION)
+#if defined(NUTTX_GIT_VERSION)
+#if defined(PX4_GIT_VERSION)
         send_text(MAV_SEVERITY_INFO, "PX4: " PX4_GIT_VERSION " NuttX: " NUTTX_GIT_VERSION);
+#elif defined(VRBRAIN_GIT_VERSION)
+        send_text(MAV_SEVERITY_INFO, "VRX: " VRBRAIN_GIT_VERSION " NuttX: " NUTTX_GIT_VERSION);
+#endif
 #endif
         send_text(MAV_SEVERITY_INFO, "Frame: " FRAME_CONFIG_STRING);
         handle_param_request_list(msg);
