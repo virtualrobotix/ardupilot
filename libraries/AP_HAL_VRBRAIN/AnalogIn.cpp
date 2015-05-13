@@ -25,7 +25,7 @@
 // base voltage scaling for 12 bit 3.3V ADC
 #define VRBRAIN_VOLTAGE_SCALING (3.3f/4096.0f)
 
-#if ANALOGIN_DEBUGGING
+#if ANLOGIN_DEBUGGING
  # define Debug(fmt, args ...)  do {printf("%s:%d: " fmt "\n", __FUNCTION__, __LINE__, ## args); } while(0)
 #else
  # define Debug(fmt, args ...)
@@ -41,10 +41,18 @@ static const struct {
     uint8_t pin;
     float scaling;
 } pin_scaling[] = {
-#if defined(CONFIG_ARCH_BOARD_VRBRAIN_V45) || defined(CONFIG_ARCH_BOARD_VRBRAIN_V51) || defined(CONFIG_ARCH_BOARD_VRBRAIN_V52)
+#if defined(CONFIG_ARCH_BOARD_VRBRAIN_V45)
+#if APM_BUILD_TYPE(APM_BUILD_ArduPlane)
     {  0, 3.3f/4096 },
+#endif
     { 10, 3.3f/4096 },
     { 11, 3.3f/4096 },
+#elif defined(CONFIG_ARCH_BOARD_VRBRAIN_V51) || defined(CONFIG_ARCH_BOARD_VRBRAIN_V52)
+    { 10, 3.3f/4096 },
+    { 11, 3.3f/4096 },
+#if APM_BUILD_TYPE(APM_BUILD_ArduPlane)
+    { 14, 3.3f/4096 },
+#endif
 #elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V51)
     { 10, 3.3f/4096 },
 #elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V52)
@@ -52,11 +60,6 @@ static const struct {
     {  2, 3.3f/4096 },
     {  3, 3.3f/4096 },
     { 10, 3.3f/4096 },
-#elif defined(CONFIG_ARCH_BOARD_VRHERO_V10)
-    { 10, 3.3f/4096 },
-    { 11, 3.3f/4096 },
-    { 14, 3.3f/4096 },
-    { 15, 3.3f/4096 },
 #else
 #error "Unknown board type for AnalogIn scaling"
 #endif
@@ -192,9 +195,9 @@ VRBRAINAnalogIn::VRBRAINAnalogIn() :
 
 void VRBRAINAnalogIn::init(void* machtnichts)
 {
-	_adc_fd = open(ADC_DEVICE_PATH, O_RDONLY | O_NONBLOCK);
+	_adc_fd = open(ADC0_DEVICE_PATH, O_RDONLY | O_NONBLOCK);
     if (_adc_fd == -1) {
-        hal.scheduler->panic("Unable to open " ADC_DEVICE_PATH);
+        hal.scheduler->panic("Unable to open " ADC0_DEVICE_PATH);
 	}
     _battery_handle   = orb_subscribe(ORB_ID(battery_status));
     _servorail_handle = orb_subscribe(ORB_ID(servorail_status));
