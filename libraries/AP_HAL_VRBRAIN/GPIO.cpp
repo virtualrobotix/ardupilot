@@ -31,9 +31,9 @@ VRBRAINGPIO::VRBRAINGPIO()
 
 void VRBRAINGPIO::init()
 {
-    _led_fd = open(LED_DEVICE_PATH, O_RDWR);
+    _led_fd = open(LED0_DEVICE_PATH, O_RDWR);
     if (_led_fd == -1) {
-        hal.scheduler->panic("Unable to open " LED_DEVICE_PATH);
+        hal.scheduler->panic("Unable to open " LED0_DEVICE_PATH);
     }
     if (ioctl(_led_fd, LED_OFF, LED_BLUE) != 0) {
         hal.console->printf("GPIO: Unable to setup GPIO LED BLUE\n");
