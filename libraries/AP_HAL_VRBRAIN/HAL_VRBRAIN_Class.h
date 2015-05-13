@@ -17,6 +17,8 @@ public:
     void init(int argc, char * const argv[]) const;
 };
 
+void hal_vrbrain_set_priority(uint8_t priority);
+
 extern const HAL_VRBRAIN AP_HAL_VRBRAIN;
 
 #endif // CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
