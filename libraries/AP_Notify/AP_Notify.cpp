@@ -71,7 +71,7 @@ struct AP_Notify::notify_events_type AP_Notify::events;
 #else
     VRBoard_LED boardled;
 #endif
-    ToshibaLED_I2C toshibaled;
+    ToshibaLED_PX4 toshibaled;
     ExternalLED externalled;
     NotifyDevice *AP_Notify::_devices[] = {&boardled, &toshibaled, &externalled, &buzzer};
 #elif CONFIG_HAL_BOARD == HAL_BOARD_LINUX
