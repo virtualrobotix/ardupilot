@@ -93,6 +93,17 @@ void VRBRAINRCOutput::set_freq(uint32_t chmask, uint16_t freq_hz)
     if (freq_hz > 50) {
         // we are setting high rates on the given channels
         _rate_mask |= chmask & 0xFF;
+#if defined(CONFIG_ARCH_BOARD_VRUBRAIN_V52)
+        if (_rate_mask & 0x0F) {
+            _rate_mask |= 0x0F;
+        }
+        if (_rate_mask & 0x30) {
+            _rate_mask |= 0x30;
+        }
+        if (_rate_mask & 0xC0) {
+            _rate_mask |= 0xC0;
+        }
+#else
         if (_rate_mask & 0x07) {
             _rate_mask |= 0x07;
         }
@@ -102,8 +113,20 @@ void VRBRAINRCOutput::set_freq(uint32_t chmask, uint16_t freq_hz)
         if (_rate_mask & 0xC0) {
             _rate_mask |= 0xC0;
         }
+#endif
     } else {
         // we are setting low rates on the given channels
+#if defined(CONFIG_ARCH_BOARD_VRUBRAIN_V52)
+        if (chmask & 0x0F) {
+            _rate_mask &= ~0x0F;
+        }
+        if (chmask & 0x30) {
+            _rate_mask &= ~0x30;
+        }
+        if (chmask & 0xC0) {
+            _rate_mask &= ~0xC0;
+        }
+#else
         if (chmask & 0x07) {
             _rate_mask &= ~0x07;
         }
@@ -113,6 +136,7 @@ void VRBRAINRCOutput::set_freq(uint32_t chmask, uint16_t freq_hz)
         if (chmask & 0xC0) {
             _rate_mask &= ~0xC0;
         }
+#endif
     }
 
     if (ioctl(_pwm_fd, PWM_SERVO_SET_SELECT_UPDATE_RATE, _rate_mask) != 0) {
