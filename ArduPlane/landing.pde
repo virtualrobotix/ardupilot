@@ -167,11 +167,6 @@ static void setup_landing_glide_slope(void)
             aim_height = g.land_flare_alt*2;
         }
 
-        // don't allow the aim height to be too far above LAND_FLARE_ALT
-        if (g.land_flare_alt > 0 && aim_height > g.land_flare_alt*2) {
-            aim_height = g.land_flare_alt*2;
-        }
-
         // time before landing that we will flare
         float flare_time = aim_height / SpdHgt_Controller->get_land_sinkrate();
 
