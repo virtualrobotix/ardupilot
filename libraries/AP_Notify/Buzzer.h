@@ -59,8 +59,7 @@ public:
         GPS_GLITCH = 3, // not used
         ARMING_BUZZ = 4,
         BARO_GLITCH = 5,
-        EKF_BAD = 6,
-        SINGLE_LONG_BUZZ = 7
+        EKF_BAD = 6
     };
 
     /// play_pattern - plays the defined buzzer pattern
