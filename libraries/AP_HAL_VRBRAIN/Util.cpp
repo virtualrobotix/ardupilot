@@ -23,7 +23,7 @@ extern bool _vrbrain_thread_should_exit;
 /*
   constructor
  */
-VRBRAINUtil::VRBRAINUtil(void)
+VRBRAINUtil::VRBRAINUtil(void) : Util()
 {
     _safety_handle = orb_subscribe(ORB_ID(safety));
 }
@@ -93,7 +93,7 @@ enum VRBRAINUtil::safety_state VRBRAINUtil::safety_switch_state(void)
 void VRBRAINUtil::set_system_clock(uint64_t time_utc_usec)
 {
     timespec ts;
-    ts.tv_sec = time_utc_usec/1.0e6;
+    ts.tv_sec = time_utc_usec/1.0e6f;
     ts.tv_nsec = (time_utc_usec % 1000000) * 1000;
     clock_settime(CLOCK_REALTIME, &ts);    
 }
@@ -116,6 +116,8 @@ bool VRBRAINUtil::get_system_id(char buf[40])
     const char *board_type = "VRUBRAINv51";
 #elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V52)
     const char *board_type = "VRUBRAINv52";
+#elif defined(CONFIG_ARCH_BOARD_VRHERO_V10)
+    const char *board_type = "VRHEROv10";
 #endif
     // this format is chosen to match the human_readable_serial()
     // function in auth.c

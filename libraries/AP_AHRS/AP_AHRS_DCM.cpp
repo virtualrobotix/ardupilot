@@ -52,6 +52,10 @@ AP_AHRS_DCM::update(void)
 {
     float delta_t;
 
+    if (_last_startup_ms == 0) {
+        _last_startup_ms = hal.scheduler->millis();
+    }
+
     // tell the IMU to grab some data
     _ins.update();
 
@@ -97,11 +101,13 @@ AP_AHRS_DCM::matrix_update(float _G_Dt)
     // value
     _omega.zero();
 
-    // average across all healthy gyros. This reduces noise on systems
-    // with more than one gyro    
+    // average across first two healthy gyros. This reduces noise on
+    // systems with more than one gyro. We don't use the 3rd gyro
+    // unless another is unhealthy as 3rd gyro on PH2 has a lot more
+    // noise
     uint8_t healthy_count = 0;    
     for (uint8_t i=0; i<_ins.get_gyro_count(); i++) {
-        if (_ins.get_gyro_health(i)) {
+        if (_ins.get_gyro_health(i) && healthy_count < 2) {
             _omega += _ins.get_gyro(i);
             healthy_count++;
         }
@@ -136,6 +142,8 @@ AP_AHRS_DCM::reset(bool recover_eulers)
         // otherwise make it flat
         _dcm_matrix.from_euler(0, 0, 0);
     }
+
+    _last_startup_ms = hal.scheduler->millis();
 }
 
 // reset the current attitude, used by HIL
@@ -265,14 +273,18 @@ AP_AHRS_DCM::yaw_error_compass(void)
     // get the mag vector in the earth frame
     Vector2f rb = _dcm_matrix.mulXY(mag);
 
+    if (rb.length() < FLT_EPSILON) {
+        return 0.0f;
+    }
+
     rb.normalize();
     if (rb.is_inf()) {
         // not a valid vector
-        return 0.0;
+        return 0.0f;
     }
 
     // update vector holding earths magnetic field (if required)
-    if( _last_declination != _compass->get_declination() ) {
+    if( !is_equal(_last_declination,_compass->get_declination()) ) {
         _last_declination = _compass->get_declination();
         _mag_earth.x = cosf(_last_declination);
         _mag_earth.y = sinf(_last_declination);
@@ -326,6 +338,20 @@ bool AP_AHRS_DCM::have_gps(void) const
     return true;
 }
 
+/*
+  when we are getting the initial attitude we want faster gains so
+  that if the board starts upside down we quickly approach the right
+  attitude.
+  We don't want to keep those high gains for too long though as high P
+  gains cause slow gyro offset learning. So we keep the high gains for
+  a maximum of 20 seconds
+ */
+bool AP_AHRS_DCM::use_fast_gains(void) const
+{
+    return !hal.util->get_soft_armed() && (hal.scheduler->millis() - _last_startup_ms) < 20000U;
+}
+
+
 // return true if we should use the compass for yaw correction
 bool AP_AHRS_DCM::use_compass(void)
 {
@@ -375,9 +401,9 @@ AP_AHRS_DCM::drift_correction_yaw(void)
         /*
           we are using compass for yaw
          */
-        if (_compass->last_update != _compass_last_update) {
-            yaw_deltat = (_compass->last_update - _compass_last_update) * 1.0e-6f;
-            _compass_last_update = _compass->last_update;
+        if (_compass->last_update_usec() != _compass_last_update) {
+            yaw_deltat = (_compass->last_update_usec() - _compass_last_update) * 1.0e-6f;
+            _compass_last_update = _compass->last_update_usec();
             // we force an additional compass read()
             // here. This has the effect of throwing away
             // the first compass value, which can be bad
@@ -465,7 +491,7 @@ AP_AHRS_DCM::drift_correction_yaw(void)
     // The accelration derived heading will be more reliable in turns than compass or GPS
 
     _omega_yaw_P.z = error_z * _P_gain(spin_rate) * _kp_yaw * _yaw_gain();
-    if (_flags.fast_ground_gains) {
+    if (use_fast_gains()) {
         _omega_yaw_P.z *= 8;
     }
 
@@ -476,8 +502,7 @@ AP_AHRS_DCM::drift_correction_yaw(void)
         _omega_I_sum.z += error_z * _ki_yaw * yaw_deltat;
     }
 
-    _error_yaw_sum += fabsf(yaw_error);
-    _error_yaw_count++;
+    _error_yaw = 0.8f * _error_yaw + 0.2f * fabsf(yaw_error);
 }
 
 
@@ -648,6 +673,7 @@ AP_AHRS_DCM::drift_correction(float deltat)
     // running at 800Hz and the MPU6000 running at 1kHz, by combining
     // the two the effects of aliasing are greatly reduced.
     Vector3f error[INS_MAX_INSTANCES];
+    float error_dirn[INS_MAX_INSTANCES];
     Vector3f GA_b[INS_MAX_INSTANCES];
     int8_t besti = -1;
     float best_error = 0;
@@ -674,11 +700,18 @@ AP_AHRS_DCM::drift_correction(float deltat)
             continue;
         }
         error[i] = GA_b[i] % GA_e;
+        // Take dot product to catch case vectors are opposite sign and parallel
+        error_dirn[i] = GA_b[i] * GA_e;
         float error_length = error[i].length();
         if (besti == -1 || error_length < best_error) {
             besti = i;
             best_error = error_length;
         }
+        // Catch case where orientation is 180 degrees out
+        if (error_dirn[besti] < 0.0f) {
+            best_error = 1.0f;
+        }
+
     }
 
     if (besti == -1) {
@@ -713,7 +746,7 @@ AP_AHRS_DCM::drift_correction(float deltat)
     // flat, but still allow for yaw correction using the
     // accelerometers at high roll angles as long as we have a GPS
     if (AP_AHRS_DCM::use_compass()) {
-        if (have_gps() && gps_gain == 1.0f) {
+        if (have_gps() && is_equal(gps_gain,1.0f)) {
             error[besti].z *= sinf(fabsf(roll));
         } else {
             error[besti].z = 0;
@@ -737,8 +770,7 @@ AP_AHRS_DCM::drift_correction(float deltat)
         return;
     }
 
-    _error_rp_sum += best_error;
-    _error_rp_count++;
+    _error_rp = 0.8f * _error_rp + 0.2f * best_error;
 
     // base the P gain on the spin rate
     float spin_rate = _omega.length();
@@ -752,7 +784,7 @@ AP_AHRS_DCM::drift_correction(float deltat)
     // _omega_P value is what drags us quickly to the
     // accelerometer reading.
     _omega_P = error[besti] * _P_gain(spin_rate) * _kp;
-    if (_flags.fast_ground_gains) {
+    if (use_fast_gains()) {
         _omega_P *= 8;
     }
 
@@ -873,36 +905,6 @@ AP_AHRS_DCM::euler_angles(void)
     update_cd_values();
 }
 
-/* reporting of DCM state for MAVLink */
-
-// average error_roll_pitch since last call
-float AP_AHRS_DCM::get_error_rp(void)
-{
-    if (_error_rp_count == 0) {
-        // this happens when telemetry is setup on two
-        // serial ports
-        return _error_rp_last;
-    }
-    _error_rp_last = _error_rp_sum / _error_rp_count;
-    _error_rp_sum = 0;
-    _error_rp_count = 0;
-    return _error_rp_last;
-}
-
-// average error_yaw since last call
-float AP_AHRS_DCM::get_error_yaw(void)
-{
-    if (_error_yaw_count == 0) {
-        // this happens when telemetry is setup on two
-        // serial ports
-        return _error_yaw_last;
-    }
-    _error_yaw_last = _error_yaw_sum / _error_yaw_count;
-    _error_yaw_sum = 0;
-    _error_yaw_count = 0;
-    return _error_yaw_last;
-}
-
 // return our current position estimate using
 // dead-reckoning or GPS
 bool AP_AHRS_DCM::get_position(struct Location &loc) const
@@ -964,4 +966,15 @@ bool AP_AHRS_DCM::healthy(void) const
 {
     // consider ourselves healthy if there have been no failures for 5 seconds
     return (_last_failure_ms == 0 || hal.scheduler->millis() - _last_failure_ms > 5000);
+}
+
+/*
+  return amount of time that AHRS has been up
+ */
+uint32_t AP_AHRS_DCM::uptime_ms(void) const
+{
+    if (_last_startup_ms == 0) {
+        return 0;
+    }
+    return hal.scheduler->millis() - _last_startup_ms;
 }

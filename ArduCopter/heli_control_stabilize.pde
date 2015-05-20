@@ -17,7 +17,7 @@ static bool heli_stabilize_init(bool ignore_checks)
 // should be called at 100hz or more
 static void heli_stabilize_run()
 {
-    int16_t target_roll, target_pitch;
+    float target_roll, target_pitch;
     float target_yaw_rate;
     int16_t pilot_throttle_scaled;
 
@@ -54,7 +54,7 @@ static void heli_stabilize_run()
     attitude_control.angle_ef_roll_pitch_rate_ef_yaw_smooth(target_roll, target_pitch, target_yaw_rate, get_smoothing_gain());
 
     // output pilot's throttle - note that TradHeli does not used angle-boost
-    attitude_control.set_throttle_out(pilot_throttle_scaled, false);
+    attitude_control.set_throttle_out(pilot_throttle_scaled, false, g.throttle_filt);
 }
 
 #endif  //HELI_FRAME

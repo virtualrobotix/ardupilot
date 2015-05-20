@@ -3,7 +3,7 @@
  */
 #include <AP_HAL.h>
 #include <AP_HAL_AVR.h>
-#include <AP_HAL_AVR_SITL.h>
+#include <AP_HAL_SITL.h>
 #include <AP_HAL_PX4.h>
 #include <AP_HAL_Linux.h>
 #include <AP_HAL_Empty.h>
@@ -33,6 +33,8 @@
 #include <AP_Rally.h>
 #include <AP_Scheduler.h>
 #include <UARTDriver.h>
+#include <AP_BattMonitor.h>
+#include <AP_RangeFinder.h>
 
 #if HAL_OS_POSIX_IO
 #include <stdio.h>

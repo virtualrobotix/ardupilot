@@ -19,15 +19,13 @@ static bool stabilize_init(bool ignore_checks)
 // should be called at 100hz or more
 static void stabilize_run()
 {
-    int16_t target_roll, target_pitch;
+    float target_roll, target_pitch;
     float target_yaw_rate;
     int16_t pilot_throttle_scaled;
 
     // if not armed or throttle at zero, set throttle to zero and exit immediately
-    if(!motors.armed() || g.rc_3.control_in <= 0) {
-        attitude_control.relax_bf_rate_controller();
-        attitude_control.set_yaw_target_to_current_heading();
-        attitude_control.set_throttle_out(0, false);
+    if(!motors.armed() || ap.throttle_zero) {
+        attitude_control.set_throttle_out_unstabilized(0,true,g.throttle_filt);
         return;
     }
 
@@ -50,5 +48,5 @@ static void stabilize_run()
     // body-frame rate controller is run directly from 100hz loop
 
     // output pilot's throttle
-    attitude_control.set_throttle_out(pilot_throttle_scaled, true);
+    attitude_control.set_throttle_out(pilot_throttle_scaled, true, g.throttle_filt);
 }

@@ -87,7 +87,7 @@ static void setup_glide_slope(void)
         // is basically to prevent situations where we try to slowly
         // gain height at low altitudes, potentially hitting
         // obstacles.
-        if (relative_altitude() > 20 || above_location_current(next_WP_loc)) {
+        if (adjusted_relative_altitude_cm() > 2000 || above_location_current(next_WP_loc)) {
             set_offset_altitude_location(next_WP_loc);
         } else {
             reset_offset_altitude();
@@ -256,6 +256,17 @@ static void set_target_altitude_proportion(const Location &loc, float proportion
     set_target_altitude_location(loc);
     proportion = constrain_float(proportion, 0.0f, 1.0f);
     change_target_altitude(-target_altitude.offset_cm*proportion);
+    //rebuild the glide slope if we are above it and supposed to be climbing
+    if(g.glide_slope_threshold > 0) {
+        if(target_altitude.offset_cm > 0 && calc_altitude_error_cm() < -100 * g.glide_slope_threshold) {
+            set_target_altitude_location(loc);
+            set_offset_altitude_location(loc);
+            change_target_altitude(-target_altitude.offset_cm*proportion);
+            //adjust the new target offset altitude to reflect that we are partially already done
+            if(proportion > 0.0f)
+                target_altitude.offset_cm = ((float)target_altitude.offset_cm)/proportion;
+        }
+    }
 }
 
 /*
@@ -350,8 +361,8 @@ static void set_offset_altitude_location(const Location &loc)
         // more accurate flight of missions where the aircraft may lose or
         // gain a bit of altitude near waypoint turn points due to local
         // terrain changes
-        if (g.glide_slope_threshold <= 0 ||
-            labs(target_altitude.offset_cm)*0.01f < g.glide_slope_threshold) {
+        if (g.glide_slope_min <= 0 ||
+            labs(target_altitude.offset_cm)*0.01f < g.glide_slope_min) {
             target_altitude.offset_cm = 0;
         }
     }
@@ -415,13 +426,23 @@ static int32_t adjusted_altitude_cm(void)
 }
 
 /*
+  return home-relative altitude adjusted for ALT_OFFSET This is useful
+  during long flights to account for barometer changes from the GCS,
+  or to adjust the flying height of a long mission
+ */
+static int32_t adjusted_relative_altitude_cm(void)
+{
+    return adjusted_altitude_cm() - home.alt;
+}
+
+/*
   return the height in meters above the next_WP_loc altitude
  */
 static float height_above_target(void)
 {
     float target_alt = next_WP_loc.alt*0.01;
     if (!next_WP_loc.flags.relative_alt) {
-        target_alt -= ahrs.get_home().alt*0.01;
+        target_alt -= ahrs.get_home().alt*0.01f;
     }
 
 #if AP_TERRAIN_AVAILABLE
@@ -526,9 +547,8 @@ static float rangefinder_correction(void)
 static void rangefinder_height_update(void)
 {
     uint16_t distance_cm = rangefinder.distance_cm();
-    int16_t max_distance_cm = rangefinder.max_distance_cm();
     float height_estimate = 0;
-    if (rangefinder.healthy() && distance_cm < max_distance_cm && home_is_set) {
+    if ((rangefinder.status() == RangeFinder::RangeFinder_Good) && home_is_set != HOME_UNSET) {
         // correct the range for attitude (multiply by DCM.c.z, which
         // is cos(roll)*cos(pitch))
         height_estimate = distance_cm * 0.01f * ahrs.get_dcm_matrix().c.z;

@@ -22,7 +22,7 @@ static float get_speed_scaler(void)
         } else {
             speed_scaler = 2.0;
         }
-        speed_scaler = constrain_float(speed_scaler, 0.5, 2.0);
+        speed_scaler = constrain_float(speed_scaler, 0.5f, 2.0f);
     } else {
         if (channel_throttle->servo_out > 0) {
             speed_scaler = 0.5f + ((float)THROTTLE_CRUISE / channel_throttle->servo_out / 2.0f);                 // First order taylor expansion of square root
@@ -31,7 +31,7 @@ static float get_speed_scaler(void)
             speed_scaler = 1.67f;
         }
         // This case is constrained tighter as we don't have real speed info
-        speed_scaler = constrain_float(speed_scaler, 0.6, 1.67);
+        speed_scaler = constrain_float(speed_scaler, 0.6f, 1.67f);
     }
     return speed_scaler;
 }
@@ -286,7 +286,7 @@ static void stabilize_acro(float speed_scaler)
     /*
       check for special roll handling near the pitch poles
      */
-    if (g.acro_locking && roll_rate == 0) {
+    if (g.acro_locking && is_zero(roll_rate)) {
         /*
           we have no roll stick input, so we will enter "roll locked"
           mode, and hold the roll we had when the stick was released
@@ -313,7 +313,7 @@ static void stabilize_acro(float speed_scaler)
         channel_roll->servo_out  = rollController.get_rate_out(roll_rate,  speed_scaler);
     }
 
-    if (g.acro_locking && pitch_rate == 0) {
+    if (g.acro_locking && is_zero(pitch_rate)) {
         /*
           user has zero pitch stick input, so we lock pitch at the
           point they release the stick
@@ -339,7 +339,7 @@ static void stabilize_acro(float speed_scaler)
     /*
       manual rudder for now
      */
-    steering_control.steering = steering_control.rudder = channel_rudder->control_in;
+    steering_control.steering = steering_control.rudder = rudder_input;
 }
 
 /*
@@ -414,14 +414,14 @@ static void calc_throttle()
 static void calc_nav_yaw_coordinated(float speed_scaler)
 {
     bool disable_integrator = false;
-    if (control_mode == STABILIZE && channel_rudder->control_in != 0) {
+    if (control_mode == STABILIZE && rudder_input != 0) {
         disable_integrator = true;
     }
     steering_control.rudder = yawController.get_servo_out(speed_scaler, disable_integrator);
 
     // add in rudder mixing from roll
     steering_control.rudder += channel_roll->servo_out * g.kff_rudder_mix;
-    steering_control.rudder += channel_rudder->control_in;
+    steering_control.rudder += rudder_input;
     steering_control.rudder = constrain_int16(steering_control.rudder, -4500, 4500);
 }
 
@@ -451,15 +451,15 @@ static void calc_nav_yaw_ground(void)
         // manual rudder control while still
         steer_state.locked_course = false;
         steer_state.locked_course_err = 0;
-        steering_control.steering = channel_rudder->control_in;
+        steering_control.steering = rudder_input;
         return;
     }
 
-    float steer_rate = (channel_rudder->control_in/4500.0f) * g.ground_steer_dps;
+    float steer_rate = (rudder_input/4500.0f) * g.ground_steer_dps;
     if (flight_stage == AP_SpdHgtControl::FLIGHT_TAKEOFF) {
         steer_rate = 0;
     }
-    if (steer_rate != 0) {
+    if (!is_zero(steer_rate)) {
         // pilot is giving rudder input
         steer_state.locked_course = false;        
     } else if (!steer_state.locked_course) {
@@ -545,29 +545,7 @@ static void flap_slew_limit(int8_t &last_value, int8_t &new_value)
     last_value = new_value;
 }
 
-
-
-/**
-  Do we think we are flying?
-  This is a heuristic so it could be wrong in some cases.  In particular, if we don't have GPS lock we'll fall
-  back to only using altitude.  (This is probably more optimistic than what suppress_throttle wants...)
-*/
-static bool is_flying(void)
-{
-    // If we don't have a GPS lock then don't use GPS for this test
-    bool gpsMovement = (gps.status() < AP_GPS::GPS_OK_FIX_2D ||
-                        gps.ground_speed() >= 5);
-    
-    bool airspeedMovement = (!ahrs.airspeed_sensor_enabled()) || airspeed.get_airspeed() >= 5;
-    
-    // we're more than 5m from the home altitude
-    bool inAir = relative_altitude_abs_cm() > 500;
-
-    return inAir && gpsMovement && airspeedMovement;
-}
-
-
-/* We want to supress the throttle if we think we are on the ground and in an autopilot controlled throttle mode.
+/* We want to suppress the throttle if we think we are on the ground and in an autopilot controlled throttle mode.
 
    Disable throttle if following conditions are met:
    *       1 - We are in Circle mode (which we use for short term failsafe), or in FBW-B or higher
@@ -596,16 +574,21 @@ static bool suppress_throttle(void)
     }
 
     if (control_mode==AUTO && 
-        auto_state.takeoff_complete == false && 
-        auto_takeoff_check()) {
-        // we're in auto takeoff 
-        throttle_suppressed = false;
-        return false;
+        auto_state.takeoff_complete == false) {
+        if (auto_takeoff_check()) {
+            // we're in auto takeoff 
+            throttle_suppressed = false;
+            return false;
+        }
+        // keep throttle suppressed
+        return true;
     }
     
     if (relative_altitude_abs_cm() >= 1000) {
         // we're more than 10m from the home altitude
         throttle_suppressed = false;
+        gcs_send_text_fmt(PSTR("Throttle unsuppressed - altitude %.2f"), 
+                          (double)(relative_altitude_abs_cm()*0.01f));
         return false;
     }
 
@@ -616,6 +599,9 @@ static bool suppress_throttle(void)
         // groundspeed with bad GPS reception
         if ((!ahrs.airspeed_sensor_enabled()) || airspeed.get_airspeed() >= 5) {
             // we're moving at more than 5 m/s
+            gcs_send_text_fmt(PSTR("Throttle unsuppressed - speed %.2f airspeed %.2f"), 
+                              (double)gps.ground_speed(),
+                              (double)airspeed.get_airspeed());
             throttle_suppressed = false;
             return false;        
         }
@@ -819,13 +805,17 @@ static void set_servos(void)
             min_throttle = 0;
         }
         if (control_mode == AUTO && flight_stage == AP_SpdHgtControl::FLIGHT_TAKEOFF) {
-            max_throttle = takeoff_throttle();
+            if(aparm.takeoff_throttle_max != 0) {
+                max_throttle = aparm.takeoff_throttle_max;
+            } else {
+                max_throttle = aparm.throttle_max;
+            }
         }
         channel_throttle->servo_out = constrain_int16(channel_throttle->servo_out, 
                                                       min_throttle,
                                                       max_throttle);
 
-        if (!ahrs.get_armed()) {
+        if (!hal.util->get_soft_armed()) {
             channel_throttle->servo_out = 0;
             channel_throttle->calc_pwm();                
         } else if (suppress_throttle()) {
@@ -965,20 +955,25 @@ static void set_servos(void)
     obc.check_crash_plane();
 #endif
 
-#if HIL_MODE != HIL_MODE_DISABLED
-    // get the servos to the GCS immediately for HIL
-    if (comm_get_txspace(MAVLINK_COMM_0) >= 
-        MAVLINK_MSG_ID_RC_CHANNELS_SCALED_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES) {
-        send_servo_out(MAVLINK_COMM_0);
+    if (g.hil_mode == 1) {
+        // get the servos to the GCS immediately for HIL
+        if (comm_get_txspace(MAVLINK_COMM_0) >= 
+            MAVLINK_MSG_ID_RC_CHANNELS_SCALED_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES) {
+            send_servo_out(MAVLINK_COMM_0);
+        }
+        if (!g.hil_servos) {
+            return;
+        }
     }
-    if (!g.hil_servos) {
-        return;
-    }
-#endif
 
     // send values to the PWM timers for output
     // ----------------------------------------
-    channel_roll->output();
+    if (g.rudder_only == 0) {
+        // when we RUDDER_ONLY mode we don't send the channel_roll
+        // output and instead rely on KFF_RDDRMIX. That allows the yaw
+        // damper to operate.
+        channel_roll->output();
+    }
     channel_pitch->output();
     channel_throttle->output();
     channel_rudder->output();
@@ -1031,7 +1026,7 @@ static void update_load_factor(void)
         // limit to 85 degrees to prevent numerical errors
         demanded_roll = 85;
     }
-    aerodynamic_load_factor = 1.0f / safe_sqrt(cos(radians(demanded_roll)));
+    aerodynamic_load_factor = 1.0f / safe_sqrt(cosf(radians(demanded_roll)));
 
     if (!aparm.stall_prevention) {
         // stall prevention is disabled

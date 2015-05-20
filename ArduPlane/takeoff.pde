@@ -37,7 +37,7 @@ static bool auto_takeoff_check(void)
 
     // Check for launch acceleration or timer started. NOTE: relies on TECS 50Hz processing
     if (!launchTimerStarted &&
-        g.takeoff_throttle_min_accel != 0.0 &&
+        !is_zero(g.takeoff_throttle_min_accel) &&
         SpdHgt_Controller->get_VXdot() < g.takeoff_throttle_min_accel) {
         goto no_launch;
     }
@@ -47,7 +47,7 @@ static bool auto_takeoff_check(void)
         launchTimerStarted = true;
         last_tkoff_arm_time = now;
         gcs_send_text_fmt(PSTR("Armed AUTO, xaccel = %.1f m/s/s, waiting %.1f sec"), 
-                          SpdHgt_Controller->get_VXdot(), wait_time_ms*0.001f);
+                (double)SpdHgt_Controller->get_VXdot(), (double)(wait_time_ms*0.001f));
     }
 
     // Only perform velocity check if not timed out
@@ -65,9 +65,9 @@ static bool auto_takeoff_check(void)
     }
 
     // Check ground speed and time delay
-    if (((gps.ground_speed() > g.takeoff_throttle_min_speed || g.takeoff_throttle_min_speed == 0.0)) && 
+    if (((gps.ground_speed() > g.takeoff_throttle_min_speed || is_zero(g.takeoff_throttle_min_speed))) &&
         ((now - last_tkoff_arm_time) >= wait_time_ms)) {
-        gcs_send_text_fmt(PSTR("Triggered AUTO, GPSspd = %.1f"), gps.ground_speed());
+        gcs_send_text_fmt(PSTR("Triggered AUTO, GPSspd = %.1f"), (double)gps.ground_speed());
         launchTimerStarted = false;
         last_tkoff_arm_time = 0;
         return true;
@@ -170,13 +170,3 @@ return_zero:
     return 0;
 }
 
-/*
-  return throttle percentage for takeoff
- */
-static uint8_t takeoff_throttle(void)
-{
-    if (g.takeoff_throttle_max != 0) {
-        return g.takeoff_throttle_max;
-    }
-    return aparm.throttle_max;
-}

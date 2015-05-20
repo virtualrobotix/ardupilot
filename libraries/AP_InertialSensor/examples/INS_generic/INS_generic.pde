@@ -9,7 +9,7 @@
 #include <AP_Progmem.h>
 #include <AP_HAL.h>
 #include <AP_HAL_AVR.h>
-#include <AP_HAL_AVR_SITL.h>
+#include <AP_HAL_SITL.h>
 #include <AP_HAL_Linux.h>
 #include <AP_HAL_FLYMAPLE.h>
 #include <AP_HAL_PX4.h>
@@ -38,10 +38,16 @@
 #include <AP_HAL_Linux.h>
 #include <AP_Rally.h>
 #include <AP_Scheduler.h>
+#include <AP_BattMonitor.h>
+#include <AP_RangeFinder.h>
 
 const AP_HAL::HAL& hal = AP_HAL_BOARD_DRIVER;
 
 AP_InertialSensor ins;
+
+#if CONFIG_HAL_BOARD == HAL_BOARD_APM1
+AP_ADC_ADS7844 apm1_adc;
+#endif
 
 void setup(void)
 {
@@ -89,11 +95,6 @@ void loop(void)
         }
 
         if( user_input == 'd' || user_input == 'D' ) {
-            display_offsets_and_scaling();
-        }
-
-        if( user_input == 'l' || user_input == 'L' ) {
-            run_level();
             display_offsets_and_scaling();
         }
 
@@ -146,31 +147,6 @@ void display_offsets_and_scaling()
                     gyro_offsets.x,
                     gyro_offsets.y,
                     gyro_offsets.z);
-}
-
-void run_level()
-{
-    // clear off any input in the buffer
-    while( hal.console->available() ) {
-        hal.console->read();
-    }
-
-    // display message to user
-    hal.console->print("Place APM on a level surface and press any key..\n");
-
-    // wait for user input
-    while( !hal.console->available() ) {
-        hal.scheduler->delay(20);
-    }
-    while( hal.console->available() ) {
-        hal.console->read();
-    }
-
-    // run accel level
-    ins.init_accel();
-
-    // display results
-    display_offsets_and_scaling();
 }
 
 void run_test()

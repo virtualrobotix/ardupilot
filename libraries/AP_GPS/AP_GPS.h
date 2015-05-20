@@ -26,7 +26,7 @@
 #include <GCS_MAVLink.h>
 #include <AP_Vehicle.h>
 #include "GPS_detect_state.h"
-#include <AP_SerialManager.h>
+#include "../AP_SerialManager/AP_SerialManager.h"
 
 /**
    maximum number of GPS instances available on this platform. If more
@@ -48,7 +48,7 @@
  * save flash by skipping NMEA and SIRF support on ArduCopter on APM1/2 or any frame type on AVR1280 CPUs
  */
 #if HAL_CPU_CLASS < HAL_CPU_CLASS_75 && defined(APM_BUILD_DIRECTORY)
-  #if (APM_BUILD_TYPE(APM_BUILD_ArduCopter) || defined(__AVR_ATmega1280__))
+  #if (APM_BUILD_TYPE(APM_BUILD_ArduCopter) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__))
     #define GPS_SKIP_SIRF_NMEA
   #endif
 #endif
@@ -73,14 +73,6 @@ public:
     /// This routine must be called periodically (typically at 10Hz or
     /// more) to process incoming data.
     void update(void);
-
-    //True if any of the underlying GPS Drivers are ready to enter
-    //a dgps-based fix beyond 3D lock, such as RTK mode. 
-    bool can_calculate_base_pos(void);
-
-    //Allows the underlying GPS Drivers to enter a differential lock
-    //Might cause a position jump, thus only do this on the ground.
-    void calculate_base_pos(void);
 
     // GPS driver types
     enum GPS_Type {
@@ -158,12 +150,6 @@ public:
     uint8_t primary_sensor(void) const {
         return primary_instance;
     }
-
-#if GPS_MAX_INSTANCES > 1
-    uint8_t secondary_sensor(void) const {
-        return secondary_instance;
-    }
-#endif
 
     // using these macros saves some code space on APM2
 #if GPS_MAX_INSTANCES == 1
@@ -342,9 +328,12 @@ public:
 #if GPS_MAX_INSTANCES > 1
     AP_Int8 _auto_switch;
     AP_Int8 _min_dgps;
+    AP_Int16 _sbp_logmask;
+    AP_Int8 _inject_to;
 #endif
     AP_Int8 _sbas_mode;
     AP_Int8 _min_elevation;
+    AP_Int8 _raw_data;
     
     // handle sending of initialisation strings to the GPS
     void send_blob_start(uint8_t instance, const prog_char *_blob, uint16_t size);
@@ -352,6 +341,10 @@ public:
 
     // lock out a GPS port, allowing another application to use the port
     void lock_port(uint8_t instance, bool locked);
+
+    //Inject a packet of raw binary to a GPS
+    void inject_data(uint8_t *data, uint8_t len);
+    void inject_data(uint8_t instance, uint8_t *data, uint8_t len);
 
     //MAVLink Status Sending
     void send_mavlink_gps_raw(mavlink_channel_t chan);
@@ -381,11 +374,6 @@ private:
 
     /// primary GPS instance
     uint8_t primary_instance:2;
-
-#if GPS_MAX_INSTANCES > 1
-    /// secondary GPS instance
-    uint8_t secondary_instance:2;
-#endif
 
     /// number of GPS instances present
     uint8_t num_instances:2;

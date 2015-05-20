@@ -101,7 +101,7 @@ static void init_home()
     gcs_send_text_P(SEVERITY_LOW, PSTR("init home"));
 
     ahrs.set_home(gps.location());
-    home_is_set = true;
+    home_is_set = HOME_SET_NOT_LOCKED;
 
     gcs_send_text_fmt(PSTR("gps alt: %lu"), (unsigned long)home.alt);
 
@@ -111,11 +111,6 @@ static void init_home()
     // Save prev loc
     // -------------
     next_WP_loc = prev_WP_loc = home;
-
-    // Load home for a default guided_WP
-    // -------------
-    guided_WP_loc = home;
-    guided_WP_loc.alt += g.RTL_altitude_cm;
 }
 
 /*
@@ -125,6 +120,8 @@ static void init_home()
 */
 static void update_home()
 {
-    ahrs.set_home(gps.location());
+    if (home_is_set == HOME_SET_NOT_LOCKED) {
+        ahrs.set_home(gps.location());
+    }
     barometer.update_calibration();
 }

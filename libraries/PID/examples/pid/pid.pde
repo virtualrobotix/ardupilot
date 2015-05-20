@@ -12,7 +12,7 @@
 #include <PID.h> // ArduPilot Mega RC Library
 
 #include <AP_HAL_AVR.h>
-#include <AP_HAL_AVR_SITL.h>
+#include <AP_HAL_SITL.h>
 #include <AP_HAL_Empty.h>
 
 const AP_HAL::HAL& hal = AP_HAL_BOARD_DRIVER;
@@ -32,7 +32,7 @@ void setup()
 
     pid.kP(1);
     pid.kI(0);
-    pid.kD(0.5);
+    pid.kD(0.5f);
     pid.imax(50);
     pid.save_gains();
     pid.kP(0);

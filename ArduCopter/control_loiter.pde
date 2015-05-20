@@ -31,14 +31,13 @@ static void loiter_run()
 {
     float target_yaw_rate = 0;
     float target_climb_rate = 0;
+    float takeoff_climb_rate = 0.0f;
 
-    // if not auto armed set throttle to zero and exit immediately
-    if(!ap.auto_armed) {
+    // if not auto armed or motor interlock not enabled set throttle to zero and exit immediately
+    if(!ap.auto_armed || !motors.get_interlock()) {
         wp_nav.init_loiter_target();
-        attitude_control.relax_bf_rate_controller();
-        attitude_control.set_yaw_target_to_current_heading();
-        attitude_control.set_throttle_out(0, false);
-        pos_control.set_alt_target_to_current_alt();
+        attitude_control.set_throttle_out_unstabilized(0,true,g.throttle_filt);
+        pos_control.relax_alt_hold_controllers(get_throttle_pre_takeoff(g.rc_3.control_in)-throttle_average);
         return;
     }
 
@@ -55,9 +54,17 @@ static void loiter_run()
 
         // get pilot desired climb rate
         target_climb_rate = get_pilot_desired_climb_rate(g.rc_3.control_in);
+        target_climb_rate = constrain_float(target_climb_rate, -g.pilot_velocity_z_max, g.pilot_velocity_z_max);
 
-        // check for pilot requested take-off
-        if (ap.land_complete && target_climb_rate > 0) {
+        // get takeoff adjusted pilot and takeoff climb rates
+        takeoff_get_climb_rates(target_climb_rate, takeoff_climb_rate);
+
+        // check for take-off
+        if (ap.land_complete && (takeoff_state.running || g.rc_3.control_in > get_takeoff_trigger_throttle())) {
+            if (!takeoff_state.running) {
+                takeoff_timer_start(constrain_float(g.pilot_takeoff_alt,0.0f,1000.0f));
+            }
+
             // indicate we are taking off
             set_land_complete(false);
             // clear i term when we're taking off
@@ -76,11 +83,9 @@ static void loiter_run()
     // when landed reset targets and output zero throttle
     if (ap.land_complete) {
         wp_nav.init_loiter_target();
-        attitude_control.relax_bf_rate_controller();
-        attitude_control.set_yaw_target_to_current_heading();
         // move throttle to between minimum and non-takeoff-throttle to keep us on the ground
-        attitude_control.set_throttle_out(get_throttle_pre_takeoff(g.rc_3.control_in), false);
-        pos_control.set_alt_target_to_current_alt();
+        attitude_control.set_throttle_out_unstabilized(get_throttle_pre_takeoff(g.rc_3.control_in),true,g.throttle_filt);
+        pos_control.relax_alt_hold_controllers(get_throttle_pre_takeoff(g.rc_3.control_in)-throttle_average);
     }else{
         // run loiter controller
         wp_nav.update_loiter(ekfGndSpdLimit, ekfNavVelGainScaler);
@@ -93,11 +98,12 @@ static void loiter_run()
         // run altitude controller
         if (sonar_alt_health >= SONAR_ALT_HEALTH_MAX) {
             // if sonar is ok, use surface tracking
-            target_climb_rate = get_throttle_surface_tracking(target_climb_rate, pos_control.get_alt_target(), G_Dt);
+            target_climb_rate = get_surface_tracking_climb_rate(target_climb_rate, pos_control.get_alt_target(), G_Dt);
         }
 
         // update altitude target and call position controller
         pos_control.set_alt_target_from_climb_rate(target_climb_rate, G_Dt);
+        pos_control.add_takeoff_climb_rate(takeoff_climb_rate, G_Dt);
         pos_control.update_z_controller();
     }
 }

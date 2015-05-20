@@ -16,8 +16,8 @@ const AP_Param::Info var_info[] PROGMEM = {
     GSCALAR(software_type,          "SYSID_SW_TYPE",  Parameters::k_software_type),
 
     // @Param: SYSID_THISMAV
-    // @DisplayName: MAVLink system ID
-    // @Description: The identifier of this device in the MAVLink protocol
+    // @DisplayName: MAVLink system ID of this vehicle
+    // @Description: Allows setting an individual system id for this vehicle to distinguish it from others on the same network
     // @Range: 1 255
     // @User: Advanced
     GSCALAR(sysid_this_mav,         "SYSID_THISMAV",  MAV_SYSTEM_ID),
@@ -29,28 +29,12 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @User: Advanced
     GSCALAR(sysid_my_gcs,           "SYSID_MYGCS",    255),
 
-    // @Param: SERIAL0_BAUD
-    // @DisplayName: USB Console Baud Rate
-    // @Description: The baud rate used on the USB console
-    // @Values: 1:1200,2:2400,4:4800,9:9600,19:19200,38:38400,57:57600,111:111100,115:115200
-    // @User: Standard
-    GSCALAR(serial0_baud,           "SERIAL0_BAUD",   SERIAL0_BAUD/1000),
-
-    // @Param: SERIAL1_BAUD
-    // @DisplayName: Telemetry Baud Rate
-    // @Description: The baud rate used on the first telemetry port
-    // @Values: 1:1200,2:2400,4:4800,9:9600,19:19200,38:38400,57:57600,111:111100,115:115200
-    // @User: Standard
-    GSCALAR(serial1_baud,           "SERIAL1_BAUD",   SERIAL1_BAUD/1000),
-
-#if MAVLINK_COMM_NUM_BUFFERS > 2
-    // @Param: SERIAL2_BAUD
-    // @DisplayName: Telemetry Baud Rate
-    // @Description: The baud rate used on the second telemetry port
-    // @Values: 1:1200,2:2400,4:4800,9:9600,19:19200,38:38400,57:57600,111:111100,115:115200
-    // @User: Standard
-    GSCALAR(serial2_baud,           "SERIAL2_BAUD",   SERIAL2_BAUD/1000),
-#endif
+    // @Param: SYSID_TARGET
+    // @DisplayName: Target vehicle's MAVLink system ID
+    // @Description: The identifier of the vehicle being tracked. This should be zero (to auto detect) or be the same as the SYSID_THISMAV parameter of the vehicle being tracked.
+    // @Range: 1 255
+    // @User: Advanced
+    GSCALAR(sysid_target,           "SYSID_TARGET",    0),
 
     // @Param: MAG_ENABLE
     // @DisplayName: Enable Compass
@@ -201,6 +185,15 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @User: Standard
     GSCALAR(pitch_range,            "PITCH_RANGE", PITCH_RANGE_DEFAULT),
 
+    // @Param: DISTANCE_MIN
+    // @DisplayName: Distance minimum to target
+    // @Description: Tracker will track targets at least this distance away
+    // @Units: meters
+    // @Increment: 1
+    // @Range: 0 100
+    // @User: Standard
+    GSCALAR(distance_min,           "DISTANCE_MIN", DISTANCE_MIN_DEFAULT),
+
     // barometer ground calibration. The GND_ prefix is chosen for
     // compatibility with previous releases of ArduPlane
     // @Group: GND_
@@ -229,6 +222,12 @@ const AP_Param::Info var_info[] PROGMEM = {
     GOBJECTN(gcs[2],  gcs2,       "SR2_",     GCS_MAVLINK),
 #endif
 
+#if MAVLINK_COMM_NUM_BUFFERS > 3
+    // @Group: SR3_
+    // @Path: GCS_Mavlink.pde
+    GOBJECTN(gcs[3],  gcs3,       "SR3_",     GCS_MAVLINK),
+#endif
+
     // @Group: INS_
     // @Path: ../libraries/AP_InertialSensor/AP_InertialSensor.cpp
     GOBJECT(ins,                    "INS_", AP_InertialSensor),
@@ -237,7 +236,7 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @Path: ../libraries/AP_AHRS/AP_AHRS.cpp
     GOBJECT(ahrs,                   "AHRS_",    AP_AHRS),
 
-#if CONFIG_HAL_BOARD == HAL_BOARD_AVR_SITL
+#if CONFIG_HAL_BOARD == HAL_BOARD_SITL
     // @Group: SIM_
     // @Path: ../libraries/SITL/SITL.cpp
     GOBJECT(sitl, "SIM_", SITL),
@@ -261,6 +260,10 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @Group: RC2_
     // @Path: ../libraries/RC_Channel/RC_Channel.cpp
     GOBJECT(channel_pitch,     "RC2_", RC_Channel),
+
+    // @Group: SERIAL
+    // @Path: ../libraries/AP_SerialManager/AP_SerialManager.cpp
+    GOBJECT(serial_manager,    "SERIAL",   AP_SerialManager),
 
 	GGROUP(pidPitch2Srv,       "PITCH2SRV_", PID),
 	GGROUP(pidYaw2Srv,         "YAW2SRV_", PID),

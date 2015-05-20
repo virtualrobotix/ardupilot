@@ -1,6 +1,6 @@
 /// -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
 
-#define THISFIRMWARE "AntennaTracker V0.2"
+#define THISFIRMWARE "AntennaTracker V0.7"
 /*
    Lead developers: Matthew Ridley and Andrew Tridgell
  
@@ -46,6 +46,7 @@
 #include <memcheck.h>
 
 #include <GCS_MAVLink.h>    // MAVLink GCS definitions
+#include <AP_SerialManager.h>   // Serial manager library
 #include <AP_Declination.h> // ArduPilot Mega Declination Helper Library
 #include <DataFlash.h>
 #include <SITL.h>
@@ -63,6 +64,7 @@
 #include <RC_Channel.h>
 #include <AP_BoardConfig.h>
 #include <AP_OpticalFlow.h>
+#include <AP_RangeFinder.h>
 
 // Configuration
 #include "config.h"
@@ -74,7 +76,7 @@
 #include "GCS.h"
 
 #include <AP_HAL_AVR.h>
-#include <AP_HAL_AVR_SITL.h>
+#include <AP_HAL_SITL.h>
 #include <AP_HAL_PX4.h>
 #include <AP_HAL_FLYMAPLE.h>
 #include <AP_HAL_Linux.h>
@@ -119,19 +121,7 @@ static AP_GPS gps;
 
 static AP_Baro barometer;
 
-#if CONFIG_COMPASS == HAL_COMPASS_PX4
-static AP_Compass_PX4 compass;
-#elif CONFIG_COMPASS == HAL_COMPASS_VRBRAIN
-static AP_Compass_VRBRAIN compass;
-#elif CONFIG_COMPASS == HAL_COMPASS_HMC5843
-static AP_Compass_HMC5843 compass;
-#elif CONFIG_COMPASS == HAL_COMPASS_HIL
-static AP_Compass_HIL compass;
-#elif CONFIG_COMPASS == HAL_COMPASS_AK8963
-static AP_Compass_AK8963_MPU9250 compass;
-#else
- #error Unrecognized CONFIG_COMPASS setting
-#endif
+static Compass compass;
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_APM1
 AP_ADC_ADS7844 apm1_adc;
@@ -139,14 +129,16 @@ AP_ADC_ADS7844 apm1_adc;
 
 AP_InertialSensor ins;
 
+static RangeFinder rng;
+
 // Inertial Navigation EKF
 #if AP_AHRS_NAVEKF_AVAILABLE
-AP_AHRS_NavEKF ahrs(ins, barometer, gps);
+AP_AHRS_NavEKF ahrs(ins, barometer, gps, rng);
 #else
 AP_AHRS_DCM ahrs(ins, barometer, gps);
 #endif
 
-#if CONFIG_HAL_BOARD == HAL_BOARD_AVR_SITL
+#if CONFIG_HAL_BOARD == HAL_BOARD_SITL
 SITL sitl;
 #endif
 
@@ -159,6 +151,7 @@ static RC_Channel channel_pitch(CH_PITCH);
 ////////////////////////////////////////////////////////////////////////////////
 // GCS selection
 ////////////////////////////////////////////////////////////////////////////////
+static AP_SerialManager serial_manager;
 static const uint8_t num_gcs = MAVLINK_COMM_NUM_BUFFERS;
 static GCS_MAVLINK gcs[MAVLINK_COMM_NUM_BUFFERS];
 
@@ -250,12 +243,14 @@ void setup()
     // load the default values of variables listed in var_info[]
     AP_Param::setup_sketch_defaults();
 
+    // initialise notify
+    notify.init(false);
+
     // antenna tracker does not use pre-arm checks or battery failsafe
     AP_Notify::flags.pre_arm_check = true;
     AP_Notify::flags.pre_arm_gps_check = true;
     AP_Notify::flags.failsafe_battery = false;
 
-    notify.init(false);
     init_tracker();
 
     // initialise the main loop scheduler

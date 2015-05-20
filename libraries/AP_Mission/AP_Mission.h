@@ -106,6 +106,34 @@ public:
         float cycle_time;       // cycle time in seconds (the time between peaks or the time the servo is at the specified pwm value for each cycle?)
     };
 
+    // mount control command structure
+    struct PACKED Mount_Control {
+        float pitch;            // pitch angle in degrees
+        float roll;             // roll angle in degrees
+        float yaw;              // yaw angle (relative to vehicle heading) in degrees
+    };
+
+    // digicam control command structure
+    struct PACKED Digicam_Configure {
+        uint8_t shooting_mode;  // ProgramAuto = 1, AV = 2, TV = 3, Man=4, IntelligentAuto=5, SuperiorAuto=6
+        uint16_t shutter_speed;
+        uint8_t aperture;       // F stop number * 10
+        uint16_t ISO;           // 80, 100, 200, etc
+        uint8_t exposure_type;
+        uint8_t cmd_id;
+        float engine_cutoff_time;   // seconds
+    };
+
+    // digicam control command structure
+    struct PACKED Digicam_Control {
+        uint8_t session;        // 1 = on, 0 = off
+        uint8_t zoom_pos;
+        int8_t zoom_step;       // +1 = zoom in, -1 = zoom out
+        uint8_t focus_lock;
+        uint8_t shooting_cmd;
+        uint8_t cmd_id;
+    };
+
     // set cam trigger distance command structure
     struct PACKED Cam_Trigg_Distance {
         float meters;           // distance
@@ -152,6 +180,15 @@ public:
 
         // do-repeate-servo
         Repeat_Servo_Command repeat_servo;
+
+        // mount control
+        Mount_Control mount_control;
+
+        // camera configure
+        Digicam_Configure digicam_configure;
+
+        // camera control
+        Digicam_Control digicam_control;
 
         // cam trigg distance
         Cam_Trigg_Distance cam_trigg_dist;

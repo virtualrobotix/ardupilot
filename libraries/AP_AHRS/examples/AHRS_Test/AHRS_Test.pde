@@ -34,9 +34,13 @@
 #include <AP_Scheduler.h>
 
 #include <AP_HAL_AVR.h>
-#include <AP_HAL_AVR_SITL.h>
+#include <AP_HAL_SITL.h>
 #include <AP_HAL_Empty.h>
 #include <AP_HAL_PX4.h>
+#include <AP_BattMonitor.h>
+#include <AP_SerialManager.h>
+#include <RC_Channel.h>
+#include <AP_RangeFinder.h>
 
 const AP_HAL::HAL& hal = AP_HAL_BOARD_DRIVER;
 
@@ -44,13 +48,14 @@ const AP_HAL::HAL& hal = AP_HAL_BOARD_DRIVER;
 AP_InertialSensor ins;
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_APM1
-AP_ADC_ADS7844 adc;
+AP_ADC_ADS7844 apm1_adc;
 #endif
 
-AP_Compass_HMC5843 compass;
+Compass compass;
 
 AP_GPS gps;
 AP_Baro baro;
+AP_SerialManager serial_manager;
 
 // choose which AHRS system to use
 AP_AHRS_DCM  ahrs(ins, baro, gps);
@@ -71,9 +76,8 @@ void setup(void)
 
     ins.init(AP_InertialSensor::COLD_START, 
 			 AP_InertialSensor::RATE_100HZ);
-    ins.init_accel();
-
     ahrs.init();
+    serial_manager.init();
 
     if( compass.init() ) {
         hal.console->printf("Enabling compass\n");
@@ -81,7 +85,7 @@ void setup(void)
     } else {
         hal.console->printf("No compass detected\n");
     }
-    gps.init(NULL);
+    gps.init(NULL, serial_manager);
 }
 
 void loop(void)
@@ -121,8 +125,8 @@ void loop(void)
                         ToDeg(drift.x),
                         ToDeg(drift.y),
                         ToDeg(drift.z),
-                        compass.use_for_yaw() ? ToDeg(heading) : 0.0,
-                        (1.0e6*counter)/(now-last_print));
+                        compass.use_for_yaw() ? ToDeg(heading) : 0.0f,
+                        (1.0e6f*counter)/(now-last_print));
         last_print = now;
         counter = 0;
     }

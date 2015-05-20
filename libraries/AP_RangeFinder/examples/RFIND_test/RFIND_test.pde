@@ -12,7 +12,7 @@
 #include <GCS_MAVLink.h>
 #include <AP_HAL_Empty.h>
 #include <AP_HAL_AVR.h>
-#include <AP_HAL_AVR_SITL.h>
+#include <AP_HAL_SITL.h>
 #include <AP_HAL_PX4.h>
 #include <AP_HAL_Linux.h>
 #include <DataFlash.h>
@@ -32,6 +32,8 @@
 #include <StorageManager.h>
 #include <AP_Terrain.h>
 #include <AP_Scheduler.h>
+#include <AP_BattMonitor.h>
+#include <AP_Rally.h>
 
 const AP_HAL::HAL& hal = AP_HAL_BOARD_DRIVER;
 
@@ -43,9 +45,9 @@ void setup()
     hal.console->println("Range Finder library test");
 
     // setup for analog pin 13
-    AP_Param::set_object_value(&sonar, sonar.var_info, "_TYPE", RangeFinder::RangeFinder_TYPE_ANALOG);
-    AP_Param::set_object_value(&sonar, sonar.var_info, "_PIN", 13);
-    AP_Param::set_object_value(&sonar, sonar.var_info, "_SCALING", 3.10);
+    AP_Param::set_object_value(&sonar, sonar.var_info, "_TYPE", RangeFinder::RangeFinder_TYPE_PLI2C);
+    AP_Param::set_object_value(&sonar, sonar.var_info, "_PIN", -1);
+    AP_Param::set_object_value(&sonar, sonar.var_info, "_SCALING", 1.0);
 
     // initialise sensor, delaying to make debug easier
     hal.scheduler->delay(2000);
@@ -59,9 +61,9 @@ void loop()
     hal.scheduler->delay(100);
     sonar.update();
 
-    hal.console->printf_P(PSTR("Primary: health %d distance_cm %d \n"), (int)sonar.healthy(), sonar.distance_cm());
-    hal.console->printf_P(PSTR("All: device_0 type %d health %d distance_cm %d, device_1 type %d health %d distance_cm %d\n"),
-    (int)sonar._type[0], (int)sonar.healthy(0), sonar.distance_cm(0), (int)sonar._type[1], (int)sonar.healthy(1), sonar.distance_cm(1));
+    hal.console->printf_P(PSTR("Primary: status %d distance_cm %d \n"), (int)sonar.status(), sonar.distance_cm());
+    hal.console->printf_P(PSTR("All: device_0 type %d status %d distance_cm %d, device_1 type %d status %d distance_cm %d\n"),
+    (int)sonar._type[0], (int)sonar.status(0), sonar.distance_cm(0), (int)sonar._type[1], (int)sonar.status(1), sonar.distance_cm(1));
 
 }
 AP_HAL_MAIN();

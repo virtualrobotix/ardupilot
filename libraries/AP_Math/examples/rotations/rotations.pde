@@ -8,7 +8,7 @@
 #include <AP_Progmem.h>
 #include <AP_Param.h>
 #include <AP_HAL_AVR.h>
-#include <AP_HAL_AVR_SITL.h>
+#include <AP_HAL_SITL.h>
 #include <AP_HAL_Empty.h>
 #include <AP_HAL_PX4.h>
 #include <AP_HAL_Linux.h>
@@ -33,6 +33,8 @@
 #include <AP_Vehicle.h>
 #include <AP_ADC_AnalogSource.h>
 #include <AP_Rally.h>
+#include <AP_BattMonitor.h>
+#include <AP_RangeFinder.h>
 
 const AP_HAL::HAL& hal = AP_HAL_BOARD_DRIVER;
 
@@ -79,7 +81,7 @@ static void test_euler(enum Rotation rotation, float roll, float pitch, float ya
 {
     Vector3f v, v1, v2, diff;
     Matrix3f rotmat;
-    const float accuracy = 1.0e-6;
+    const float accuracy = 1.0e-6f;
 
     v.x = 1;
     v.y = 2;

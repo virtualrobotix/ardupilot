@@ -158,7 +158,10 @@ build_arduplane() {
 	    copyit ArduPlane-vrubrain-v51P.hex $ddir $tag &&
 	    copyit ArduPlane-vrubrain-v52.vrx $ddir $tag && 
 	    copyit ArduPlane-vrubrain-v52.bin $ddir $tag && 
-	    copyit ArduPlane-vrubrain-v52.hex $ddir $tag
+	    copyit ArduPlane-vrubrain-v52.hex $ddir $tag && 
+	    copyit ArduPlane-vrubrain-v52P.vrx $ddir $tag && 
+	    copyit ArduPlane-vrubrain-v52P.bin $ddir $tag && 
+	    copyit ArduPlane-vrubrain-v52P.hex $ddir $tag
 	}
     }
 }
@@ -171,7 +174,7 @@ build_arducopter() {
     frames="quad tri hexa y6 octa octa-quad heli"
     test -n "$VRBRAIN_ROOT"
 	make vrbrain-clean || return
-	for f in $frames quad-hil heli-hil; do
+	for f in $frames; do
 	    echo "Building ArduCopter VRBRAIN-$f binaries"
 	    ddir="$binaries/Copter/$hdate/VRX-$f"
 	    skip_build $tag $ddir && continue
@@ -219,7 +222,10 @@ build_arducopter() {
 	    copyit ArduCopter-vrubrain-v51P.hex $ddir $tag &&
 	    copyit ArduCopter-vrubrain-v52.vrx $ddir $tag && 
 	    copyit ArduCopter-vrubrain-v52.bin $ddir $tag && 
-	    copyit ArduCopter-vrubrain-v52.hex $ddir $tag
+	    copyit ArduCopter-vrubrain-v52.hex $ddir $tag && 
+	    copyit ArduCopter-vrubrain-v52P.vrx $ddir $tag && 
+	    copyit ArduCopter-vrubrain-v52P.bin $ddir $tag && 
+	    copyit ArduCopter-vrubrain-v52P.hex $ddir $tag
 	done
     }
 
@@ -276,15 +282,18 @@ build_rover() {
 	    copyit APMrover2-vrubrain-v51P.hex $ddir $tag &&
 	    copyit APMrover2-vrubrain-v52.vrx $ddir $tag && 
 	    copyit APMrover2-vrubrain-v52.bin $ddir $tag && 
-	    copyit APMrover2-vrubrain-v52.hex $ddir $tag
+	    copyit APMrover2-vrubrain-v52.hex $ddir $tag && 
+	    copyit APMrover2-vrubrain-v52P.vrx $ddir $tag && 
+	    copyit APMrover2-vrubrain-v52P.bin $ddir $tag && 
+	    copyit APMrover2-vrubrain-v52P.hex $ddir $tag
 	}
     }
 }
 
-for build in beta; do
+for build in latest; do
     build_arduplane $build
-    #build_arducopter $build
-    #build_rover $build
+    build_arducopter $build
+    build_rover $build
 done
 
 rm -rf $TMPDIR

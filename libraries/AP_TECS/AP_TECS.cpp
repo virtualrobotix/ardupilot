@@ -5,7 +5,7 @@
 
 extern const AP_HAL::HAL& hal;
 
-#if CONFIG_HAL_BOARD == HAL_BOARD_AVR_SITL
+#if CONFIG_HAL_BOARD == HAL_BOARD_SITL
  #include <stdio.h>
  # define Debug(fmt, args ...)  do {printf("%s:%d: " fmt "\n", __FUNCTION__, __LINE__, ## args); hal.scheduler->delay(1); } while(0)
 #else
@@ -175,6 +175,14 @@ const AP_Param::GroupInfo AP_TECS::var_info[] PROGMEM = {
     // @Increment: 0.1
     // @User: Advanced
     AP_GROUPINFO("LAND_DAMP", 19, AP_TECS, _landDamp, 0.5f),
+
+    // @Param: LAND_PMAX
+    // @DisplayName: Maximum pitch during final stage of landing
+    // @Description: This limits the pitch used during the final stage of automatic landing. During the final landing stage most planes need to keep their pitch small to avoid stalling. A maximum of 10 degrees is usually good. A value of zero means to use the normal pitch limits.
+	// @Range: 0 40
+	// @Increment: 1
+	// @User: Advanced
+    AP_GROUPINFO("LAND_PMAX", 20, AP_TECS, _land_pitch_max, 10),
 
     AP_GROUPEND
 };
@@ -393,6 +401,7 @@ void AP_TECS::_update_height_demand(void)
     // configured sink rate and adjust the demanded height to
     // be kinematically consistent with the height rate.
 	if (_flight_stage == FLIGHT_LAND_FINAL) {
+        _integ7_state = 0;
         if (_flare_counter == 0) {
             _hgt_rate_dem = _climb_rate;
             _land_hgt_dem = _hgt_dem_adj;
@@ -462,11 +471,17 @@ void AP_TECS::_update_energies(void)
 /*
   current time constant. It is lower in landing to try to give a precise approach
  */
-float AP_TECS::timeConstant(void)
+float AP_TECS::timeConstant(void) const
 {
     if (_flight_stage==FLIGHT_LAND_FINAL ||
         _flight_stage==FLIGHT_LAND_APPROACH) {
+        if (_landTimeConst < 0.1f) {
+            return 0.1f;
+        }
         return _landTimeConst;
+    }
+    if (_timeConst < 0.1f) {
+        return 0.1f;
     }
     return _timeConst;
 }
@@ -571,11 +586,7 @@ void AP_TECS::_update_throttle_option(int16_t throttle_nudge)
 		nomThr = (aparm.throttle_cruise + throttle_nudge)* 0.01f;
     }
     
-	if (_flight_stage == AP_TECS::FLIGHT_TAKEOFF)
-	{
-		_throttle_dem = _THRmaxf;
-	}
-	else if (_pitch_dem > 0.0f && _PITCHmaxf > 0.0f)
+	if (_pitch_dem > 0.0f && _PITCHmaxf > 0.0f)
 	{
 		_throttle_dem = nomThr + (_THRmaxf - nomThr) * _pitch_dem / _PITCHmaxf;
 	}
@@ -650,15 +661,24 @@ void AP_TECS::_update_pitch(void)
 
     // Calculate integrator state, constraining input if pitch limits are exceeded
     float integ7_input = SEB_error * _integGain;
-    if (_pitch_dem_unc > _PITCHmaxf) 
+    if (_pitch_dem > _PITCHmaxf) 
     {
-        integ7_input = min(integ7_input, _PITCHmaxf - _pitch_dem_unc);
+        integ7_input = min(integ7_input, _PITCHmaxf - _pitch_dem);
     }
-    else if (_pitch_dem_unc < _PITCHminf)
+    else if (_pitch_dem < _PITCHminf)
     {
-        integ7_input = max(integ7_input, _PITCHminf - _pitch_dem_unc);
+        integ7_input = max(integ7_input, _PITCHminf - _pitch_dem);
     }
     _integ7_state = _integ7_state + integ7_input * _DT;
+
+#if 0
+	if (_flight_stage == FLIGHT_LAND_FINAL && fabsf(_climb_rate) > 0.2f) {
+        ::printf("_hgt_rate_dem=%.1f _hgt_dem_adj=%.1f climb=%.1f _flare_counter=%u _pitch_dem=%.1f SEB_dem=%.2f SEBdot_dem=%.2f SEB_error=%.2f SEBdot_error=%.2f\n",
+                 _hgt_rate_dem, _hgt_dem_adj, _climb_rate, _flare_counter, degrees(_pitch_dem),
+                 SEB_dem, SEBdot_dem, SEB_error, SEBdot_error);
+    }
+#endif
+
 
     // Apply max and min values for integrator state that will allow for no more than 
 	// 5deg of saturation. This allows for some pitch variation due to gusts before the 
@@ -697,6 +717,10 @@ void AP_TECS::_update_pitch(void)
 	{
 		_pitch_dem = _last_pitch_dem - ptchRateIncr;
 	}
+
+    // re-constrain pitch demand
+    _pitch_dem = constrain_float(_pitch_dem, _PITCHminf, _PITCHmaxf);
+
 	_last_pitch_dem = _pitch_dem;
 }
 
@@ -723,7 +747,6 @@ void AP_TECS::_initialise_states(int32_t ptchMinCO_cd, float hgt_afe)
 	else if (_flight_stage == AP_TECS::FLIGHT_TAKEOFF)
 	{
 		_PITCHminf          = 0.000174533f * ptchMinCO_cd;
-		_THRminf            = _THRmaxf - 0.01f;
 		_hgt_dem_adj_last  = hgt_afe;
 		_hgt_dem_adj       = _hgt_dem_adj_last;
 		_hgt_dem_prev      = _hgt_dem_adj_last;
@@ -761,7 +784,11 @@ void AP_TECS::update_pitch_throttle(int32_t hgt_dem_cm,
 	// Convert inputs
     _hgt_dem = hgt_dem_cm * 0.01f;
 	_EAS_dem = EAS_dem_cm * 0.01f;
-    _THRmaxf  = aparm.throttle_max * 0.01f;
+    if (_flight_stage == AP_TECS::FLIGHT_TAKEOFF && aparm.takeoff_throttle_max != 0) {
+        _THRmaxf  = aparm.takeoff_throttle_max * 0.01f;
+    } else {
+        _THRmaxf  = aparm.throttle_max * 0.01f;
+    }
     _THRminf  = aparm.throttle_min * 0.01f;
 
 	// work out the maximum and minimum pitch
@@ -782,9 +809,34 @@ void AP_TECS::update_pitch_throttle(int32_t hgt_dem_cm,
         // in flare use min pitch from LAND_PITCH_CD
         _PITCHminf = max(_PITCHminf, aparm.land_pitch_cd * 0.01f);
 
+        // and use max pitch from TECS_LAND_PMAX
+        if (_land_pitch_max > 0) {
+            _PITCHmaxf = min(_PITCHmaxf, _land_pitch_max);
+        }
+        
         // and allow zero throttle
         _THRminf = 0;
+    } else if (flight_stage == FLIGHT_LAND_APPROACH && (-_climb_rate) > _land_sink) {
+        // constrain the pitch in landing as we get close to the flare
+        // point. Use a simple linear limit from 15 meters after the
+        // landing point
+        float time_to_flare = (- hgt_afe / _climb_rate) - aparm.land_flare_sec;
+        if (time_to_flare < 0) {
+            // we should be flaring already
+            _PITCHminf = max(_PITCHminf, aparm.land_pitch_cd * 0.01f);
+        } else if (time_to_flare < timeConstant()*2) {
+            // smoothly move the min pitch to the flare min pitch over
+            // twice the time constant
+            float p = time_to_flare/(2*timeConstant());
+            float pitch_limit_cd = p*aparm.pitch_limit_min_cd + (1-p)*aparm.land_pitch_cd;
+#if 0
+            ::printf("ttf=%.1f hgt_afe=%.1f _PITCHminf=%.1f pitch_limit=%.1f climb=%.1f\n",
+                     time_to_flare, hgt_afe, _PITCHminf, pitch_limit_cd*0.01f, _climb_rate);
+#endif
+            _PITCHminf = max(_PITCHminf, pitch_limit_cd*0.01f);
+        }
     }
+
 	// convert to radians
 	_PITCHmaxf = radians(_PITCHmaxf);
 	_PITCHminf = radians(_PITCHminf);

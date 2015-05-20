@@ -2,6 +2,7 @@
 
 #if LOGGING_ENABLED == ENABLED
 
+#if CLI_ENABLED == ENABLED
 // Code to Write and Read packets from DataFlash.log memory
 // Code to interact with the user to dump or erase logs
 
@@ -93,13 +94,6 @@ dump_log(uint8_t argc, const Menu::arg *argv)
     return 0;
 }
 
-static void do_erase_logs(void)
-{
-    gcs_send_text_P(SEVERITY_LOW, PSTR("Erasing logs"));
-    DataFlash.EraseAll();
-    gcs_send_text_P(SEVERITY_LOW, PSTR("Log erase complete"));
-}
-
 static int8_t
 erase_logs(uint8_t argc, const Menu::arg *argv)
 {
@@ -164,6 +158,16 @@ process_logs(uint8_t argc, const Menu::arg *argv)
     return 0;
 }
 
+#endif // CLI_ENABLED == ENABLED
+
+static void do_erase_logs(void)
+{
+    gcs_send_text_P(SEVERITY_LOW, PSTR("Erasing logs"));
+    DataFlash.EraseAll();
+    gcs_send_text_P(SEVERITY_LOW, PSTR("Log erase complete"));
+}
+
+
 // Write an attitude packet
 static void Log_Write_Attitude(void)
 {
@@ -182,9 +186,10 @@ static void Log_Write_Attitude(void)
  #endif
     DataFlash.Log_Write_AHRS2(ahrs);
 #endif
-#if CONFIG_HAL_BOARD == HAL_BOARD_AVR_SITL
+#if CONFIG_HAL_BOARD == HAL_BOARD_SITL
     sitl.Log_Write_SIMSTATE(DataFlash);
 #endif
+    DataFlash.Log_Write_POS(ahrs);
 }
 
 
@@ -241,6 +246,13 @@ static void Log_Write_Startup(uint8_t type)
     DataFlash.WriteBlock(&pkt, sizeof(pkt));
 
     // write all commands to the dataflash as well
+    Log_Write_EntireMission();
+}
+
+static void Log_Write_EntireMission()
+{
+    DataFlash.Log_Write_Message_P(PSTR("New mission"));
+
     AP_Mission::Mission_Command cmd;
     for (uint16_t i = 0; i < mission.num_commands(); i++) {
         if (mission.read_cmd_from_storage(i,cmd)) {
@@ -313,6 +325,29 @@ static void Log_Write_Nav_Tuning()
         altitude            : barometer.get_altitude(),
         groundspeed_cm      : (uint32_t)(gps.ground_speed()*100)
     };
+    DataFlash.WriteBlock(&pkt, sizeof(pkt));
+}
+
+struct PACKED log_Status {
+    LOG_PACKET_HEADER;
+    uint32_t timestamp;
+    uint8_t is_flying;
+    float is_flying_probability;
+    uint8_t armed;
+    uint8_t safety;
+};
+
+static void Log_Write_Status()
+{
+    struct log_Status pkt = {
+        LOG_PACKET_HEADER_INIT(LOG_STATUS_MSG)
+        ,timestamp   : hal.scheduler->millis()
+        ,is_flying   : is_flying()
+        ,is_flying_probability : isFlyingProbability
+        ,armed       : hal.util->get_soft_armed()
+        ,safety      : hal.util->safety_switch_state()
+    };
+
     DataFlash.WriteBlock(&pkt, sizeof(pkt));
 }
 
@@ -446,6 +481,8 @@ static const struct LogStructure log_structure[] PROGMEM = {
       "ARM", "IHB", "TimeMS,ArmState,ArmChecks" },
     { LOG_ATRP_MSG, sizeof(AP_AutoTune::log_ATRP),
       "ATRP", "IBBcfff",  "TimeMS,Type,State,Servo,Demanded,Achieved,P" },
+    { LOG_STATUS_MSG, sizeof(log_Status),
+      "STAT", "IBfBB",  "TimeMS,isFlying,isFlyProb,Armed,Safety" },
 #if OPTFLOW == ENABLED
     { LOG_OPTFLOW_MSG, sizeof(log_Optflow),
       "OF",   "IBffff",   "TimeMS,Qual,flowX,flowY,bodyX,bodyY" },
@@ -453,6 +490,7 @@ static const struct LogStructure log_structure[] PROGMEM = {
     TECS_LOG_FORMAT(LOG_TECS_MSG)
 };
 
+#if CLI_ENABLED == ENABLED
 // Read the DataFlash.log memory : Packet Parser
 static void Log_Read(uint16_t log_num, int16_t start_page, int16_t end_page)
 {
@@ -466,6 +504,7 @@ static void Log_Read(uint16_t log_num, int16_t start_page, int16_t end_page)
                              print_flight_mode,
                              cliSerial);
 }
+#endif // CLI_ENABLED
 
 // start a new log
 static void start_logging() 
@@ -487,6 +526,7 @@ static void start_logging()
 
 // dummy functions
 static void Log_Write_Startup(uint8_t type) {}
+static void Log_Write_EntireMission() {}
 static void Log_Write_Current() {}
 static void Log_Write_Nav_Tuning() {}
 static void Log_Write_TECS_Tuning() {}
@@ -494,12 +534,12 @@ static void Log_Write_Performance() {}
 static void Log_Write_Cmd(const AP_Mission::Mission_Command &cmd) {}
 static void Log_Write_Attitude() {}
 static void Log_Write_Control_Tuning() {}
-static void Log_Write_Mode(uint8_t mode) {}
 static void Log_Write_GPS(uint8_t instance) {}
 static void Log_Write_IMU() {}
 static void Log_Write_RC() {}
 static void Log_Write_Airspeed(void) {}
 static void Log_Write_Baro(void) {}
+static void Log_Write_Status() {}
 static void Log_Write_Sonar() {}
 #if OPTFLOW == ENABLED
 static void Log_Write_Optflow() {}

@@ -7,36 +7,24 @@
  *     PosHold tries to improve upon regular loiter by mixing the pilot input with the loiter controller
  */
 
-#define POSHOLD_SPEED_0                          10      // speed below which it is always safe to switch to loiter
+#define POSHOLD_SPEED_0                         10      // speed below which it is always safe to switch to loiter
 
-#if MAIN_LOOP_RATE == 100
- // definitions for 100hz loop update rate
- # define POSHOLD_BRAKE_TIME_ESTIMATE_MAX        600     // max number of cycles the brake will be applied before we switch to loiter
- # define POSHOLD_BRAKE_TO_LOITER_TIMER          150     // Number of cycles to transition from brake mode to loiter mode.
- # define POSHOLD_WIND_COMP_START_TIMER          150     // Number of cycles to start wind compensation update after loiter is engaged
- # define POSHOLD_CONTROLLER_TO_PILOT_MIX_TIMER  50      // Set it from 100 to 200, the number of centiseconds loiter and manual commands are mixed to make a smooth transition.
- # define POSHOLD_SMOOTH_RATE_FACTOR             0.05f   // filter applied to pilot's roll/pitch input as it returns to center.  A lower number will cause the roll/pitch to return to zero more slowly if the brake_rate is also low.
- # define POSHOLD_WIND_COMP_TIMER_10HZ           10      // counter value used to reduce wind compensation to 10hz
- # define LOOP_RATE_FACTOR                       1       // used to adapt PosHold params to loop_rate
- # define TC_WIND_COMP                          0.01f   // Time constant for poshold_update_wind_comp_estimate()
- #else
- // definitions for 400hz loop update rate
- # define POSHOLD_BRAKE_TIME_ESTIMATE_MAX        (600*4) // max number of cycles the brake will be applied before we switch to loiter
- # define POSHOLD_BRAKE_TO_LOITER_TIMER          (150*4) // Number of cycles to transition from brake mode to loiter mode.  Must be lower than POSHOLD_LOITER_STAB_TIMER
- # define POSHOLD_WIND_COMP_START_TIMER          (150*4) // Number of cycles to start wind compensation update after loiter is engaged
- # define POSHOLD_CONTROLLER_TO_PILOT_MIX_TIMER  (50*4)  // Set it from 100 to 200, the number of centiseconds loiter and manual commands are mixed to make a smooth transition.
- # define POSHOLD_SMOOTH_RATE_FACTOR             0.0125f // filter applied to pilot's roll/pitch input as it returns to center.  A lower number will cause the roll/pitch to return to zero more slowly if the brake_rate is also low.
- # define POSHOLD_WIND_COMP_TIMER_10HZ           40      // counter value used to reduce wind compensation to 10hz
- # define LOOP_RATE_FACTOR                       4       // used to adapt PosHold params to loop_rate
- # define TC_WIND_COMP                          0.0025f // Time constant for poshold_update_wind_comp_estimate()
- #endif
+// 400hz loop update rate
+#define POSHOLD_BRAKE_TIME_ESTIMATE_MAX         (600*4) // max number of cycles the brake will be applied before we switch to loiter
+#define POSHOLD_BRAKE_TO_LOITER_TIMER           (150*4) // Number of cycles to transition from brake mode to loiter mode.  Must be lower than POSHOLD_LOITER_STAB_TIMER
+#define POSHOLD_WIND_COMP_START_TIMER           (150*4) // Number of cycles to start wind compensation update after loiter is engaged
+#define POSHOLD_CONTROLLER_TO_PILOT_MIX_TIMER   (50*4)  // Set it from 100 to 200, the number of centiseconds loiter and manual commands are mixed to make a smooth transition.
+#define POSHOLD_SMOOTH_RATE_FACTOR              0.0125f // filter applied to pilot's roll/pitch input as it returns to center.  A lower number will cause the roll/pitch to return to zero more slowly if the brake_rate is also low.
+#define POSHOLD_WIND_COMP_TIMER_10HZ            40      // counter value used to reduce wind compensation to 10hz
+#define LOOP_RATE_FACTOR                        4       // used to adapt PosHold params to loop_rate
+#define TC_WIND_COMP                            0.0025f // Time constant for poshold_update_wind_comp_estimate()
 
 // definitions that are independent of main loop rate
-#define POSHOLD_STICK_RELEASE_SMOOTH_ANGLE       1800    // max angle required (in centi-degrees) after which the smooth stick release effect is applied
-#define POSHOLD_WIND_COMP_ESTIMATE_SPEED_MAX     10      // wind compensation estimates will only run when velocity is at or below this speed in cm/s
+#define POSHOLD_STICK_RELEASE_SMOOTH_ANGLE      1800    // max angle required (in centi-degrees) after which the smooth stick release effect is applied
+#define POSHOLD_WIND_COMP_ESTIMATE_SPEED_MAX    10      // wind compensation estimates will only run when velocity is at or below this speed in cm/s
 
 // declare some function to keep compiler happy
-static void poshold_update_pilot_lean_angle(int16_t &lean_angle_filtered, int16_t &lean_angle_raw);
+static void poshold_update_pilot_lean_angle(float &lean_angle_filtered, float &lean_angle_raw);
 static int16_t poshold_mix_controls(float mix_ratio, int16_t first_control, int16_t second_control);
 static void poshold_update_brake_angle_from_velocity(int16_t &brake_angle, float velocity);
 static void poshold_update_wind_comp_estimate();
@@ -62,8 +50,8 @@ static struct {
     uint8_t loiter_reset_I              : 1;    // true the very first time PosHold enters loiter, thereafter we trust the i terms loiter has
 
     // pilot input related variables
-    int16_t pilot_roll;                         // pilot requested roll angle (filtered to slow returns to zero)
-    int16_t pilot_pitch;                        // pilot requested roll angle (filtered to slow returns to zero)
+    float pilot_roll;                         // pilot requested roll angle (filtered to slow returns to zero)
+    float pilot_pitch;                        // pilot requested roll angle (filtered to slow returns to zero)
 
     // braking related variables
     float brake_gain;                           // gain used during conversion of vehicle's velocity to lean angle during braking (calculated from brake_rate)
@@ -144,22 +132,21 @@ static bool poshold_init(bool ignore_checks)
 // should be called at 100hz or more
 static void poshold_run()
 {
-    int16_t target_roll, target_pitch;  // pilot's roll and pitch angle inputs
+    float target_roll, target_pitch;  // pilot's roll and pitch angle inputs
     float target_yaw_rate = 0;          // pilot desired yaw rate in centi-degrees/sec
-    int16_t target_climb_rate = 0;      // pilot desired climb rate in centimeters/sec
+    float target_climb_rate = 0;      // pilot desired climb rate in centimeters/sec
+    float takeoff_climb_rate = 0.0f;    // takeoff induced climb rate
     float brake_to_loiter_mix;          // mix of brake and loiter controls.  0 = fully brake controls, 1 = fully loiter controls
     float controller_to_pilot_roll_mix; // mix of controller and pilot controls.  0 = fully last controller controls, 1 = fully pilot controls
     float controller_to_pilot_pitch_mix;    // mix of controller and pilot controls.  0 = fully last controller controls, 1 = fully pilot controls
     float vel_fw, vel_right;            // vehicle's current velocity in body-frame forward and right directions
     const Vector3f& vel = inertial_nav.get_velocity();
 
-    // if not auto armed set throttle to zero and exit immediately
-    if(!ap.auto_armed) {
+    // if not auto armed or motor interlock not enabled set throttle to zero and exit immediately
+    if(!ap.auto_armed || !motors.get_interlock()) {
         wp_nav.init_loiter_target();
-        attitude_control.relax_bf_rate_controller();
-        attitude_control.set_yaw_target_to_current_heading();
-        attitude_control.set_throttle_out(0, false);
-        pos_control.set_alt_target_to_current_alt();
+        attitude_control.set_throttle_out_unstabilized(0,true,g.throttle_filt);
+        pos_control.relax_alt_hold_controllers(get_throttle_pre_takeoff(g.rc_3.control_in)-throttle_average);
         return;
     }
 
@@ -173,9 +160,17 @@ static void poshold_run()
 
         // get pilot desired climb rate (for alt-hold mode and take-off)
         target_climb_rate = get_pilot_desired_climb_rate(g.rc_3.control_in);
+        target_climb_rate = constrain_float(target_climb_rate, -g.pilot_velocity_z_max, g.pilot_velocity_z_max);
 
-        // check for pilot requested take-off
-        if (ap.land_complete && target_climb_rate > 0) {
+        // get takeoff adjusted pilot and takeoff climb rates
+        takeoff_get_climb_rates(target_climb_rate, takeoff_climb_rate);
+
+        // check for take-off
+        if (ap.land_complete && (takeoff_state.running || g.rc_3.control_in > get_takeoff_trigger_throttle())) {
+            if (!takeoff_state.running) {
+                takeoff_timer_start(constrain_float(g.pilot_takeoff_alt,0.0f,1000.0f));
+            }
+
             // indicate we are taking off
             set_land_complete(false);
             // clear i term when we're taking off
@@ -191,11 +186,9 @@ static void poshold_run()
     // if landed initialise loiter targets, set throttle to zero and exit
     if (ap.land_complete) {
         wp_nav.init_loiter_target();
-        attitude_control.relax_bf_rate_controller();
-        attitude_control.set_yaw_target_to_current_heading();
         // move throttle to between minimum and non-takeoff-throttle to keep us on the ground
-        attitude_control.set_throttle_out(get_throttle_pre_takeoff(g.rc_3.control_in), false);
-        pos_control.set_alt_target_to_current_alt();
+        attitude_control.set_throttle_out_unstabilized(get_throttle_pre_takeoff(g.rc_3.control_in),true,g.throttle_filt);
+        pos_control.relax_alt_hold_controllers(get_throttle_pre_takeoff(g.rc_3.control_in)-throttle_average);
         return;
     }else{
         // convert pilot input to lean angles
@@ -223,7 +216,7 @@ static void poshold_run()
                 poshold_update_pilot_lean_angle(poshold.pilot_roll, target_roll);
 
                 // switch to BRAKE mode for next iteration if no pilot input
-                if ((target_roll == 0) && (abs(poshold.pilot_roll) < 2 * g.poshold_brake_rate)) {
+                if (is_zero(target_roll) && (fabsf(poshold.pilot_roll) < 2 * g.poshold_brake_rate)) {
                     // initialise BRAKE mode
                     poshold.roll_mode = POSHOLD_BRAKE;        // Set brake roll mode
                     poshold.brake_roll = 0;                  // initialise braking angle to zero
@@ -254,7 +247,7 @@ static void poshold_run()
                 }
 
                 // if velocity is very low reduce braking time to 0.5seconds
-                if ((fabs(vel_right) <= POSHOLD_SPEED_0) && (poshold.brake_timeout_roll > 50*LOOP_RATE_FACTOR)) {
+                if ((fabsf(vel_right) <= POSHOLD_SPEED_0) && (poshold.brake_timeout_roll > 50*LOOP_RATE_FACTOR)) {
                     poshold.brake_timeout_roll = 50*LOOP_RATE_FACTOR;
                 }
 
@@ -272,7 +265,7 @@ static void poshold_run()
                 poshold.roll = poshold.brake_roll + poshold.wind_comp_roll;
 
                 // check for pilot input
-                if (target_roll != 0) {
+                if (!is_zero(target_roll)) {
                     // init transition to pilot override
                     poshold_roll_controller_to_pilot_override();
                 }
@@ -317,7 +310,7 @@ static void poshold_run()
                 poshold_update_pilot_lean_angle(poshold.pilot_pitch, target_pitch);
 
                 // switch to BRAKE mode for next iteration if no pilot input
-                if ((target_pitch == 0) && (abs(poshold.pilot_pitch) < 2 * g.poshold_brake_rate)) {
+                if (is_zero(target_pitch) && (fabsf(poshold.pilot_pitch) < 2 * g.poshold_brake_rate)) {
                     // initialise BRAKE mode
                     poshold.pitch_mode = POSHOLD_BRAKE;       // set brake pitch mode
                     poshold.brake_pitch = 0;                 // initialise braking angle to zero
@@ -348,7 +341,7 @@ static void poshold_run()
                 }
 
                 // if velocity is very low reduce braking time to 0.5seconds
-                if ((fabs(vel_fw) <= POSHOLD_SPEED_0) && (poshold.brake_timeout_pitch > 50*LOOP_RATE_FACTOR)) {
+                if ((fabsf(vel_fw) <= POSHOLD_SPEED_0) && (poshold.brake_timeout_pitch > 50*LOOP_RATE_FACTOR)) {
                     poshold.brake_timeout_pitch = 50*LOOP_RATE_FACTOR;
                 }
 
@@ -366,7 +359,7 @@ static void poshold_run()
                 poshold.pitch = poshold.brake_pitch + poshold.wind_comp_pitch;
 
                 // check for pilot input
-                if (target_pitch != 0) {
+                if (!is_zero(target_pitch)) {
                     // init transition to pilot override
                     poshold_pitch_controller_to_pilot_override();
                 }
@@ -448,9 +441,9 @@ static void poshold_run()
                     poshold.pitch = poshold_mix_controls(brake_to_loiter_mix, poshold.brake_pitch + poshold.wind_comp_pitch, wp_nav.get_pitch());
 
                     // check for pilot input
-                    if (target_roll != 0 || target_pitch != 0) {
+                    if (!is_zero(target_roll) || !is_zero(target_pitch)) {
                         // if roll input switch to pilot override for roll
-                        if (target_roll != 0) {
+                        if (!is_zero(target_roll)) {
                             // init transition to pilot override
                             poshold_roll_controller_to_pilot_override();
                             // switch pitch-mode to brake (but ready to go back to loiter anytime)
@@ -458,10 +451,10 @@ static void poshold_run()
                             poshold.pitch_mode = POSHOLD_BRAKE_READY_TO_LOITER;
                         }
                         // if pitch input switch to pilot override for pitch
-                        if (target_pitch != 0) {
+                        if (!is_zero(target_pitch)) {
                             // init transition to pilot override
                             poshold_pitch_controller_to_pilot_override();
-                            if (target_roll == 0) {
+                            if (is_zero(target_roll)) {
                                 // switch roll-mode to brake (but ready to go back to loiter anytime)
                                 // no need to reset poshold.brake_roll here as wind comp has not been updated since last brake_roll computation
                                 poshold.roll_mode = POSHOLD_BRAKE_READY_TO_LOITER;
@@ -482,9 +475,9 @@ static void poshold_run()
                     poshold_update_wind_comp_estimate();
 
                     // check for pilot input
-                    if (target_roll != 0 || target_pitch != 0) {
+                    if (!is_zero(target_roll) || !is_zero(target_pitch)) {
                         // if roll input switch to pilot override for roll
-                        if (target_roll != 0) {
+                        if (!is_zero(target_roll)) {
                             // init transition to pilot override
                             poshold_roll_controller_to_pilot_override();
                             // switch pitch-mode to brake (but ready to go back to loiter anytime)
@@ -493,11 +486,11 @@ static void poshold_run()
                             poshold.brake_pitch = 0;
                         }
                         // if pitch input switch to pilot override for pitch
-                        if (target_pitch != 0) {
+                        if (!is_zero(target_pitch)) {
                             // init transition to pilot override
                             poshold_pitch_controller_to_pilot_override();
                             // if roll not overriden switch roll-mode to brake (but be ready to go back to loiter any time)
-                            if (target_roll == 0) {
+                            if (is_zero(target_roll)) {
                                 poshold.roll_mode = POSHOLD_BRAKE_READY_TO_LOITER;
                                 poshold.brake_roll = 0;
                             }
@@ -521,19 +514,20 @@ static void poshold_run()
         // throttle control
         if (sonar_alt_health >= SONAR_ALT_HEALTH_MAX) {
             // if sonar is ok, use surface tracking
-            target_climb_rate = get_throttle_surface_tracking(target_climb_rate, pos_control.get_alt_target(), G_Dt);
+            target_climb_rate = get_surface_tracking_climb_rate(target_climb_rate, pos_control.get_alt_target(), G_Dt);
         }
         // update altitude target and call position controller
         pos_control.set_alt_target_from_climb_rate(target_climb_rate, G_Dt);
+        pos_control.add_takeoff_climb_rate(takeoff_climb_rate, G_Dt);
         pos_control.update_z_controller();
     }
 }
 
 // poshold_update_pilot_lean_angle - update the pilot's filtered lean angle with the latest raw input received
-static void poshold_update_pilot_lean_angle(int16_t &lean_angle_filtered, int16_t &lean_angle_raw)
+static void poshold_update_pilot_lean_angle(float &lean_angle_filtered, float &lean_angle_raw)
 {
     // if raw input is large or reversing the vehicle's lean angle immediately set the fitlered angle to the new raw angle
-    if ((lean_angle_filtered > 0 && lean_angle_raw < 0) || (lean_angle_filtered < 0 && lean_angle_raw > 0) || (abs(lean_angle_raw) > POSHOLD_STICK_RELEASE_SMOOTH_ANGLE)) {
+    if ((lean_angle_filtered > 0 && lean_angle_raw < 0) || (lean_angle_filtered < 0 && lean_angle_raw > 0) || (fabsf(lean_angle_raw) > POSHOLD_STICK_RELEASE_SMOOTH_ANGLE)) {
         lean_angle_filtered = lean_angle_raw;
     } else {
         // lean_angle_raw must be pulling lean_angle_filtered towards zero, smooth the decrease
@@ -566,12 +560,10 @@ static void poshold_update_brake_angle_from_velocity(int16_t &brake_angle, float
     float lean_angle;
     int16_t brake_rate = g.poshold_brake_rate;
 
-#if MAIN_LOOP_RATE == 400
     brake_rate /= 4;
     if (brake_rate <= 0) {
         brake_rate = 1;
     }
-#endif
 
     // calculate velocity-only based lean angle
     if (velocity >= 0) {
@@ -607,14 +599,14 @@ static void poshold_update_wind_comp_estimate()
     const Vector3f& accel_target = pos_control.get_accel_target();
 
     // update wind compensation in earth-frame lean angles
-    if (poshold.wind_comp_ef.x == 0) {
+    if (is_zero(poshold.wind_comp_ef.x)) {
         // if wind compensation has not been initialised set it immediately to the pos controller's desired accel in north direction
         poshold.wind_comp_ef.x = accel_target.x;
     } else {
         // low pass filter the position controller's lean angle output
         poshold.wind_comp_ef.x = (1.0f-TC_WIND_COMP)*poshold.wind_comp_ef.x + TC_WIND_COMP*accel_target.x;
     }
-    if (poshold.wind_comp_ef.y == 0) {
+    if (is_zero(poshold.wind_comp_ef.y)) {
         // if wind compensation has not been initialised set it immediately to the pos controller's desired accel in north direction
         poshold.wind_comp_ef.y = accel_target.y;
     } else {
@@ -635,8 +627,8 @@ static void poshold_get_wind_comp_lean_angles(int16_t &roll_angle, int16_t &pitc
     poshold.wind_comp_timer = 0;
 
     // convert earth frame desired accelerations to body frame roll and pitch lean angles
-    roll_angle = (float)fast_atan((-poshold.wind_comp_ef.x*ahrs.sin_yaw() + poshold.wind_comp_ef.y*ahrs.cos_yaw())/981)*(18000/M_PI);
-    pitch_angle = (float)fast_atan(-(poshold.wind_comp_ef.x*ahrs.cos_yaw() + poshold.wind_comp_ef.y*ahrs.sin_yaw())/981)*(18000/M_PI);
+    roll_angle = atanf((-poshold.wind_comp_ef.x*ahrs.sin_yaw() + poshold.wind_comp_ef.y*ahrs.cos_yaw())/981)*(18000/M_PI_F);
+    pitch_angle = atanf(-(poshold.wind_comp_ef.x*ahrs.cos_yaw() + poshold.wind_comp_ef.y*ahrs.sin_yaw())/981)*(18000/M_PI_F);
 }
 
 // poshold_roll_controller_to_pilot_override - initialises transition from a controller submode (brake or loiter) to a pilot override on roll axis

@@ -7,10 +7,11 @@
 
 #include <AP_HAL.h>
 #include <AP_HAL_AVR.h>
-#include <AP_HAL_AVR_SITL.h>
+#include <AP_HAL_SITL.h>
 #include <AP_HAL_PX4.h>
 #include <AP_HAL_Empty.h>
 #include <AP_Common.h>
+#include <AP_Scheduler.h>
 #include <AP_Baro.h>
 #include <AP_ADC.h>
 #include <AP_GPS.h>
@@ -36,6 +37,7 @@
 #include <AP_Rally.h>
 #include <AP_ADC_AnalogSource.h>
 #include <AP_OpticalFlow.h>
+#include <AP_RangeFinder.h>
 
 const AP_HAL::HAL& hal = AP_HAL_BOARD_DRIVER;
 
@@ -126,7 +128,6 @@ static void show_timings(void)
 	TIMEIT("acos()", v_out = acosf(v_f * 0.2), 20);
 	TIMEIT("asin()", v_out = asinf(v_f * 0.2), 20);
 	TIMEIT("atan2()", v_out = atan2f(v_f * 0.2, v_f * 0.3), 20);
-	TIMEIT("fast_atan2()", v_out = fast_atan2(v_f * 0.2, v_f * 0.3), 20);
 	TIMEIT("sqrt()",v_out = sqrtf(v_f), 20);
 
 	TIMEIT("iadd8", v_out_8 += v_8, 100);

@@ -50,11 +50,9 @@ static void land_gps_run()
     int16_t roll_control = 0, pitch_control = 0;
     float target_yaw_rate = 0;
 
-    // if not auto armed or landed set throttle to zero and exit immediately
-    if(!ap.auto_armed || ap.land_complete) {
-        attitude_control.relax_bf_rate_controller();
-        attitude_control.set_yaw_target_to_current_heading();
-        attitude_control.set_throttle_out(0, false);
+    // if not auto armed or landed or motor interlock not enabled set throttle to zero and exit immediately
+    if(!ap.auto_armed || ap.land_complete || !motors.get_interlock()) {
+        attitude_control.set_throttle_out_unstabilized(0,true,g.throttle_filt);
         wp_nav.init_loiter_target();
 
 #if LAND_REQUIRE_MIN_THROTTLE_TO_DISARM == ENABLED
@@ -122,14 +120,12 @@ static void land_gps_run()
 //      should be called at 100hz or more
 static void land_nogps_run()
 {
-    int16_t target_roll = 0, target_pitch = 0;
+    float target_roll = 0.0f, target_pitch = 0.0f;
     float target_yaw_rate = 0;
 
-    // if not auto armed or landed set throttle to zero and exit immediately
-    if(!ap.auto_armed || ap.land_complete) {
-        attitude_control.relax_bf_rate_controller();
-        attitude_control.set_yaw_target_to_current_heading();
-        attitude_control.set_throttle_out(0, false);
+    // if not auto armed or landed or motor interlock not enabled set throttle to zero and exit immediately
+    if(!ap.auto_armed || ap.land_complete || !motors.get_interlock()) {
+        attitude_control.set_throttle_out_unstabilized(0,true,g.throttle_filt);
 #if LAND_REQUIRE_MIN_THROTTLE_TO_DISARM == ENABLED
         // disarm when the landing detector says we've landed and throttle is at minimum
         if (ap.land_complete && (ap.throttle_zero || failsafe.radio)) {
@@ -184,12 +180,12 @@ static void land_nogps_run()
 static float get_land_descent_speed()
 {
 #if CONFIG_SONAR == ENABLED
-    bool sonar_ok = sonar_enabled && sonar.healthy();
+    bool sonar_ok = sonar_enabled && (sonar.status() == RangeFinder::RangeFinder_Good);
 #else
     bool sonar_ok = false;
 #endif
     // if we are above 10m and the sonar does not sense anything perform regular alt hold descent
-    if (pos_control.get_pos_target().z >= LAND_START_ALT && !(sonar_ok && sonar_alt_health >= SONAR_ALT_HEALTH_MAX)) {
+    if (pos_control.get_pos_target().z >= pv_alt_above_origin(LAND_START_ALT) && !(sonar_ok && sonar_alt_health >= SONAR_ALT_HEALTH_MAX)) {
         return pos_control.get_speed_down();
     }else{
         return -abs(g.land_speed);

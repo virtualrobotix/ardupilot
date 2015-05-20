@@ -99,6 +99,7 @@ void AP_Baro::calibrate()
                 hal.scheduler->panic(PSTR("PANIC: AP_Baro::read unsuccessful "
                         "for more than 500ms in AP_Baro::calibrate [2]\r\n"));
             }
+            hal.scheduler->delay(10);
         } while (!healthy());
         hal.scheduler->delay(100);
     }
@@ -172,16 +173,15 @@ void AP_Baro::update_calibration()
 float AP_Baro::get_altitude_difference(float base_pressure, float pressure) const
 {
     float ret;
+    float temp    = get_ground_temperature() + 273.15f;
 #if HAL_CPU_CLASS <= HAL_CPU_CLASS_16
     // on slower CPUs use a less exact, but faster, calculation
     float scaling = base_pressure / pressure;
-    float temp    = get_calibration_temperature() + 273.15f;
     ret = logf(scaling) * temp * 29.271267f;
 #else
     // on faster CPUs use a more exact calculation
     float scaling = pressure / base_pressure;
-    float temp    = get_calibration_temperature() + 273.15f;
-
+    
     // This is an exact calculation that is within +-2.5m of the standard atmosphere tables
     // in the troposphere (up to 11,000 m amsl).
 	ret = 153.8462f * temp * (1.0f - expf(0.190259f * logf(scaling)));
@@ -196,7 +196,7 @@ float AP_Baro::get_altitude_difference(float base_pressure, float pressure) cons
 float AP_Baro::get_EAS2TAS(void)
 {
     float altitude = get_altitude();
-    if ((fabsf(altitude - _last_altitude_EAS2TAS) < 100.0f) && (_EAS2TAS != 0.0f)) {
+    if ((fabsf(altitude - _last_altitude_EAS2TAS) < 100.0f) && !is_zero(_EAS2TAS)) {
         // not enough change to require re-calculating
         return _EAS2TAS;
     }
@@ -205,6 +205,17 @@ float AP_Baro::get_EAS2TAS(void)
     _EAS2TAS = safe_sqrt(1.225f / ((float)get_pressure() / (287.26f * tempK)));
     _last_altitude_EAS2TAS = altitude;
     return _EAS2TAS;
+}
+
+// return air density / sea level density - decreases as altitude climbs
+float AP_Baro::get_air_density_ratio(void)
+{
+    float eas2tas = get_EAS2TAS();
+    if (eas2tas > 0.0f) {
+        return 1.0f/(sq(get_EAS2TAS()));
+    } else {
+        return 1.0f;
+    }
 }
 
 // return current climb_rate estimeate relative to time that calibrate()
@@ -254,6 +265,12 @@ float AP_Baro::get_calibration_temperature(uint8_t instance) const
  */
 void AP_Baro::init(void)
 {
+    if (_hil_mode) {
+        drivers[0] = new AP_Baro_HIL(*this);
+        _num_drivers = 1;
+        return;
+    }
+
 #if HAL_BARO_DEFAULT == HAL_BARO_PX4 || HAL_BARO_DEFAULT == HAL_BARO_VRBRAIN
     drivers[0] = new AP_Baro_PX4(*this);
     _num_drivers = 1;
@@ -300,13 +317,13 @@ void AP_Baro::update(void)
     // last 0.5 seconds
     uint32_t now = hal.scheduler->millis();
     for (uint8_t i=0; i<_num_sensors; i++) {
-        sensors[i].healthy = (now - sensors[i].last_update_ms < 500) && sensors[i].pressure != 0;
+        sensors[i].healthy = (now - sensors[i].last_update_ms < 500) && !is_zero(sensors[i].pressure);
     }
 
     for (uint8_t i=0; i<_num_sensors; i++) {
         if (sensors[i].healthy) {
             // update altitude calculation
-            if (sensors[i].ground_pressure == 0) {
+            if (is_zero(sensors[i].ground_pressure)) {
                 sensors[i].ground_pressure = sensors[i].pressure;
             }
             sensors[i].altitude = get_altitude_difference(sensors[i].ground_pressure, sensors[i].pressure);

@@ -16,12 +16,11 @@ static void run_nav_updates(void)
 }
 
 // calc_position - get lat and lon positions from inertial nav library
-static void calc_position(){
-    if (ap.home_is_set) {
-        // pull position from interial nav library
-        current_loc.lng = inertial_nav.get_longitude();
-        current_loc.lat = inertial_nav.get_latitude();
-    }
+static void calc_position()
+{
+    // pull position from interial nav library
+    current_loc.lng = inertial_nav.get_longitude();
+    current_loc.lat = inertial_nav.get_latitude();
 }
 
 // calc_distance_and_bearing - calculate distance and bearing to next waypoint and home
@@ -66,7 +65,8 @@ static void calc_home_distance_and_bearing()
     // calculate home distance and bearing
     if (position_ok()) {
         home_distance = pythagorous2(curr.x, curr.y);
-        home_bearing = pv_get_bearing_cd(curr,Vector3f(0,0,0));
+        Vector3f home = pv_location_to_vector(ahrs.get_home());
+        home_bearing = pv_get_bearing_cd(curr,home);
 
         // update super simple bearing (if required) because it relies on home_bearing
         update_super_simple_bearing(false);

@@ -1,16 +1,25 @@
 // -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
 
-
-void set_home_is_set(bool b)
+// set_home_state - update home state
+void set_home_state(enum HomeState new_home_state)
 {
     // if no change, exit immediately
-    if( ap.home_is_set == b )
+    if (ap.home_state == new_home_state)
         return;
 
-    ap.home_is_set 	= b;
-    if(b) {
+    // update state
+    ap.home_state = new_home_state;
+
+    // log if home has been set
+    if (new_home_state == HOME_SET_NOT_LOCKED || new_home_state == HOME_SET_AND_LOCKED) {
         Log_Write_Event(DATA_SET_HOME);
     }
+}
+
+// home_is_set - returns true if home positions has been set (to GPS location, armed location or EKF origin)
+bool home_is_set()
+{
+    return (ap.home_state == HOME_SET_NOT_LOCKED || ap.home_state == HOME_SET_AND_LOCKED);
 }
 
 // ---------------------------------------------
@@ -77,16 +86,6 @@ void set_failsafe_battery(bool b)
     AP_Notify::flags.failsafe_battery = b;
 }
 
-
-// ---------------------------------------------
-static void set_failsafe_gps(bool b)
-{
-    failsafe.gps = b;
-
-    // update AP_Notify
-    AP_Notify::flags.failsafe_gps = b;
-}
-
 // ---------------------------------------------
 static void set_failsafe_gcs(bool b)
 {
@@ -140,3 +139,23 @@ void set_pre_arm_rc_check(bool b)
     }
 }
 
+void set_using_interlock(bool b)
+{
+    if(ap.using_interlock != b) {
+        ap.using_interlock = b;
+    }
+}
+
+void set_motor_emergency_stop(bool b)
+{
+    if(ap.motor_emergency_stop != b) {
+        ap.motor_emergency_stop = b;
+    }
+
+    // Log new status
+    if (ap.motor_emergency_stop){
+        Log_Write_Event(DATA_MOTORS_EMERGENCY_STOPPED);
+    } else {
+        Log_Write_Event(DATA_MOTORS_EMERGENCY_STOP_CLEARED);
+    }
+}

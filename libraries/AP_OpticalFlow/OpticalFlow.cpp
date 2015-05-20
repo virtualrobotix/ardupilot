@@ -29,6 +29,14 @@ const AP_Param::GroupInfo OpticalFlow::var_info[] PROGMEM = {
     // @User: Standard
     AP_GROUPINFO("_FYSCALER", 2,  OpticalFlow,    _flowScalerY,   0),
 
+    // @Param: ORIENT_YAW
+    // @DisplayName: Flow sensor yaw alignment
+    // @Description: Specifies the number of centi-degrees that the flow sensor is yawed relative to the vehicle. A sensor with its X-axis pointing to the right of the vehicle X axis has a positive yaw angle.
+    // @Range: -18000 +18000
+    // @Increment: 1
+    // @User: Standard
+    AP_GROUPINFO("_ORIENT_YAW", 3,  OpticalFlow,    _yawAngle_cd,   0),
+
     AP_GROUPEND
 };
 
@@ -36,7 +44,7 @@ const AP_Param::GroupInfo OpticalFlow::var_info[] PROGMEM = {
 OpticalFlow::OpticalFlow(void) :
 #if CONFIG_HAL_BOARD == HAL_BOARD_PX4
     backend(new AP_OpticalFlow_PX4(*this))
-#elif CONFIG_HAL_BOARD == HAL_BOARD_AVR_SITL
+#elif CONFIG_HAL_BOARD == HAL_BOARD_SITL
     backend(new AP_OpticalFlow_HIL(*this))
 #else
     backend(NULL)

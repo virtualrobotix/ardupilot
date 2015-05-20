@@ -26,9 +26,9 @@ VRBRAINUARTDriver::VRBRAINUARTDriver(const char *devpath, const char *perf_name)
 	_devpath(devpath),
     _fd(-1),
     _baudrate(57600),
-    _perf_uart(perf_alloc(PC_ELAPSED, perf_name)),
     _initialised(false),
     _in_timer(false),
+    _perf_uart(perf_alloc(PC_ELAPSED, perf_name)),
     _flow_control(FLOW_CONTROL_DISABLE)
 {
 }
@@ -191,7 +191,7 @@ void VRBRAINUARTDriver::try_initialise(void)
         return;
     }
     _last_initialise_attempt_ms = hal.scheduler->millis();
-    if (hal.util->safety_switch_state() != AP_HAL::Util::SAFETY_ARMED) {
+    if (hal.util->safety_switch_state() != AP_HAL::Util::SAFETY_ARMED || !hal.util->get_soft_armed()) {
         begin(0);
     }
 }

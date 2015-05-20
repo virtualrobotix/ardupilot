@@ -9,7 +9,7 @@
 #include <AP_Progmem.h>
 #include <AP_HAL.h>
 #include <AP_HAL_AVR.h>
-#include <AP_HAL_AVR_SITL.h>
+#include <AP_HAL_SITL.h>
 #include <AP_HAL_Linux.h>
 #include <AP_HAL_FLYMAPLE.h>
 #include <AP_HAL_PX4.h>
@@ -39,7 +39,9 @@
 #include <AP_HAL_Linux.h>
 #include <AP_Rally.h>
 #include <AP_Scheduler.h>
+#include <AP_BattMonitor.h>
 #include <SITL.h>
+#include <AP_RangeFinder.h>
 
 const AP_HAL::HAL& hal = AP_HAL_BOARD_DRIVER;
 
@@ -57,7 +59,7 @@ static MAVLink_routing routing;
 void setup(void)
 {
     hal.console->println("routing test startup...");
-    gcs[0].init(hal.uartA);
+    gcs[0].init(hal.uartA, MAVLINK_COMM_0);
 }
 
 void loop(void)

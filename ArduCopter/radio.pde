@@ -23,7 +23,7 @@ static void init_rc_in()
     // set rc channel ranges
     g.rc_1.set_angle(ROLL_PITCH_INPUT_MAX);
     g.rc_2.set_angle(ROLL_PITCH_INPUT_MAX);
-    g.rc_3.set_range(g.throttle_min, g.throttle_max);
+    g.rc_3.set_range(g.throttle_min, THR_MAX);
     g.rc_4.set_angle(4500);
 
     g.rc_1.set_type(RC_CHANNEL_TYPE_ANGLE_RAW);
@@ -65,7 +65,7 @@ static void init_rc_out()
     // enable output to motors
     pre_arm_rc_checks();
     if (ap.pre_arm_rc_check) {
-        output_min();
+        enable_motor_output();
     }
 
     // setup correct scaling for ESCs like the UAVCAN PX4ESC which
@@ -74,8 +74,8 @@ static void init_rc_out()
     hal.rcout->set_esc_scaling(g.rc_3.radio_min, g.rc_3.radio_max);
 }
 
-// output_min - enable and output lowest possible value to motors
-void output_min()
+// enable_motor_output() - enable and output lowest possible value to motors
+void enable_motor_output()
 {
     // enable motors
     motors.enable();
@@ -172,33 +172,22 @@ static void set_throttle_and_failsafe(uint16_t throttle_pwm)
 }
 
 #define THROTTLE_ZERO_DEBOUNCE_TIME_MS 400
-// set_throttle_zero_flag - set throttle_zero flag from debounced throttle control_in
+// set_throttle_zero_flag - set throttle_zero flag from debounced throttle control
+// throttle_zero is used to determine if the pilot intends to shut down the motors
+// Basically, this signals when we are not flying.  We are either on the ground
+// or the pilot has shut down the copter in the air and it is free-falling
 static void set_throttle_zero_flag(int16_t throttle_control)
 {
     static uint32_t last_nonzero_throttle_ms = 0;
     uint32_t tnow_ms = millis();
 
-    // if non-zero throttle immediately set as non-zero
-    if (throttle_control > 0) {
+    // if not using throttle interlock and non-zero throttle and not E-stopped,
+    // or using motor interlock and it's enabled, then motors are running, 
+    // and we are flying. Immediately set as non-zero
+    if ((!ap.using_interlock && (throttle_control > 0) && !ap.motor_emergency_stop) || (ap.using_interlock && motors.get_interlock())) {
         last_nonzero_throttle_ms = tnow_ms;
         ap.throttle_zero = false;
     } else if (tnow_ms - last_nonzero_throttle_ms > THROTTLE_ZERO_DEBOUNCE_TIME_MS) {
         ap.throttle_zero = true;
     }
 }
-
-static void trim_radio()
-{
-    for (uint8_t i = 0; i < 30; i++) {
-        read_radio();
-    }
-
-    g.rc_1.trim();      // roll
-    g.rc_2.trim();      // pitch
-    g.rc_4.trim();      // yaw
-
-    g.rc_1.save_eeprom();
-    g.rc_2.save_eeprom();
-    g.rc_4.save_eeprom();
-}
-

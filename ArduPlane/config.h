@@ -54,45 +54,8 @@
 #error CONFIG_APM_HARDWARE option is depreated! use CONFIG_HAL_BOARD instead.
 #endif
 
-//////////////////////////////////////////////////////////////////////////////
-// sensor types
-
-#define CONFIG_BARO     HAL_BARO_DEFAULT
-#define CONFIG_COMPASS  HAL_COMPASS_DEFAULT
-
-#ifdef HAL_SERIAL0_BAUD_DEFAULT
-# define SERIAL0_BAUD HAL_SERIAL0_BAUD_DEFAULT
-#endif
-
-//////////////////////////////////////////////////////////////////////////////
-// HIL_MODE                                 OPTIONAL
-
-#ifndef HIL_MODE
- #define HIL_MODE        HIL_MODE_DISABLED
-#endif
-
-#if HIL_MODE != HIL_MODE_DISABLED       // we are in HIL mode
- #undef CONFIG_BARO
- #define CONFIG_BARO HAL_BARO_HIL
- #undef  CONFIG_COMPASS
- #define CONFIG_COMPASS HAL_COMPASS_HIL
-#endif
-
 #ifndef MAV_SYSTEM_ID
  # define MAV_SYSTEM_ID          1
-#endif
-
-//////////////////////////////////////////////////////////////////////////////
-// Serial port speeds.
-//
-#ifndef SERIAL0_BAUD
- # define SERIAL0_BAUD                   115200
-#endif
-#ifndef SERIAL1_BAUD
- # define SERIAL1_BAUD                    57600
-#endif
-#ifndef SERIAL2_BAUD
- # define SERIAL2_BAUD                    57600
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -279,12 +242,11 @@
 //
 // uses 7726 bytes of memory on 2560 chips (all options are enabled)
 #ifndef MOUNT
+#if HAL_CPU_CLASS > HAL_CPU_CLASS_16
  # define MOUNT          ENABLED
+#else
+ # define MOUNT          DISABLED
 #endif
-
-// second mount, can for example be used to keep an antenna pointed at the home position
-#ifndef MOUNT2
- # define MOUNT2         DISABLED
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -365,7 +327,7 @@
 #define PITCH_MIN_CENTIDEGREE PITCH_MIN * 100
 
 #ifndef RUDDER_MIX
- # define RUDDER_MIX           0.5
+ # define RUDDER_MIX           0.5f
 #endif
 
 
@@ -485,20 +447,6 @@
 
 #if OBC_FAILSAFE == ENABLED && HAL_CPU_CLASS < HAL_CPU_CLASS_75
 #define CLI_ENABLED DISABLED
-#endif
-
-
-
-#ifndef SERIAL_BUFSIZE
- # define SERIAL_BUFSIZE 512
-#endif
-
-#ifndef SERIAL1_BUFSIZE
- # define SERIAL1_BUFSIZE 256
-#endif
-
-#ifndef SERIAL2_BUFSIZE
- # define SERIAL2_BUFSIZE 256
 #endif
 
 /*

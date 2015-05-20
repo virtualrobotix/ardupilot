@@ -25,8 +25,8 @@ const AP_Param::Info var_info[] PROGMEM = {
     GSCALAR(software_type,          "SYSID_SW_TYPE",  Parameters::k_software_type),
 
     // @Param: SYSID_THISMAV
-    // @DisplayName: MAVLink system ID
-    // @Description: The identifier of this device in the MAVLink protocol
+    // @DisplayName: MAVLink system ID of this vehicle
+    // @Description: Allows setting an individual MAVLink system id for this vehicle to distinguish it from others on the same network
     // @Range: 1 255
     // @User: Advanced
     GSCALAR(sysid_this_mav,         "SYSID_THISMAV",  MAV_SYSTEM_ID),
@@ -37,6 +37,15 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @Range: 1 255
     // @User: Advanced
     GSCALAR(sysid_my_gcs,           "SYSID_MYGCS",    255),
+
+#if CLI_ENABLED == ENABLED
+    // @Param: CLI_ENABLED
+    // @DisplayName: CLI Enable
+    // @Description: This enables/disables the checking for three carriage returns on telemetry links on startup to enter the diagnostics command line interface
+    // @Values: 0:Disabled,1:Enabled
+    // @User: Advanced
+    GSCALAR(cli_enabled,            "CLI_ENABLED",    0),
+#endif
 
     // @Group: SERIAL
     // @Path: ../libraries/AP_SerialManager/AP_SerialManager.cpp
@@ -85,13 +94,22 @@ const AP_Param::Info var_info[] PROGMEM = {
     GSCALAR(stab_pitch_down, "STAB_PITCH_DOWN",   2.0f),
 
     // @Param: GLIDE_SLOPE_MIN
-    // @DisplayName: Glide slope threshold
+    // @DisplayName: Glide slope minimum
     // @Description: This controls the minimum altitude change for a waypoint before a glide slope will be used instead of an immediate altitude change. The default value is 15 meters, which helps to smooth out waypoint missions where small altitude changes happen near waypoints. If you don't want glide slopes to be used in missions then you can set this to zero, which will disable glide slope calculations. Otherwise you can set it to a minimum number of meters of altitude error to the destination waypoint before a glide slope will be used to change altitude.
     // @Range: 0 1000
     // @Increment: 1
     // @Units: meters
     // @User: Advanced
-    GSCALAR(glide_slope_threshold, "GLIDE_SLOPE_MIN", 15),
+    GSCALAR(glide_slope_min, "GLIDE_SLOPE_MIN", 15),
+
+    // @Param: GLIDE_SLOPE_THR
+    // @DisplayName: Glide slope threshold
+    // @Description: This controls the height above the glide slope the plane may be before rebuilding a glide slope. This is useful for smoothing out an autotakeoff
+    // @Range: 0 100
+    // @Increment: 1
+    // @Units: meters
+    // @User: Advanced
+    GSCALAR(glide_slope_threshold, "GLIDE_SLOPE_THR", 5.0),
 
     // @Param: STICK_MIXING
     // @DisplayName: Stick Mixing
@@ -217,11 +235,20 @@ const AP_Param::Info var_info[] PROGMEM = {
 
     // @Param: LAND_FLARE_SEC
     // @DisplayName: Landing flare time
-    // @Description: Vertical time before landing point at which to lock heading and flare with the motor stopped. This is vertical time, and is calculated based solely on the current height above the ground and the current descent rate.
+    // @Description: Vertical time before landing point at which to lock heading and flare with the motor stopped. This is vertical time, and is calculated based solely on the current height above the ground and the current descent rate.  Set to 0 if you only wish to flare based on altitude (see LAND_FLARE_ALT).
     // @Units: seconds
     // @Increment: 0.1
     // @User: Advanced
-    GSCALAR(land_flare_sec,          "LAND_FLARE_SEC",  2.0),
+    ASCALAR(land_flare_sec,          "LAND_FLARE_SEC",  2.0),
+
+    // @Param: LAND_DISARMDELAY
+    // @DisplayName: Landing disarm delay
+    // @Description: After a landing has completed using a LAND waypoint, automatically disarm after this many seconds have passed. Use 0 to not disarm.
+    // @Units: seconds
+    // @Increment: 1
+    // @Range: 0 127
+    // @User: Advanced
+    GSCALAR(land_disarm_delay,       "LAND_DISARMDELAY",  20),
 
 	// @Param: NAV_CONTROLLER
 	// @DisplayName: Navigation controller selection
@@ -331,8 +358,8 @@ const AP_Param::Info var_info[] PROGMEM = {
 
     // @Param: FENCE_AUTOENABLE
     // @DisplayName: Fence automatic enable
-    // @Description: When set to 1, gefence automatically enables after an auto takeoff and automatically disables at the beginning of an auto landing.  When on the ground before takeoff the fence is disabled. It is highly recommended to not use this option for line of sight flying and use a fence enable channel instead.
-    // @Values: 0:NoAutoEnable,1:AutoEnable
+    // @Description: When set to 1, gefence automatically enables after an auto takeoff and automatically disables at the beginning of an auto landing.  When on the ground before takeoff the fence is disabled.  When set to 2, the fence autoenables after an auto takeoff, but only disables the fence floor during landing. It is highly recommended to not use this option for line of sight flying and use a fence enable channel instead.
+    // @Values: 0:NoAutoEnable,1:AutoEnable,2:AutoEnableDisableFloorOnly
     // @User: Standard
     GSCALAR(fence_autoenable,       "FENCE_AUTOENABLE", 0),
 
@@ -426,7 +453,7 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @Range: 0 100
     // @Increment: 1
     // @User: Advanced
-    GSCALAR(takeoff_throttle_max,   "TKOFF_THR_MAX",        0),
+    ASCALAR(takeoff_throttle_max,   "TKOFF_THR_MAX",        0),
 
     // @Param: THR_SLEWRATE
     // @DisplayName: Throttle slew rate
@@ -518,12 +545,12 @@ const AP_Param::Info var_info[] PROGMEM = {
 
     // @Param: FS_LONG_TIMEOUT
     // @DisplayName: Long failsafe timeout
-    // @Description: The time in seconds that a failsafe condition has to persist before a long failsafe event will occor. This defaults to 20 seconds
+    // @Description: The time in seconds that a failsafe condition has to persist before a long failsafe event will occor. This defaults to 5 seconds
     // @Units: seconds
     // @Range: 1 300
     // @Increment: 0.5
     // @User: Standard
-    GSCALAR(long_fs_timeout,        "FS_LONG_TIMEOUT", 20),
+    GSCALAR(long_fs_timeout,        "FS_LONG_TIMEOUT", 5),
 
     // @Param: FS_BATT_VOLTAGE
     // @DisplayName: Failsafe battery voltage
@@ -595,6 +622,13 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @Values: 0:Manual,1:CIRCLE,2:STABILIZE,3:TRAINING,4:ACRO,5:FBWA,6:FBWB,7:CRUISE,8:AUTOTUNE,10:Auto,11:RTL,12:Loiter,15:Guided
     // @User: Standard
     GSCALAR(flight_mode6,           "FLTMODE6",       FLIGHT_MODE_6),
+
+    // @Param: INITIAL_MODE
+    // @DisplayName: Initial flight mode
+    // @Description: This selects the mode to start in on boot. This is useful for when you want to start in AUTO mode on boot without a receiver.
+    // @Values: 0:Manual,1:CIRCLE,2:STABILIZE,3:TRAINING,4:ACRO,5:FBWA,6:FBWB,7:CRUISE,8:AUTOTUNE,10:Auto,11:RTL,12:Loiter,15:Guided
+    // @User: Advanced
+    GSCALAR(initial_mode,        "INITIAL_MODE",     MANUAL),
 
     // @Param: LIM_ROLL_CD
     // @DisplayName: Maximum Bank Angle
@@ -675,7 +709,7 @@ const AP_Param::Info var_info[] PROGMEM = {
 
     // @Param: ELEVON_MIXING
     // @DisplayName: Elevon mixing
-    // @Description: Enable elevon mixing  on both input and output. To enable just output mixing see the ELEVON_OUTPUT option.
+    // @Description: This enables an older form of elevon mixing which is now deprecated. Please see the ELEVON_OUTPUT option for setting up elevons. The ELEVON_MIXING option should be set to 0 for elevon planes except for backwards compatibilty with older setups.
     // @Values: 0:Disabled,1:Enabled
     // @User: User
     GSCALAR(mix_mode,               "ELEVON_MIXING",  ELEVON_MIXING),
@@ -723,6 +757,13 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @User: User
     GSCALAR(mixing_gain,            "MIXING_GAIN",    0.5f),
 
+    // @Param: RUDDER_ONLY
+    // @DisplayName: Rudder only aircraft
+    // @Description: Enable rudder only mode. The rudder will control attitude in attitude controlled modes (such as FBWA). You should setup your transmitter to send roll stick inputs to the RCMAP_YAW channel (normally channel 4). The rudder servo should be attached to the RCMAP_YAW channel as well. Note that automatic ground steering will be disabled for rudder only aircraft. You should also set KFF_RDDRMIX to 1.0. You will also need to setup the YAW2SRV_DAMP yaw damping appropriately for your aircraft. A value of 0.5 for YAW2SRV_DAMP is a good starting point.
+    // @Values: 0:Disabled,1:Enabled
+    // @User: User
+    GSCALAR(rudder_only,             "RUDDER_ONLY",  0),
+
     // @Param: SYS_NUM_RESETS
     // @DisplayName: Num Resets
     // @Description: Number of APM board resets
@@ -731,7 +772,7 @@ const AP_Param::Info var_info[] PROGMEM = {
 
     // @Param: LOG_BITMASK
     // @DisplayName: Log bitmask
-    // @Description: Bitmap of what log types to enable in dataflash. This values is made up of the sum of each of the log types you want to be saved on dataflash. On a PX4 or Pixhawk the large storage size of a microSD card means it is usually best just to enable all log types by setting this to 65535. On APM2 the smaller 4 MByte dataflash means you need to be more selective in your logging or you may run out of log space while flying (in which case it will wrap and overwrite the start of the log). The individual bits are ATTITUDE_FAST=1, ATTITUDE_MEDIUM=2, GPS=4, PerformanceMonitoring=8, ControlTuning=16, NavigationTuning=32, Mode=64, IMU=128, Commands=256, Battery=512, Compass=1024, TECS=2048, Camera=4096, RCandServo=8192, Sonar=16384, Arming=32768, LogWhenDisarmed=65536
+    // @Description: Bitmap of what log types to enable in dataflash. This values is made up of the sum of each of the log types you want to be saved on dataflash. On a PX4 or Pixhawk the large storage size of a microSD card means it is usually best just to enable all log types by setting this to 65535. On APM2 the smaller 4 MByte dataflash means you need to be more selective in your logging or you may run out of log space while flying (in which case it will wrap and overwrite the start of the log). The individual bits are ATTITUDE_FAST=1, ATTITUDE_MEDIUM=2, GPS=4, PerformanceMonitoring=8, ControlTuning=16, NavigationTuning=32, Mode=64, IMU=128, Commands=256, Battery=512, Compass=1024, TECS=2048, Camera=4096, RCandServo=8192, Sonar=16384, Arming=32768, LogWhenDisarmed=65536, FullLogsArmedOnly=65535, FullLogsWhenDisarmed=131071
     // @Values: 0:Disabled,5190:APM2-Default,65535:PX4/Pixhawk-Default
     // @User: Advanced
     GSCALAR(log_bitmask,            "LOG_BITMASK",    DEFAULT_LOG_BITMASK),
@@ -882,7 +923,13 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @User: Standard
     GSCALAR(inverted_flight_ch,     "INVERTEDFLT_CH", 0),
 
-#if HIL_MODE != HIL_MODE_DISABLED
+    // @Param: HIL_MODE
+    // @DisplayName: HIL mode enable
+    // @Description: This enables and disables hardware in the loop mode. If HIL_MODE is 1 then on the next reboot all sensors are replaced with HIL sensors which come from the GCS.
+    // @Values: 0:Disabled,1:Enabled
+    // @User: Advanced
+    GSCALAR(hil_mode,               "HIL_MODE",      0),
+
     // @Param: HIL_SERVOS
     // @DisplayName: HIL Servos enable
     // @Description: This controls whether real servo controls are used in HIL mode. If you enable this then the APM will control the real servos in HIL mode. If disabled it will report servo values, but will not output to the real servos. Be careful that your motor and propeller are not connected if you enable this option.
@@ -898,14 +945,20 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @Increment: 0.1
     // @User: Advanced
     GSCALAR(hil_err_limit,         "HIL_ERR_LIMIT",   5),
-#endif
 
     // @Param: RTL_AUTOLAND
     // @DisplayName: RTL auto land
     // @Description: Automatically begin landing sequence after arriving at RTL location. This requires the addition of a DO_LAND_START mission item, which acts as a marker for the start of a landing sequence. The closest landing sequence will be chosen to the current location. 
-    // @Values: 0:Disable,1:Enable
+    // @Values: 0:Disable,1:Enable - go HOME then land,2:Enable - go directly to landing sequence
     // @User: Standard
     GSCALAR(rtl_autoland,         "RTL_AUTOLAND",   0),
+
+    // @Param: RC_TRIM_AT_START
+    // @DisplayName: RC Trims auto set at start.
+    // @Description: Automatically set roll/pitch trim from Tx at ground start. This makes the assumption that the RC transmitter has not been altered since trims were last captured.
+    // @Values: 0:Disable,1:Enable
+    // @User: Standard
+    GSCALAR(trim_rc_at_start,     "TRIM_RC_AT_START",    1), 
 
     // barometer ground calibration. The GND_ prefix is chosen for
     // compatibility with previous releases of ArduPlane
@@ -1057,6 +1110,12 @@ const AP_Param::Info var_info[] PROGMEM = {
     GOBJECTN(gcs[2],  gcs2,       "SR2_",     GCS_MAVLINK),
 #endif
 
+#if MAVLINK_COMM_NUM_BUFFERS > 3
+    // @Group: SR3_
+    // @Path: GCS_Mavlink.pde
+    GOBJECTN(gcs[3],  gcs3,       "SR3_",     GCS_MAVLINK),
+#endif
+
     // @Group: INS_
     // @Path: ../libraries/AP_InertialSensor/AP_InertialSensor.cpp
     GOBJECT(ins,                    "INS_", AP_InertialSensor),
@@ -1078,15 +1137,9 @@ const AP_Param::Info var_info[] PROGMEM = {
     GOBJECT(TECS_controller,         "TECS_",   AP_TECS),
 
 #if MOUNT == ENABLED
-    // @Group: MNT_
+    // @Group: MNT
     // @Path: ../libraries/AP_Mount/AP_Mount.cpp
-    GOBJECT(camera_mount,           "MNT_", AP_Mount),
-#endif
-
-#if MOUNT2 == ENABLED
-    // @Group: MNT2_
-    // @Path: ../libraries/AP_Mount/AP_Mount.cpp
-    GOBJECT(camera_mount2,           "MNT2_",       AP_Mount),
+    GOBJECT(camera_mount,           "MNT",  AP_Mount),
 #endif
 
     // @Group: BATT_
@@ -1097,7 +1150,7 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @Path: ../libraries/AP_BoardConfig/AP_BoardConfig.cpp
     GOBJECT(BoardConfig,            "BRD_",       AP_BoardConfig),
 
-#if CONFIG_HAL_BOARD == HAL_BOARD_AVR_SITL
+#if CONFIG_HAL_BOARD == HAL_BOARD_SITL
     // @Group: SIM_
     // @Path: ../libraries/SITL/SITL.cpp
     GOBJECT(sitl, "SIM_", SITL),

@@ -27,7 +27,7 @@ const AP_Param::GroupInfo AP_GPS::var_info[] PROGMEM = {
     // @Param: TYPE
     // @DisplayName: GPS type
     // @Description: GPS type
-    // @Values: 0:None,1:AUTO,2:uBlox,3:MTK,4:MTK19,5:NMEA,6:SiRF,7:HIL,8:SwiftNav,9:PX4EXPERIMENTAL
+    // @Values: 0:None,1:AUTO,2:uBlox,3:MTK,4:MTK19,5:NMEA,6:SiRF,7:HIL,8:SwiftNav,9:PX4-UAVCAN
     AP_GROUPINFO("TYPE",    0, AP_GPS, _type[0], 1),
 
 #if GPS_MAX_INSTANCES > 1
@@ -35,7 +35,7 @@ const AP_Param::GroupInfo AP_GPS::var_info[] PROGMEM = {
     // @Param: TYPE2
     // @DisplayName: 2nd GPS type
     // @Description: GPS type of 2nd GPS
-    // @Values: 0:None,1:AUTO,2:uBlox,3:MTK,4:MTK19,5:NMEA,6:SiRF,7:HIL,8:SwiftNav,9:PX4EXPERIMENTAL
+    // @Values: 0:None,1:AUTO,2:uBlox,3:MTK,4:MTK19,5:NMEA,6:SiRF,7:HIL,8:SwiftNav,9:PX4-UAVCAN
     AP_GROUPINFO("TYPE2",   1, AP_GPS, _type[1], 0),
 
 #endif
@@ -79,6 +79,33 @@ const AP_Param::GroupInfo AP_GPS::var_info[] PROGMEM = {
     // @User: Advanced
     AP_GROUPINFO("MIN_ELEV", 6, AP_GPS, _min_elevation, -100),
 
+#if GPS_MAX_INSTANCES > 1
+
+    // @Param: INJECT_TO
+    // @DisplayName: Destination for GPS_INJECT_DATA MAVLink packets
+    // @Description: The GGS can send raw serial packets to inject data to multiple GPSes.
+    // @Values: 0,1: send to specified instance. 127: broadcast
+    AP_GROUPINFO("INJECT_TO",   7, AP_GPS, _inject_to, 127),
+
+#endif
+
+#if GPS_RTK_AVAILABLE
+    // @Param: SBP_LOGMASK
+    // @DisplayName: Swift Binary Protocol Logging Mask
+    // @Description: Masked with the SBP msg_type field to determine whether SBR1/SBR2 data is logged
+    // @Values: 0x0000 for none, 0xFFFF for all, 0xFF00 for external only.
+    // @User: Advanced
+    AP_GROUPINFO("SBP_LOGMASK", 8, AP_GPS, _sbp_logmask, 0xFF00),
+#endif
+
+#if GPS_RTK_AVAILABLE
+    // @Param: RXM_RAW
+    // @DisplayName: Raw data logging
+    // @Description: Enable logging of RXM raw data from uBlox which includes carrier phase and pseudo range information. This allows for post processing of dataflash logs for more precise positioning. Note that this requires a raw capable uBlox such as the 6P or 6T.
+    // @Values: 0:Disabled,1:log at 1MHz,5:log at 5MHz.
+    AP_GROUPINFO("RAW_DATA", 9, AP_GPS, _raw_data, 0),
+#endif
+
     AP_GROUPEND
 };
 
@@ -89,12 +116,10 @@ void AP_GPS::init(DataFlash_Class *dataflash, const AP_SerialManager& serial_man
     primary_instance = 0;
 
     // search for serial ports with gps protocol
-    _port[0] = serial_manager.find_serial(AP_SerialManager::SerialProtocol_GPS);
+    _port[0] = serial_manager.find_serial(AP_SerialManager::SerialProtocol_GPS, 0);
 
 #if GPS_MAX_INSTANCES > 1
-    secondary_instance = 1;
-
-    _port[1] = serial_manager.find_serial(AP_SerialManager::SerialProtocol_GPS2);
+    _port[1] = serial_manager.find_serial(AP_SerialManager::SerialProtocol_GPS, 1);
 #endif
 }
 
@@ -243,40 +268,14 @@ AP_GPS::detect_instance(uint8_t instance)
 #endif
 	}
 
+#if CONFIG_HAL_BOARD == HAL_BOARD_PX4
 found_gps:
+#endif
 	if (new_gps != NULL) {
         state[instance].status = NO_FIX;
         drivers[instance] = new_gps;
         timing[instance].last_message_time_ms = now;
 	}
-}
-
-bool 
-AP_GPS::can_calculate_base_pos(void)
-{
-#if GPS_RTK_AVAILABLE
-    for (uint8_t i=0; i<GPS_MAX_INSTANCES; i++) {
-        if (drivers[i] != NULL && drivers[i]->can_calculate_base_pos()) {
-            return true;
-        }
-    }
-#endif
-    return false;
-}
-
-/*
-    Tells the underlying GPS drivers to capture its current position as home.
- */
-void 
-AP_GPS::calculate_base_pos(void) 
-{
-#if GPS_RTK_AVAILABLE
-    for (uint8_t i = 0; i<GPS_MAX_INSTANCES; i++) {
-        if (drivers[i] != NULL && drivers[i]->can_calculate_base_pos()) {
-            drivers[i]->calculate_base_pos(); 
-        }
-    }
-#endif
 }
 
 AP_GPS::GPS_Status 
@@ -378,7 +377,6 @@ AP_GPS::update(void)
             }
             if (state[i].status > state[primary_instance].status) {
                 // we have a higher status lock, change GPS
-            	secondary_instance = primary_instance;
                 primary_instance = i;
                 continue;
             }
@@ -389,7 +387,6 @@ AP_GPS::update(void)
                 // then tend to stick to the new GPS as primary. We don't
                 // want to switch too often as it will look like a
                 // position shift to the controllers.
-            	secondary_instance = primary_instance;
                 primary_instance = i;
             }
         } else {
@@ -443,6 +440,7 @@ AP_GPS::setHIL(uint8_t instance, GPS_Status _status, uint64_t time_epoch_ms,
 void 
 AP_GPS::lock_port(uint8_t instance, bool lock)
 {
+
     if (instance >= GPS_MAX_INSTANCES) {
         return;
     }
@@ -453,66 +451,95 @@ AP_GPS::lock_port(uint8_t instance, bool lock)
     }
 }
 
+    //Inject a packet of raw binary to a GPS
+void 
+AP_GPS::inject_data(uint8_t *data, uint8_t len)
+{
+
+#if GPS_MAX_INSTANCES > 1
+
+    //Support broadcasting to all GPSes.
+    if (_inject_to == 127) {
+        for (uint8_t i=0; i<GPS_MAX_INSTANCES; i++) {
+            inject_data(i, data, len);
+        }
+    } else {
+        inject_data(_inject_to, data, len);
+    }
+
+#else
+    inject_data(0,data,len);
+#endif
+
+}
+
+void 
+AP_GPS::inject_data(uint8_t instance, uint8_t *data, uint8_t len)
+{
+    if (instance < GPS_MAX_INSTANCES && drivers[instance] != NULL)
+        drivers[instance]->inject_data(data, len);
+}  
+
 void 
 AP_GPS::send_mavlink_gps_raw(mavlink_channel_t chan)
 {
-    static uint32_t last_send_time_ms;
+    static uint32_t last_send_time_ms[MAVLINK_COMM_NUM_BUFFERS];
     if (status(0) > AP_GPS::NO_GPS) {
         // when we have a GPS then only send new data
-        if (last_send_time_ms == last_message_time_ms(primary_instance)) {
+        if (last_send_time_ms[chan] == last_message_time_ms(0)) {
             return;
         }
-        last_send_time_ms = last_message_time_ms(primary_instance);
+        last_send_time_ms[chan] = last_message_time_ms(0);
     } else {
         // when we don't have a GPS then send at 1Hz
         uint32_t now = hal.scheduler->millis();
-        if (now - last_send_time_ms < 1000) {
+        if (now - last_send_time_ms[chan] < 1000) {
             return;
         }
-        last_send_time_ms = now;
+        last_send_time_ms[chan] = now;
     }
-    const Location &loc = location(primary_instance);
+    const Location &loc = location(0);
     mavlink_msg_gps_raw_int_send(
         chan,
-        last_fix_time_ms(primary_instance)*(uint64_t)1000,
-        status(primary_instance),
+        last_fix_time_ms(0)*(uint64_t)1000,
+        status(0),
         loc.lat,        // in 1E7 degrees
         loc.lng,        // in 1E7 degrees
         loc.alt * 10UL, // in mm
-        get_hdop(primary_instance),
+        get_hdop(0),
         65535,
-        ground_speed(primary_instance)*100,  // cm/s
-        ground_course_cd(primary_instance), // 1/100 degrees,
-        num_sats(primary_instance));
+        ground_speed(0)*100,  // cm/s
+        ground_course_cd(0), // 1/100 degrees,
+        num_sats(0));
 }
 
 #if GPS_MAX_INSTANCES > 1
 void 
 AP_GPS::send_mavlink_gps2_raw(mavlink_channel_t chan)
 {
-    static uint32_t last_send_time_ms;
-    if (num_sensors() < 2 || status(secondary_instance) <= AP_GPS::NO_GPS) {
+    static uint32_t last_send_time_ms[MAVLINK_COMM_NUM_BUFFERS];
+    if (num_sensors() < 2 || status(1) <= AP_GPS::NO_GPS) {
         return;
     }
     // when we have a GPS then only send new data
-    if (last_send_time_ms == last_message_time_ms(secondary_instance)) {
+    if (last_send_time_ms[chan] == last_message_time_ms(1)) {
         return;
     }
-    last_send_time_ms = last_message_time_ms(secondary_instance);
+    last_send_time_ms[chan] = last_message_time_ms(1);
 
-    const Location &loc = location(secondary_instance);
+    const Location &loc = location(1);
     mavlink_msg_gps2_raw_send(
         chan,
-        last_fix_time_ms(secondary_instance)*(uint64_t)1000,
-        status(secondary_instance),
+        last_fix_time_ms(1)*(uint64_t)1000,
+        status(1),
         loc.lat,
         loc.lng,
         loc.alt * 10UL,
-        get_hdop(secondary_instance),
+        get_hdop(1),
         65535,
-        ground_speed(secondary_instance)*100,  // cm/s
-        ground_course_cd(secondary_instance), // 1/100 degrees,
-        num_sats(secondary_instance),
+        ground_speed(1)*100,  // cm/s
+        ground_course_cd(1), // 1/100 degrees,
+        num_sats(1),
         0,
         0);
 }
@@ -522,8 +549,8 @@ AP_GPS::send_mavlink_gps2_raw(mavlink_channel_t chan)
 void 
 AP_GPS::send_mavlink_gps_rtk(mavlink_channel_t chan)
 {
-    if (drivers[primary_instance] != NULL && drivers[primary_instance]->highest_supported_status() > AP_GPS::GPS_OK_FIX_3D) {
-        drivers[primary_instance]->send_mavlink_gps_rtk(chan);
+    if (drivers[0] != NULL && drivers[0]->highest_supported_status() > AP_GPS::GPS_OK_FIX_3D) {
+        drivers[0]->send_mavlink_gps_rtk(chan);
     }
 }
 
@@ -531,8 +558,8 @@ AP_GPS::send_mavlink_gps_rtk(mavlink_channel_t chan)
 void 
 AP_GPS::send_mavlink_gps2_rtk(mavlink_channel_t chan)
 {
-    if (drivers[secondary_instance] != NULL && drivers[secondary_instance]->highest_supported_status() > AP_GPS::GPS_OK_FIX_3D) {
-        drivers[secondary_instance]->send_mavlink_gps_rtk(chan);
+    if (drivers[1] != NULL && drivers[1]->highest_supported_status() > AP_GPS::GPS_OK_FIX_3D) {
+        drivers[1]->send_mavlink_gps_rtk(chan);
     }
 }
 #endif

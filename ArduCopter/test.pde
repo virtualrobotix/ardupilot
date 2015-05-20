@@ -52,7 +52,6 @@ test_mode(uint8_t argc, const Menu::arg *argv)
 static int8_t
 test_baro(uint8_t argc, const Menu::arg *argv)
 {
-    int32_t alt;
     print_hit_enter();
     init_barometer(true);
 
@@ -64,9 +63,9 @@ test_baro(uint8_t argc, const Menu::arg *argv)
             cliSerial->println_P(PSTR("not healthy"));
         } else {
             cliSerial->printf_P(PSTR("Alt: %0.2fm, Raw: %f Temperature: %.1f\n"),
-                                baro_alt / 100.0,
-                                barometer.get_pressure(), 
-                                barometer.get_temperature());
+                                (double)(baro_alt / 100.0f),
+                                (double)barometer.get_pressure(),
+                                (double)barometer.get_temperature());
         }
         if(cliSerial->available() > 0) {
             return (0);
@@ -114,7 +113,7 @@ test_compass(uint8_t argc, const Menu::arg *argv)
         delay(20);
         if (millis() - fast_loopTimer > 19) {
             delta_ms_fast_loop      = millis() - fast_loopTimer;
-            G_Dt                    = (float)delta_ms_fast_loop / 1000.f;                       // used by DCM integrator
+            G_Dt                    = (float)delta_ms_fast_loop / 1000.0f;                       // used by DCM integrator
             fast_loopTimer          = millis();
 
             // INS
@@ -139,12 +138,12 @@ test_compass(uint8_t argc, const Menu::arg *argv)
                     const Vector3f &mag = compass.get_field();
                     cliSerial->printf_P(PSTR("Heading: %ld, XYZ: %.0f, %.0f, %.0f,\tXYZoff: %6.2f, %6.2f, %6.2f\n"),
                                         (wrap_360_cd(ToDeg(heading) * 100)) /100,
-                                        mag.x,
-                                        mag.y,
-                                        mag.z,
-                                        mag_ofs.x,
-                                        mag_ofs.y,
-                                        mag_ofs.z);
+                                        (double)mag.x,
+                                        (double)mag.y,
+                                        (double)mag.z,
+                                        (double)mag_ofs.x,
+                                        (double)mag_ofs.y,
+                                        (double)mag_ofs.z);
                 } else {
                     cliSerial->println_P(PSTR("compass not healthy"));
                 }
@@ -186,9 +185,9 @@ test_ins(uint8_t argc, const Menu::arg *argv)
         float test = accel.length() / GRAVITY_MSS;
 
         cliSerial->printf_P(PSTR("a %7.4f %7.4f %7.4f g %7.4f %7.4f %7.4f t %7.4f \n"),
-            accel.x, accel.y, accel.z,
-            gyro.x, gyro.y, gyro.z,
-            test);
+                (double)accel.x, (double)accel.y, (double)accel.z,
+            (double)gyro.x, (double)gyro.y, (double)gyro.z,
+            (double)test);
 
         delay(40);
         if(cliSerial->available() > 0) {
@@ -210,8 +209,8 @@ test_optflow(uint8_t argc, const Menu::arg *argv)
             optflow.update();
             const Vector2f& flowRate = optflow.flowRate();
             cliSerial->printf_P(PSTR("flowX : %7.4f\t flowY : %7.4f\t flow qual : %d\n"),
-                            flowRate.x,
-                            flowRate.y,
+                            (double)flowRate.x,
+                            (double)flowRate.y,
                             (int)optflow.quality());
 
             if(cliSerial->available() > 0) {
@@ -279,9 +278,9 @@ test_sonar(uint8_t argc, const Menu::arg *argv)
         delay(100);
         sonar.update();
 
-        cliSerial->printf_P(PSTR("Primary: health %d distance_cm %d \n"), (int)sonar.healthy(), sonar.distance_cm());
-        cliSerial->printf_P(PSTR("All: device_0 type %d health %d distance_cm %d, device_1 type %d health %d distance_cm %d\n"), 
-        (int)sonar._type[0], (int)sonar.healthy(0), sonar.distance_cm(0), (int)sonar._type[1], (int)sonar.healthy(1), sonar.distance_cm(1));
+        cliSerial->printf_P(PSTR("Primary: status %d distance_cm %d \n"), (int)sonar.status(), sonar.distance_cm());
+        cliSerial->printf_P(PSTR("All: device_0 type %d status %d distance_cm %d, device_1 type %d status %d distance_cm %d\n"),
+        (int)sonar._type[0], (int)sonar.status(0), sonar.distance_cm(0), (int)sonar._type[1], (int)sonar.status(1), sonar.distance_cm(1));
 
         if(cliSerial->available() > 0) {
             return (0);

@@ -89,6 +89,10 @@ static bool set_mode(uint8_t mode)
             break;
 #endif
 
+        case BRAKE:
+            success = brake_init(ignore_checks);
+            break;
+
         default:
             success = false;
             break;
@@ -110,6 +114,11 @@ static bool set_mode(uint8_t mode)
     }else{
         // Log error that we failed to enter desired flight mode
         Log_Write_Error(ERROR_SUBSYSTEM_FLIGHT_MODE,mode);
+    }
+
+    // update notify object
+    if (success) {
+        notify_flight_mode(control_mode);
     }
 
     // return success or failure
@@ -192,6 +201,10 @@ static void update_flight_mode()
             poshold_run();
             break;
 #endif
+
+        case BRAKE:
+            brake_run();
+            break;
     }
 }
 
@@ -215,11 +228,14 @@ static void exit_mode(uint8_t old_control_mode, uint8_t new_control_mode)
     }
 
     // smooth throttle transition when switching from manual to automatic flight modes
-    if (manual_flight_mode(old_control_mode) && !manual_flight_mode(new_control_mode) && motors.armed() && !ap.land_complete) {
+    if (mode_has_manual_throttle(old_control_mode) && !mode_has_manual_throttle(new_control_mode) && motors.armed() && !ap.land_complete) {
         // this assumes all manual flight modes use get_pilot_desired_throttle to translate pilot input to output throttle
         set_accel_throttle_I_from_pilot_throttle(get_pilot_desired_throttle(g.rc_3.control_in));
     }
-    
+
+    // cancel any takeoffs in progress
+    takeoff_stop();
+
 #if FRAME_CONFIG == HELI_FRAME
     // firmly reset the flybar passthrough to false when exiting acro mode.
     if (old_control_mode == ACRO) {
@@ -238,6 +254,7 @@ static bool mode_requires_GPS(uint8_t mode) {
         case CIRCLE:
         case DRIFT:
         case POSHOLD:
+        case BRAKE:
             return true;
         default:
             return false;
@@ -246,8 +263,8 @@ static bool mode_requires_GPS(uint8_t mode) {
     return false;
 }
 
-// manual_flight_mode - returns true if flight mode is completely manual (i.e. roll, pitch, yaw and throttle are controlled by pilot)
-static bool manual_flight_mode(uint8_t mode) {
+// mode_has_manual_throttle - returns true if the flight mode has a manual throttle (i.e. pilot directly controls throttle)
+static bool mode_has_manual_throttle(uint8_t mode) {
     switch(mode) {
         case ACRO:
         case STABILIZE:
@@ -262,10 +279,28 @@ static bool manual_flight_mode(uint8_t mode) {
 // mode_allows_arming - returns true if vehicle can be armed in the specified mode
 //  arming_from_gcs should be set to true if the arming request comes from the ground station
 static bool mode_allows_arming(uint8_t mode, bool arming_from_gcs) {
-    if (manual_flight_mode(mode) || mode == LOITER || mode == ALT_HOLD || mode == POSHOLD || (arming_from_gcs && mode == GUIDED)) {
+    if (mode_has_manual_throttle(mode) || mode == LOITER || mode == ALT_HOLD || mode == POSHOLD || (arming_from_gcs && mode == GUIDED)) {
         return true;
     }
     return false;
+}
+
+// notify_flight_mode - sets notify object based on flight mode.  Only used for OreoLED notify device
+static void notify_flight_mode(uint8_t mode) {
+    switch(mode) {
+        case AUTO:
+        case GUIDED:
+        case RTL:
+        case CIRCLE:
+        case LAND:
+            // autopilot modes
+            AP_Notify::flags.autopilot_mode = true;
+            break;
+        default:
+            // all other are manual flight modes
+            AP_Notify::flags.autopilot_mode = false;
+            break;
+    }
 }
 
 //
@@ -319,6 +354,9 @@ print_flight_mode(AP_HAL::BetterStream *port, uint8_t mode)
         break;
     case POSHOLD:
         port->print_P(PSTR("POSHOLD"));
+        break;
+    case BRAKE:
+        port->print_P(PSTR("BRAKE"));
         break;
     default:
         port->printf_P(PSTR("Mode(%u)"), (unsigned)mode);

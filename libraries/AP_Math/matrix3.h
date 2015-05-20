@@ -128,7 +128,7 @@ public:
     // allow a Matrix3 to be used as an array of vectors, 0 indexed
     Vector3<T> & operator[](uint8_t i) {
         Vector3<T> *_v = &a;
-#if MATH_CHECK_INDEXES
+#if defined(MATH_CHECK_INDEXES) && (MATH_CHECK_INDEXES == 1)
         assert(i >= 0 && i < 3);
 #endif
         return _v[i];
@@ -136,7 +136,7 @@ public:
 
     const Vector3<T> & operator[](uint8_t i) const {
         const Vector3<T> *_v = &a;
-#if MATH_CHECK_INDEXES
+#if defined(MATH_CHECK_INDEXES) && (MATH_CHECK_INDEXES == 1)
         assert(i >= 0 && i < 3);
 #endif
         return _v[i];
@@ -219,6 +219,9 @@ public:
     // apply an additional inverse rotation to a rotation matrix but 
     // only use X, Y elements from rotation vector
     void        rotateXYinv(const Vector3<T> &g);
+
+    // normalize a rotation matrix
+    void        normalize(void);
 };
 
 typedef Matrix3<int16_t>                Matrix3i;

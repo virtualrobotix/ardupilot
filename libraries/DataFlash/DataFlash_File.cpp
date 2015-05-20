@@ -57,6 +57,8 @@ DataFlash_File::DataFlash_File(const char *log_directory) :
     _writebuf_chunk(512),
 #elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V52)
     _writebuf_chunk(512),
+#elif defined(CONFIG_ARCH_BOARD_VRHERO_V10)
+    _writebuf_chunk(512),
 #else
     _writebuf_chunk(4096),
 #endif
@@ -66,7 +68,8 @@ DataFlash_File::DataFlash_File(const char *log_directory) :
 #if CONFIG_HAL_BOARD == HAL_BOARD_PX4 || CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
     ,_perf_write(perf_alloc(PC_ELAPSED, "DF_write")),
     _perf_fsync(perf_alloc(PC_ELAPSED, "DF_fsync")),
-    _perf_errors(perf_alloc(PC_COUNT, "DF_errors"))
+    _perf_errors(perf_alloc(PC_COUNT, "DF_errors")),
+    _perf_overruns(perf_alloc(PC_COUNT, "DF_overruns"))
 #endif
 {}
 
@@ -104,6 +107,7 @@ void DataFlash_File::Init(const struct LogStructure *structure, uint8_t num_type
     }
     if (_writebuf != NULL) {
         free(_writebuf);
+        _writebuf = NULL;
     }
 
     /*
@@ -146,7 +150,9 @@ bool DataFlash_File::NeedErase(void)
 char *DataFlash_File::_log_file_name(uint16_t log_num)
 {
     char *buf = NULL;
-    asprintf(&buf, "%s/%u.BIN", _log_directory, (unsigned)log_num);
+    if (asprintf(&buf, "%s/%u.BIN", _log_directory, (unsigned)log_num) == 0) {
+        return NULL;
+    }
     return buf;
 }
 
@@ -157,7 +163,9 @@ char *DataFlash_File::_log_file_name(uint16_t log_num)
 char *DataFlash_File::_lastlog_file_name(void)
 {
     char *buf = NULL;
-    asprintf(&buf, "%s/LASTLOG.TXT", _log_directory);
+    if (asprintf(&buf, "%s/LASTLOG.TXT", _log_directory) == 0) {
+        return NULL;
+    }
     return buf;
 }
 
@@ -192,6 +200,7 @@ void DataFlash_File::WriteBlock(const void *pBuffer, uint16_t size)
     uint16_t space = BUF_SPACE(_writebuf);
     if (space < size) {
         // discard the whole write, to keep the log consistent
+        perf_count(_perf_overruns);
         return;
     }
 
@@ -646,10 +655,10 @@ void DataFlash_File::_io_timer(void)
           chunk, ensuring the directory entry is updated after each
           write.
          */
-#if CONFIG_HAL_BOARD != HAL_BOARD_AVR_SITL
+        BUF_ADVANCEHEAD(_writebuf, nwritten);
+#if CONFIG_HAL_BOARD != HAL_BOARD_SITL && CONFIG_HAL_BOARD_SUBTYPE != HAL_BOARD_SUBTYPE_LINUX_NONE
         ::fsync(_write_fd);
 #endif
-        BUF_ADVANCEHEAD(_writebuf, nwritten);
     }
     perf_end(_perf_write);
 }

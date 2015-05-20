@@ -89,6 +89,7 @@ enum mode {
 #define MASK_LOG_STEERING  		(1<<13)
 #define MASK_LOG_RC     		(1<<14)
 #define MASK_LOG_WHEN_DISARMED  (1UL<<16)
+#define MASK_LOG_IMU_RAW        (1UL<<19)
 
 // Waypoint Modes
 // ----------------
@@ -125,11 +126,5 @@ enum mode {
 
 // mark a function as not to be inlined
 #define NOINLINE __attribute__((noinline))
-
-enum Serial2Protocol {
-    SERIAL2_MAVLINK     = 1,
-    SERIAL2_FRSKY_DPORT = 2,
-    SERIAL2_FRSKY_SPORT = 3 // not supported yet
-};
 
 #endif // _DEFINES_H

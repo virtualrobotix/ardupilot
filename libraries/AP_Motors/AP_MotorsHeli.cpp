@@ -26,7 +26,8 @@
 extern const AP_HAL::HAL& hal;
 
 const AP_Param::GroupInfo AP_MotorsHeli::var_info[] PROGMEM = {
-
+    // variables from parent vehicle
+    AP_NESTEDGROUPINFO(AP_Motors, 0),
 
     // @Param: SV1_POS
     // @DisplayName: Servo 1 Position
@@ -143,6 +144,7 @@ const AP_Param::GroupInfo AP_MotorsHeli::var_info[] PROGMEM = {
     // @DisplayName: Collective-Yaw Mixing
     // @Description: Feed-forward compensation to automatically add rudder input when collective pitch is increased. Can be positive or negative depending on mechanics.
     // @Range: -10 10
+    // @Increment: 0.1
     AP_GROUPINFO("COLYAW",  14,     AP_MotorsHeli,  _collective_yaw_effect, 0),
 
     // @Param: GOV_SETPOINT
@@ -161,16 +163,12 @@ const AP_Param::GroupInfo AP_MotorsHeli::var_info[] PROGMEM = {
     // @User: Standard
     AP_GROUPINFO("RSC_MODE", 16, AP_MotorsHeli,     _rsc_mode, AP_MOTORS_HELI_RSC_MODE_CH8_PASSTHROUGH),
 
-    // 17 was RSC_RAMP_RATE which has been replaced by RSC_RAMP_TIME
-
     // @Param: FLYBAR_MODE
     // @DisplayName: Flybar Mode Selector
     // @Description: Flybar present or not.  Affects attitude controller used during ACRO flight mode
     // @Range: 0:NoFlybar 1:Flybar
     // @User: Standard
-    AP_GROUPINFO("FLYBAR_MODE", 18, AP_MotorsHeli,  _flybar_mode, AP_MOTORS_HELI_NOFLYBAR),
-
-    // 19,20 - was STAB_COL_MIN, STAB_COL_MAX now moved to main code's parameter list
+    AP_GROUPINFO("FLYBAR_MODE", 17, AP_MotorsHeli,  _flybar_mode, AP_MOTORS_HELI_NOFLYBAR),
 
     // @Param: LAND_COL_MIN
     // @DisplayName: Landing Collective Minimum
@@ -179,7 +177,7 @@ const AP_Param::GroupInfo AP_MotorsHeli::var_info[] PROGMEM = {
     // @Units: pwm
     // @Increment: 1
     // @User: Standard
-    AP_GROUPINFO("LAND_COL_MIN", 21, AP_MotorsHeli, _land_collective_min, AP_MOTORS_HELI_LAND_COLLECTIVE_MIN),
+    AP_GROUPINFO("LAND_COL_MIN", 18, AP_MotorsHeli, _land_collective_min, AP_MOTORS_HELI_LAND_COLLECTIVE_MIN),
 
     // @Param: RSC_RAMP_TIME
     // @DisplayName: RSC Ramp Time
@@ -187,7 +185,7 @@ const AP_Param::GroupInfo AP_MotorsHeli::var_info[] PROGMEM = {
     // @Range: 0 60
     // @Units: Seconds
     // @User: Standard
-    AP_GROUPINFO("RSC_RAMP_TIME", 22, AP_MotorsHeli,_rsc_ramp_time, AP_MOTORS_HELI_RSC_RAMP_TIME),
+    AP_GROUPINFO("RSC_RAMP_TIME", 19, AP_MotorsHeli,_rsc_ramp_time, AP_MOTORS_HELI_RSC_RAMP_TIME),
 
     // @Param: RSC_RUNUP_TIME
     // @DisplayName: RSC Runup Time
@@ -195,7 +193,7 @@ const AP_Param::GroupInfo AP_MotorsHeli::var_info[] PROGMEM = {
     // @Range: 0 60
     // @Units: Seconds
     // @User: Standard
-    AP_GROUPINFO("RSC_RUNUP_TIME", 23, AP_MotorsHeli,_rsc_runup_time, AP_MOTORS_HELI_RSC_RUNUP_TIME),
+    AP_GROUPINFO("RSC_RUNUP_TIME", 20, AP_MotorsHeli,_rsc_runup_time, AP_MOTORS_HELI_RSC_RUNUP_TIME),
 
     // @Param: TAIL_SPEED
     // @DisplayName: Direct Drive VarPitch Tail ESC speed
@@ -204,7 +202,7 @@ const AP_Param::GroupInfo AP_MotorsHeli::var_info[] PROGMEM = {
     // @Units: PWM
     // @Increment: 1
     // @User: Standard
-    AP_GROUPINFO("TAIL_SPEED", 24, AP_MotorsHeli,  _direct_drive_tailspeed, AP_MOTOR_HELI_DDTAIL_DEFAULT),
+    AP_GROUPINFO("TAIL_SPEED", 21, AP_MotorsHeli,  _direct_drive_tailspeed, AP_MOTOR_HELI_DDTAIL_DEFAULT),
 
     AP_GROUPEND
 };
@@ -260,7 +258,7 @@ void AP_MotorsHeli::enable()
     hal.rcout->enable_ch(AP_MOTORS_HELI_RSC);                               // output for main rotor esc
 }
 
-// output_min - sends minimum values out to the motors
+// output_min - sets servos to neutral point
 void AP_MotorsHeli::output_min()
 {
     // move swash to mid
@@ -280,7 +278,7 @@ void AP_MotorsHeli::output_min()
 void AP_MotorsHeli::output_test(uint8_t motor_seq, int16_t pwm)
 {
     // exit immediately if not armed
-    if (!_flags.armed) {
+    if (!armed()) {
         return;
     }
 
@@ -375,8 +373,14 @@ uint16_t AP_MotorsHeli::get_motor_mask()
 // protected methods
 //
 
-// output_armed - sends commands to the motors
-void AP_MotorsHeli::output_armed()
+void AP_MotorsHeli::output_armed_not_stabilizing()
+{
+    // stabilizing servos always operate for helicopters
+    output_armed_stabilizing();
+}
+
+// sends commands to the motors
+void AP_MotorsHeli::output_armed_stabilizing()
 {
     // if manual override (i.e. when setting up swash), pass pilot commands straight through to swash
     if (_servo_manual == 1) {
@@ -397,11 +401,19 @@ void AP_MotorsHeli::output_armed()
     rsc_control();
 }
 
+// output_armed_zero_throttle - sends commands to the motors
+void AP_MotorsHeli::output_armed_zero_throttle()
+{
+    // stabilizing servos always operate for helicopters
+    // ToDo: Bring RSC Master On/Off into this function
+    output_armed_stabilizing();
+}
+
 // output_disarmed - sends commands to the motors
 void AP_MotorsHeli::output_disarmed()
 {
-    // for helis - armed or disarmed we allow servos to move
-    output_armed();
+    // stabilizing servos always operate for helicopters
+    output_armed_stabilizing();
 }
 
 //
@@ -595,6 +607,8 @@ void AP_MotorsHeli::move_swash(int16_t roll_out, int16_t pitch_out, int16_t coll
         // the feed-forward is not required when the motor is shut down and not creating torque
         // also not required if we are using external gyro
         if ((_rotor_desired > 0) && _tail_type != AP_MOTORS_HELI_TAILTYPE_SERVO_EXTGYRO) {
+            // sanity check collective_yaw_effect
+            _collective_yaw_effect = constrain_float(_collective_yaw_effect, -AP_MOTOR_HELI_COLYAW_RANGE, AP_MOTOR_HELI_COLYAW_RANGE);
             yaw_offset = _collective_yaw_effect * abs(_collective_out - _collective_mid_pwm);
         }
     }

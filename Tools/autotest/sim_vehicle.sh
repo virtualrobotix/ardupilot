@@ -7,12 +7,14 @@ VEHICLE=""
 BUILD_TARGET="sitl"
 FRAME=""
 NUM_PROCS=1
+SPEEDUP="1"
 
 # check the instance number to allow for multiple copies of the sim running at once
 INSTANCE=0
 USE_VALGRIND=0
 USE_GDB=0
 USE_GDB_STOPPED=0
+USE_MAVLINK_GIMBAL=0
 CLEAN_BUILD=0
 START_ANTENNA_TRACKER=0
 WIPE_EEPROM=0
@@ -37,6 +39,7 @@ Options:
     -A               pass arguments to antenna tracker
     -t               set antenna tracker start location
     -L               select start location from Tools/autotest/locations.txt
+    -l               set the custom start location from -L
     -c               do a make clean before building
     -N               don't rebuild before starting ardupilot
     -w               wipe EEPROM and reload parameters
@@ -47,6 +50,7 @@ Options:
     -j NUM_PROC      number of processors to use during build (default 1)
     -H               start HIL
     -e               use external simulator
+    -S SPEEDUP       set simulation speedup (1 for wall clock time)
 
 mavproxy_options:
     --map            start with a map
@@ -63,7 +67,7 @@ EOF
 
 
 # parse options. Thanks to http://wiki.bash-hackers.org/howto/getopts_tutorial
-while getopts ":I:VgGcj:TA:t:L:v:hwf:RNHe" opt; do
+while getopts ":I:VgGcj:TA:t:L:l:v:hwf:RNHeMS:" opt; do
   case $opt in
     v)
       VEHICLE=$OPTARG
@@ -93,6 +97,9 @@ while getopts ":I:VgGcj:TA:t:L:v:hwf:RNHe" opt; do
     G)
       USE_GDB=1
       ;;
+    M)
+      USE_MAVLINK_GIMBAL=1
+      ;;
     g)
       USE_GDB=1
       USE_GDB_STOPPED=1
@@ -100,8 +107,14 @@ while getopts ":I:VgGcj:TA:t:L:v:hwf:RNHe" opt; do
     L)
       LOCATION="$OPTARG"
       ;;
+    l)
+      CUSTOM_LOCATION="$OPTARG"
+      ;;
     f)
       FRAME="$OPTARG"
+      ;;
+    S)
+      SPEEDUP="$OPTARG"
       ;;
     t)
       TRACKER_LOCATION="$OPTARG"
@@ -141,12 +154,13 @@ kill_tasks()
         killall -q JSBSim lt-JSBSim ArduPlane.elf ArduCopter.elf APMrover2.elf AntennaTracker.elf
         pkill -f runsim.py
         pkill -f sim_tracker.py
-        pkill -f sim_rover.py
-        pkill -f sim_multicopter.py
+        pkill -f sim_wrapper.py
     }
 }
 
+if [ $START_HIL == 0 ]; then
 kill_tasks
+fi
 
 trap kill_tasks SIGINT
 
@@ -162,34 +176,62 @@ set -x
     VEHICLE=$(basename $PWD)
 }
 
+[ -z "$FRAME" -a "$VEHICLE" = "APMrover2" ] && {
+    FRAME="rover"
+}
+
 EXTRA_PARM=""
 EXTRA_SIM=""
+
+[ "$SPEEDUP" != "1" ] && {
+    EXTRA_SIM="$EXTRA_SIM --speedup=$SPEEDUP"
+}
 
 # modify build target based on copter frame type
 case $FRAME in
     +|quad)
 	BUILD_TARGET="sitl"
-        EXTRA_SIM="--frame=quad"
+        EXTRA_SIM="$EXTRA_SIM --frame=quad"
 	;;
     X)
 	BUILD_TARGET="sitl"
         EXTRA_PARM="param set FRAME 1;"
-        EXTRA_SIM="--frame=X"
+        EXTRA_SIM="$EXTRA_SIM --frame=X"
 	;;
     octa)
 	BUILD_TARGET="sitl-octa"
-        EXTRA_SIM="--frame=octa"
+        EXTRA_SIM="$EXTRA_SIM --frame=octa"
+	;;
+    octa-quad)
+	BUILD_TARGET="sitl-octa-quad"
+        EXTRA_SIM="$EXTRA_SIM --frame=octa-quad"
+	;;
+    heli)
+	BUILD_TARGET="sitl-heli"
+        EXTRA_SIM="$EXTRA_SIM --frame=heli"
+	;;
+    IrisRos)
+	BUILD_TARGET="sitl"
+        EXTRA_SIM="$EXTRA_SIM --frame=IrisRos"
+	;;
+    CRRCSim-heli)
+	BUILD_TARGET="sitl-heli"
+        EXTRA_SIM="$EXTRA_SIM --frame=CRRCSim-heli"
+	;;
+    CRRCSim)
+	BUILD_TARGET="sitl"
+        EXTRA_SIM="$EXTRA_SIM --frame=CRRCSim"
 	;;
     elevon*)
         EXTRA_PARM="param set ELEVON_OUTPUT 4;"
-        EXTRA_SIM="--elevon"
+        EXTRA_SIM="$EXTRA_SIM --elevon"
 	;;
     vtail)
         EXTRA_PARM="param set VTAIL_OUTPUT 4;"
-        EXTRA_SIM="--vtail"
+        EXTRA_SIM="$EXTRA_SIM --vtail"
 	;;
-    skid)
-        EXTRA_SIM="--skid-steering"
+    rover|rover-skid)
+        EXTRA_SIM="$EXTRA_SIM --frame=$FRAME"
 	;;
     obc)
         BUILD_TARGET="sitl-obc"
@@ -203,6 +245,11 @@ case $FRAME in
         ;;
 esac
 
+if [ $USE_MAVLINK_GIMBAL == 1 ]; then
+    echo "Using MAVLink gimbal"
+    EXTRA_SIM="$EXTRA_SIM --gimbal"
+fi
+
 autotest=$(dirname $(readlink -e $0))
 if [ $NO_REBUILD == 0 ]; then
 pushd $autotest/../../$VEHICLE || {
@@ -210,6 +257,7 @@ pushd $autotest/../../$VEHICLE || {
     usage
     exit 1
 }
+VEHICLEDIR=$(pwd)
 if [ ! -f $autotest/../../config.mk ]; then
     echo Generating a default configuration
     make configure
@@ -225,7 +273,13 @@ popd
 fi
 
 # get the location information
-SIMHOME=$(cat $autotest/locations.txt | grep -i "^$LOCATION=" | cut -d= -f2)
+if [ -z $CUSTOM_LOCATION ]; then
+    SIMHOME=$(cat $autotest/locations.txt | grep -i "^$LOCATION=" | cut -d= -f2)
+else
+    SIMHOME=$CUSTOM_LOCATION
+    LOCATION="Custom_Location"
+fi
+
 [ -z "$SIMHOME" ] && {
     echo "Unknown location $LOCATION"
     usage
@@ -260,7 +314,7 @@ if [ $START_ANTENNA_TRACKER == 1 ]; then
     popd
 fi
 
-cmd="/tmp/$VEHICLE.build/$VEHICLE.elf -I$INSTANCE"
+cmd="$VEHICLEDIR/$VEHICLE.elf -S -I$INSTANCE --home $SIMHOME"
 if [ $WIPE_EEPROM == 1 ]; then
     cmd="$cmd -w"
 fi
@@ -270,18 +324,37 @@ case $VEHICLE in
         [ "$REVERSE_THROTTLE" == 1 ] && {
             EXTRA_SIM="$EXTRA_SIM --revthr"
         }
-        RUNSIM="nice $autotest/jsbsim/runsim.py --home=$SIMHOME --simin=$SIMIN_PORT --simout=$SIMOUT_PORT --fgout=$FG_PORT $EXTRA_SIM"
+        jsbsim_version=$(JSBSim --version)
+        if [[ $jsbsim_version != *"ArduPilot"* ]]
+        then
+            cat <<EOF
+=========================================================
+You need the latest ArduPilot version of JSBSim installed
+and in your \$PATH
+
+Please get it from git://github.com/tridge/jsbsim.git
+See 
+  http://dev.ardupilot.com/wiki/simulation-2/sitl-simulator-software-in-the-loop/setting-up-sitl-on-linux/ 
+for more details
+=========================================================
+EOF
+            exit 1
+        fi
         PARMS="ArduPlane.parm"
-        if [ $WIPE_EEPROM == 1 ]; then
-            cmd="$cmd -PFORMAT_VERSION=13 -PSKIP_GYRO_CAL=1 -PRC3_MIN=1000 -PRC3_TRIM=1000"
+        if [ "$FRAME" = "CRRCSim" ]; then
+            RUNSIM="nice $autotest/pysim/sim_wrapper.py --frame=CRRCSim --home=$SIMHOME --simin=$SIMIN_PORT --simout=$SIMOUT_PORT --fgout=$FG_PORT $EXTRA_SIM"
+        else
+            RUNSIM=""
+            cmd="$cmd --model jsbsim --speedup=$SPEEDUP"
         fi
         ;;
     ArduCopter)
-        RUNSIM="nice $autotest/pysim/sim_multicopter.py --home=$SIMHOME --simin=$SIMIN_PORT --simout=$SIMOUT_PORT --fgout=$FG_PORT $EXTRA_SIM"
+        RUNSIM="nice $autotest/pysim/sim_wrapper.py --home=$SIMHOME --simin=$SIMIN_PORT --simout=$SIMOUT_PORT --fgout=$FG_PORT $EXTRA_SIM"
         PARMS="copter_params.parm"
         ;;
     APMrover2)
-        RUNSIM="nice $autotest/pysim/sim_rover.py --home=$SIMHOME --rate=400 $EXTRA_SIM"
+        RUNSIM=""
+        cmd="$cmd --model $FRAME --speedup=$SPEEDUP"
         PARMS="Rover.parm"
         ;;
     *)
@@ -299,7 +372,7 @@ elif [ $USE_GDB == 1 ]; then
     echo "Using gdb"
     tfile=$(mktemp)
     [ $USE_GDB_STOPPED == 0 ] && {
-        echo r > $tfile
+        echo r >> $tfile
     }
     $autotest/run_in_terminal_window.sh "ardupilot (gdb)" gdb -x $tfile --args $cmd || exit 1
 else
@@ -309,16 +382,24 @@ fi
 
 trap kill_tasks SIGINT
 
-sleep 2
-rm -f $tfile
-if [ $EXTERNAL_SIM == 0 ]; then
-    $autotest/run_in_terminal_window.sh "Simulator" $RUNSIM || {
-        echo "Failed to start simulator: $RUNSIM"
-        exit 1
-    }
+if test -n "$RUNSIM"; then
     sleep 2
-else
-    echo "Using external simulator"
+    rm -f $tfile
+    if [ $EXTERNAL_SIM == 0 ]; then
+        $autotest/run_in_terminal_window.sh "Simulator" $RUNSIM || {
+            echo "Failed to start simulator: $RUNSIM"
+            exit 1
+        }
+        sleep 2
+    else
+        echo "Using external ROS simulator"
+        RUNSIM="$autotest/ROS/runsim.py --simin=$SIMIN_PORT --simout=$SIMOUT_PORT --fgout=$FG_PORT $EXTRA_SIM"
+        $autotest/run_in_terminal_window.sh "ROS Simulator" $RUNSIM || {
+            echo "Failed to start simulator: $RUNSIM"
+            exit 1
+        }
+        sleep 2
+    fi
 fi
 
 # mavproxy.py --master tcp:127.0.0.1:5760 --sitl 127.0.0.1:5501 --out 127.0.0.1:14550 --out 127.0.0.1:14551 
@@ -343,5 +424,10 @@ fi
 if [ $START_HIL == 1 ]; then
     options="$options --load-module=HIL"
 fi
+if [ $USE_MAVLINK_GIMBAL == 1 ]; then
+    options="$options --load-module=gimbal"
+fi
 mavproxy.py $options --cmd="$extra_cmd" $*
+if [ $START_HIL == 0 ]; then
 kill_tasks
+fi

@@ -44,20 +44,14 @@ static const struct Menu::command test_menu_commands[] PROGMEM = {
 
     // Tests below here are for hardware sensors only present
     // when real sensors are attached or they are emulated
-#if HIL_MODE == HIL_MODE_DISABLED
- #if CONFIG_HAL_BOARD == HAL_BOARD_APM1
+#if CONFIG_HAL_BOARD == HAL_BOARD_APM1
     {"adc",                 test_adc},
- #endif
+#endif
     {"gps",                 test_gps},
     {"ins",                 test_ins},
     {"airspeed",    test_airspeed},
     {"airpressure", test_pressure},
     {"compass",             test_mag},
-#else
-    {"gps",                 test_gps},
-    {"ins",                 test_ins},
-    {"compass",             test_mag},
-#endif
     {"logging",             test_logging},
 #if CONFIG_HAL_BOARD == HAL_BOARD_PX4 || CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
     {"shell", 				test_shell},
@@ -452,8 +446,8 @@ test_ins(uint8_t argc, const Menu::arg *argv)
                             (int)ahrs.roll_sensor / 100,
                             (int)ahrs.pitch_sensor / 100,
                             (uint16_t)ahrs.yaw_sensor / 100,
-                            gyros.x, gyros.y, gyros.z,
-                            accels.x, accels.y, accels.z);
+                            (double)gyros.x, (double)gyros.y, (double)gyros.z,
+                            (double)accels.x, (double)accels.y, (double)accels.z);
         }
         if(cliSerial->available() > 0) {
             return (0);
@@ -516,8 +510,8 @@ test_mag(uint8_t argc, const Menu::arg *argv)
                     const Vector3f &mag = compass.get_field();
                     cliSerial->printf_P(PSTR("Heading: %ld, XYZ: %.0f, %.0f, %.0f,\tXYZoff: %6.2f, %6.2f, %6.2f\n"),
                                         (wrap_360_cd(ToDeg(heading) * 100)) /100,
-                                        mag.x, mag.y, mag.z,
-                                        mag_ofs.x, mag_ofs.y, mag_ofs.z);
+                                        (double)mag.x, (double)mag.y, (double)mag.z,
+                                        (double)mag_ofs.x, (double)mag_ofs.y, (double)mag_ofs.z);
                 } else {
                     cliSerial->println_P(PSTR("compass not healthy"));
                 }
@@ -539,8 +533,6 @@ test_mag(uint8_t argc, const Menu::arg *argv)
 //-------------------------------------------------------------------------------------------
 // real sensors that have not been simulated yet go here
 
-#if HIL_MODE == HIL_MODE_DISABLED
-
 static int8_t
 test_airspeed(uint8_t argc, const Menu::arg *argv)
 {
@@ -557,7 +549,7 @@ test_airspeed(uint8_t argc, const Menu::arg *argv)
         while(1) {
             hal.scheduler->delay(20);
             read_airspeed();
-            cliSerial->printf_P(PSTR("%.1f m/s\n"), airspeed.get_airspeed());
+            cliSerial->printf_P(PSTR("%.1f m/s\n"), (double)airspeed.get_airspeed());
 
             if(cliSerial->available() > 0) {
                 return (0);
@@ -583,9 +575,9 @@ test_pressure(uint8_t argc, const Menu::arg *argv)
             cliSerial->println_P(PSTR("not healthy"));
         } else {
             cliSerial->printf_P(PSTR("Alt: %0.2fm, Raw: %f Temperature: %.1f\n"),
-                                barometer.get_altitude(),
-                                barometer.get_pressure(), 
-                                barometer.get_temperature());
+                                (double)barometer.get_altitude(),
+                                (double)barometer.get_pressure(),
+                                (double)barometer.get_temperature());
         }
 
         if(cliSerial->available() > 0) {
@@ -593,7 +585,5 @@ test_pressure(uint8_t argc, const Menu::arg *argv)
         }
     }
 }
-
-#endif // HIL_MODE == HIL_MODE_DISABLED
 
 #endif // CLI_ENABLED

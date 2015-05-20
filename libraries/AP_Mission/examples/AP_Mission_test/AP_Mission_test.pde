@@ -10,7 +10,7 @@
 #include <AP_Param.h>
 #include <AP_HAL.h>
 #include <AP_HAL_AVR.h>
-#include <AP_HAL_AVR_SITL.h>
+#include <AP_HAL_SITL.h>
 #include <AP_HAL_PX4.h>
 #include <AP_HAL_Empty.h>
 #include <SITL.h>
@@ -24,7 +24,6 @@
 #include <StorageManager.h>
 #include <AP_Terrain.h>
 #include <AP_GPS.h>             // ArduPilot GPS library
-#include <AP_GPS_Glitch.h>      // GPS glitch protection library
 #include <AP_ADC.h>             // ArduPilot Mega Analog to Digital Converter Library
 #include <AP_ADC_AnalogSource.h>
 #include <AP_Baro.h>            // ArduPilot Mega Barometer Library
@@ -36,6 +35,8 @@
 #include <AP_Airspeed.h>
 #include <AP_Buffer.h>          // ArduPilot general purpose FIFO buffer
 #include <GCS_MAVLink.h>
+#include <AP_BattMonitor.h>
+#include <AP_RangeFinder.h>
 
 const AP_HAL::HAL& hal = AP_HAL_BOARD_DRIVER;
 
@@ -44,9 +45,8 @@ AP_Baro baro;
 
 // GPS declaration
 static AP_GPS  gps;
-GPS_Glitch gps_glitch(gps);
 
-AP_Compass_HMC5843 compass;
+Compass compass;
 AP_AHRS_DCM ahrs(ins, baro, gps);
 
 // global constants that control how many verify calls must be made for a command before it completes
@@ -99,7 +99,7 @@ bool verify_cmd(const AP_Mission::Mission_Command& cmd)
 // mission_complete - function that is called once the mission completes
 void mission_complete(void)
 {
-    hal.console->printf_P(PSTR("\nMission Complete!\n"));
+    hal.console->print_P(PSTR("\nMission Complete!\n"));
 }
 
 // declaration
@@ -180,7 +180,7 @@ void run_mission_test()
     print_mission();
 
     // start mission
-    hal.console->printf_P(PSTR("\nRunning missions\n"));
+    hal.console->print_P(PSTR("\nRunning missions\n"));
     mission.start();
 
     // update mission forever
@@ -205,7 +205,7 @@ void init_mission()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #1 : take-off to 10m
@@ -216,7 +216,7 @@ void init_mission()
     cmd.content.location.lat = 0;
     cmd.content.location.lng = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #2 : first waypoint
@@ -227,7 +227,7 @@ void init_mission()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #3 : second waypoint
@@ -237,7 +237,7 @@ void init_mission()
     cmd.content.location.lng = -1234567890;
     cmd.content.location.alt = 22;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #4 : do-jump to first waypoint 3 times
@@ -245,7 +245,7 @@ void init_mission()
     cmd.content.jump.target = 2;
     cmd.content.jump.num_times = 1;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #5 : RTL
@@ -255,7 +255,7 @@ void init_mission()
     cmd.content.location.lng = 0;
     cmd.content.location.alt = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 }
 
@@ -276,7 +276,7 @@ void init_mission_no_nav_commands()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #1 : "do" command
@@ -287,7 +287,7 @@ void init_mission_no_nav_commands()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #2 : "do" command
@@ -298,13 +298,13 @@ void init_mission_no_nav_commands()
     cmd.content.location.lat = 0;
     cmd.content.location.lng = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #3 : "do" command
     cmd.id = MAV_CMD_DO_SET_SERVO;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #4 : do-jump to first command 3 times
@@ -312,7 +312,7 @@ void init_mission_no_nav_commands()
     cmd.content.jump.target = 1;
     cmd.content.jump.num_times = 1;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 }
 
@@ -333,7 +333,7 @@ void init_mission_endless_loop()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #1 : do-jump command to itself
@@ -341,7 +341,7 @@ void init_mission_endless_loop()
     cmd.content.jump.target = 1;
     cmd.content.jump.num_times = 2;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #2 : take-off to 10m
@@ -352,7 +352,7 @@ void init_mission_endless_loop()
     cmd.content.location.lat = 0;
     cmd.content.location.lng = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #3 : waypoint
@@ -363,7 +363,7 @@ void init_mission_endless_loop()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 }
 
@@ -385,7 +385,7 @@ void init_mission_jump_to_nonnav()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #1 : take-off to 10m
@@ -396,7 +396,7 @@ void init_mission_jump_to_nonnav()
     cmd.content.location.lat = 0;
     cmd.content.location.lng = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #2 : do-roi command
@@ -407,7 +407,7 @@ void init_mission_jump_to_nonnav()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #3 : do-jump command to #2
@@ -415,7 +415,7 @@ void init_mission_jump_to_nonnav()
     cmd.content.jump.target = 2;
     cmd.content.jump.num_times = 2;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #4 : waypoint
@@ -426,7 +426,7 @@ void init_mission_jump_to_nonnav()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 }
 
@@ -449,7 +449,7 @@ void init_mission_starts_with_do_commands()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #1 : First "do" command
@@ -460,7 +460,7 @@ void init_mission_starts_with_do_commands()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #2 : Second "do" command
@@ -471,7 +471,7 @@ void init_mission_starts_with_do_commands()
     cmd.content.location.lat = 0;
     cmd.content.location.lng = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #3 : take-off to 10m
@@ -482,7 +482,7 @@ void init_mission_starts_with_do_commands()
     cmd.content.location.lat = 0;
     cmd.content.location.lng = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #4 : Third "do" command
@@ -493,7 +493,7 @@ void init_mission_starts_with_do_commands()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #5 : waypoint
@@ -504,7 +504,7 @@ void init_mission_starts_with_do_commands()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 }
 
@@ -526,7 +526,7 @@ void init_mission_ends_with_do_commands()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #1 : take-off to 10m
@@ -537,7 +537,7 @@ void init_mission_ends_with_do_commands()
     cmd.content.location.lat = 0;
     cmd.content.location.lng = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #2 : "do" command
@@ -548,7 +548,7 @@ void init_mission_ends_with_do_commands()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #3 : waypoint
@@ -559,7 +559,7 @@ void init_mission_ends_with_do_commands()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #4 : "do" command after last nav command (but not at end of mission)
@@ -570,7 +570,7 @@ void init_mission_ends_with_do_commands()
     cmd.content.location.lat = 0;
     cmd.content.location.lng = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #5 : "do" command at end of mission
@@ -581,7 +581,7 @@ void init_mission_ends_with_do_commands()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 }
 
@@ -602,7 +602,7 @@ void init_mission_ends_with_jump_command()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #1 : take-off to 10m
@@ -613,7 +613,7 @@ void init_mission_ends_with_jump_command()
     cmd.content.location.lat = 0;
     cmd.content.location.lng = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #2 : "do" command
@@ -624,7 +624,7 @@ void init_mission_ends_with_jump_command()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #3 : waypoint
@@ -635,7 +635,7 @@ void init_mission_ends_with_jump_command()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #4 : "do" command after last nav command (but not at end of mission)
@@ -646,7 +646,7 @@ void init_mission_ends_with_jump_command()
     cmd.content.location.lat = 0;
     cmd.content.location.lng = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #5 : "do" command at end of mission
@@ -657,7 +657,7 @@ void init_mission_ends_with_jump_command()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #6 : do-jump command to #2 two times
@@ -665,7 +665,7 @@ void init_mission_ends_with_jump_command()
     cmd.content.jump.target = 3;
     cmd.content.jump.num_times = 2;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 }
 
@@ -723,7 +723,7 @@ void run_resume_test()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #1 : take-off to 10m
@@ -734,7 +734,7 @@ void run_resume_test()
     cmd.content.location.lat = 0;
     cmd.content.location.lng = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #2 : first waypoint
@@ -745,7 +745,7 @@ void run_resume_test()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #3 : second waypoint
@@ -755,7 +755,7 @@ void run_resume_test()
     cmd.content.location.lng = -1234567890;
     cmd.content.location.alt = 22;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #4 : do command
@@ -766,7 +766,7 @@ void run_resume_test()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #5 : RTL
@@ -776,7 +776,7 @@ void run_resume_test()
     cmd.content.location.lng = 0;
     cmd.content.location.alt = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // print current mission
@@ -829,7 +829,7 @@ void run_set_current_cmd_test()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #1 : take-off to 10m
@@ -840,7 +840,7 @@ void run_set_current_cmd_test()
     cmd.content.location.lat = 0;
     cmd.content.location.lng = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #2 : do command
@@ -851,7 +851,7 @@ void run_set_current_cmd_test()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #3 : first waypoint
@@ -862,7 +862,7 @@ void run_set_current_cmd_test()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #4 : second waypoint
@@ -872,7 +872,7 @@ void run_set_current_cmd_test()
     cmd.content.location.lng = -1234567890;
     cmd.content.location.alt = 22;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #5 : do command
@@ -883,7 +883,7 @@ void run_set_current_cmd_test()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #6 : RTL
@@ -893,7 +893,7 @@ void run_set_current_cmd_test()
     cmd.content.location.lng = 0;
     cmd.content.location.alt = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // print current mission
@@ -934,7 +934,7 @@ void run_set_current_cmd_while_stopped_test()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #1 : take-off to 10m
@@ -945,7 +945,7 @@ void run_set_current_cmd_while_stopped_test()
     cmd.content.location.lat = 0;
     cmd.content.location.lng = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #2 : do command
@@ -956,7 +956,7 @@ void run_set_current_cmd_while_stopped_test()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #3 : first waypoint
@@ -967,7 +967,7 @@ void run_set_current_cmd_while_stopped_test()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #4 : second waypoint
@@ -977,7 +977,7 @@ void run_set_current_cmd_while_stopped_test()
     cmd.content.location.lng = -1234567890;
     cmd.content.location.alt = 22;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #5 : do command
@@ -988,7 +988,7 @@ void run_set_current_cmd_while_stopped_test()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #6 : RTL
@@ -998,7 +998,7 @@ void run_set_current_cmd_while_stopped_test()
     cmd.content.location.lng = 0;
     cmd.content.location.alt = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // print current mission
@@ -1071,7 +1071,7 @@ void run_replace_cmd_test()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #1 : take-off to 10m
@@ -1082,7 +1082,7 @@ void run_replace_cmd_test()
     cmd.content.location.lat = 0;
     cmd.content.location.lng = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #2 : do command
@@ -1093,7 +1093,7 @@ void run_replace_cmd_test()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #3 : first waypoint
@@ -1104,7 +1104,7 @@ void run_replace_cmd_test()
     cmd.content.location.lat = 12345678;
     cmd.content.location.lng = 23456789;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #4 : second waypoint
@@ -1114,7 +1114,7 @@ void run_replace_cmd_test()
     cmd.content.location.lng = -1234567890;
     cmd.content.location.alt = 22;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // Command #6 : RTL
@@ -1124,7 +1124,7 @@ void run_replace_cmd_test()
     cmd.content.location.lng = 0;
     cmd.content.location.alt = 0;
     if (!mission.add_cmd(cmd)) {
-        hal.console->printf_P(PSTR("failed to add command\n"));
+        hal.console->print_P(PSTR("failed to add command\n"));
     }
 
     // print current mission

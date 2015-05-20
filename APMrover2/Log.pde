@@ -2,6 +2,8 @@
 
 #if LOGGING_ENABLED == ENABLED
 
+#if CLI_ENABLED == ENABLED
+
 // Code to Write and Read packets from DataFlash log memory
 // Code to interact with the user to dump or erase logs
 
@@ -93,13 +95,6 @@ dump_log(uint8_t argc, const Menu::arg *argv)
 }
 
 
-static void do_erase_logs(void)
-{
-	cliSerial->printf_P(PSTR("\nErasing log...\n"));
-    DataFlash.EraseAll();
-	cliSerial->printf_P(PSTR("\nLog erased.\n"));
-}
-
 static int8_t
 erase_logs(uint8_t argc, const Menu::arg *argv)
 {
@@ -162,6 +157,16 @@ process_logs(uint8_t argc, const Menu::arg *argv)
 	log_menu.run();
 	return 0;
 }
+
+#endif // CLI_ENABLED == ENABLED
+
+static void do_erase_logs(void)
+{
+	cliSerial->printf_P(PSTR("\nErasing log...\n"));
+    DataFlash.EraseAll();
+	cliSerial->printf_P(PSTR("\nLog erased.\n"));
+}
+
 
 struct PACKED log_Performance {
     LOG_PACKET_HEADER;
@@ -239,9 +244,16 @@ static void Log_Write_Startup(uint8_t type)
     DataFlash.WriteBlock(&pkt, sizeof(pkt));
 
     // write all commands to the dataflash as well
+    Log_Write_EntireMission();
+}
+
+static void Log_Write_EntireMission()
+{
+    DataFlash.Log_Write_Message_P(PSTR("New mission"));
+
     AP_Mission::Mission_Command cmd;
     for (uint16_t i = 0; i < mission.num_commands(); i++) {
-        if(mission.read_cmd_from_storage(i,cmd)) {
+        if (mission.read_cmd_from_storage(i,cmd)) {
             Log_Write_Cmd(cmd);
         }
     }
@@ -306,13 +318,14 @@ static void Log_Write_Attitude()
     DataFlash.Log_Write_Attitude(ahrs, targets);
 
 #if AP_AHRS_NAVEKF_AVAILABLE
- #if OPTFLOW == ENABLED
+ #if defined(OPTFLOW) and (OPTFLOW == ENABLED)
     DataFlash.Log_Write_EKF(ahrs,optflow.enabled());
  #else
     DataFlash.Log_Write_EKF(ahrs,false);
  #endif
     DataFlash.Log_Write_AHRS2(ahrs);
 #endif
+    DataFlash.Log_Write_POS(ahrs);
 }
 
 struct PACKED log_Sonar {
@@ -332,7 +345,7 @@ struct PACKED log_Sonar {
 static void Log_Write_Sonar()
 {
     uint16_t turn_time = 0;
-    if (obstacle.turn_angle != 0) {
+    if (!is_zero(obstacle.turn_angle)) {
         turn_time = hal.scheduler->millis() - obstacle.detected_time_ms;
     }
     struct log_Sonar pkt = {
@@ -386,6 +399,7 @@ static const struct LogStructure log_structure[] PROGMEM = {
 };
 
 
+#if CLI_ENABLED == ENABLED
 // Read the DataFlash log memory : Packet Parser
 static void Log_Read(uint16_t log_num, uint16_t start_page, uint16_t end_page)
 {
@@ -399,6 +413,7 @@ static void Log_Read(uint16_t log_num, uint16_t start_page, uint16_t end_page)
                              print_mode,
                              cliSerial);
 }
+#endif // CLI_ENABLED
 
 // start a new log
 static void start_logging() 
@@ -423,6 +438,7 @@ static void start_logging()
 
 // dummy functions
 static void Log_Write_Startup(uint8_t type) {}
+static void Log_Write_EntireMission() {}
 static void Log_Write_Current() {}
 static void Log_Write_Nav_Tuning() {}
 static void Log_Write_Performance() {}

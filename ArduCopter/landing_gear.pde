@@ -4,14 +4,14 @@
 static void landinggear_update(){
 
     // If landing gear control is active, run update function.
-    if (g.ch7_option == AUX_SWITCH_LANDING_GEAR || g.ch8_option == AUX_SWITCH_LANDING_GEAR){
+    if (check_if_auxsw_mode_used(AUXSW_LANDING_GEAR)){
 
         // last status (deployed or retracted) used to check for changes
         static bool last_deploy_status;
 
         // if we are doing an automatic landing procedure, force the landing gear to deploy.
         // To-Do: should we pause the auto-land procedure to give time for gear to come down?
-        if (control_mode == LAND || (control_mode==RTL && rtl_state == Land) || (control_mode == AUTO && auto_mode == Auto_Land)){
+        if (control_mode == LAND || (control_mode==RTL && rtl_state == RTL_Land) || (control_mode == AUTO && auto_mode == Auto_Land)){
             landinggear.force_deploy(true);
         }            
 

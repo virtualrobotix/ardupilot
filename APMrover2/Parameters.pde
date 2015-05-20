@@ -43,8 +43,8 @@ const AP_Param::Info var_info[] PROGMEM = {
     GSCALAR(rssi_pin,            "RSSI_PIN",         -1),
 
     // @Param: SYSID_THIS_MAV
-    // @DisplayName: MAVLink system ID
-    // @Description: ID used in MAVLink protocol to identify this vehicle
+    // @DisplayName: MAVLink system ID of this vehicle
+    // @Description: Allows setting an individual MAVLink system id for this vehicle to distinguish it from others on the same network
     // @Range: 1 255
     // @User: Advanced
 	GSCALAR(sysid_this_mav,         "SYSID_THISMAV",    MAV_SYSTEM_ID),
@@ -55,40 +55,6 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @Range: 1 255
     // @User: Advanced
 	GSCALAR(sysid_my_gcs,           "SYSID_MYGCS",      255),
-
-    // @Param: SERIAL0_BAUD
-    // @DisplayName: USB Console Baud Rate
-    // @Description: The baud rate used on the USB console. The APM2 can support all baudrates up to 115, and also can support 500. The PX4 can support rates of up to 1500. If you setup a rate you cannot support on APM2 and then can't connect to your board you should load a firmware from a different vehicle type. That will reset all your parameters to defaults.
-    // @Values: 1:1200,2:2400,4:4800,9:9600,19:19200,38:38400,57:57600,111:111100,115:115200,500:500000,921:921600,1500:1500000
-    // @User: Standard
-    GSCALAR(serial0_baud,           "SERIAL0_BAUD",   SERIAL0_BAUD/1000),
-
-    // @Param: SERIAL1_BAUD
-    // @DisplayName: Telemetry Baud Rate
-    // @Description: The baud rate used on the first telemetry port. The APM2 can support all baudrates up to 115, and also can support 500. The PX4 can support rates of up to 1500. If you setup a rate you cannot support on APM2 and then can't connect to your board you should load a firmware from a different vehicle type. That will reset all your parameters to defaults.
-    // @Values: 1:1200,2:2400,4:4800,9:9600,19:19200,38:38400,57:57600,111:111100,115:115200,500:500000,921:921600,1500:1500000
-    // @User: Standard
-    GSCALAR(serial1_baud,           "SERIAL1_BAUD",   SERIAL1_BAUD/1000),
-
-#if MAVLINK_COMM_NUM_BUFFERS > 2
-    // @Param: SERIAL2_BAUD
-    // @DisplayName: Telemetry Baud Rate
-    // @Description: The baud rate used on the second telemetry port. The APM2 can support all baudrates up to 115, and also can support 500. The PX4 can support rates of up to 1500. If you setup a rate you cannot support on APM2 and then can't connect to your board you should load a firmware from a different vehicle type. That will reset all your parameters to defaults.
-    // @Values: 1:1200,2:2400,4:4800,9:9600,19:19200,38:38400,57:57600,111:111100,115:115200,500:500000,921:921600,1500:1500000
-    // @User: Standard
-    GSCALAR(serial2_baud,           "SERIAL2_BAUD",   SERIAL2_BAUD/1000),
-
-#if FRSKY_TELEM_ENABLED == ENABLED
-    // @Param: SERIAL2_PROTOCOL
-    // @DisplayName: SERIAL2 protocol selection
-    // @Description: Control what protocol telemetry 2 port should be used for
-    // @Values: 1:GCS Mavlink,2:Frsky D-PORT,3:Frsky S-PORT
-    // @User: Standard
-    GSCALAR(serial2_protocol,        "SERIAL2_PROTOCOL", SERIAL2_MAVLINK),
-#endif // FRSKY_TELEM_ENABLED
-
-#endif // MAVLINK_COMM_NUM_BUFFERS
-
 
     // @Param: TELEM_DELAY
     // @DisplayName: Telemetry startup delay 
@@ -116,7 +82,7 @@ const AP_Param::Info var_info[] PROGMEM = {
 	// @Param: AUTO_TRIGGER_PIN
 	// @DisplayName: Auto mode trigger pin
 	// @Description: pin number to use to enable the throttle in auto mode. If set to -1 then don't use a trigger, otherwise this is a pin number which if held low in auto mode will enable the motor to run. If the switch is released while in AUTO then the motor will stop again. This can be used in combination with INITIAL_MODE to give a 'press button to start' rover with no receiver.
-	// @Values: -1:Disabled,0-8:TiggerPin
+	// @Values: -1:Disabled, 0-8:APM TriggerPin, 50-55: Pixhawk TriggerPin
 	// @User: standard
 	GSCALAR(auto_trigger_pin,        "AUTO_TRIGGER_PIN", -1),
 
@@ -489,6 +455,16 @@ const AP_Param::Info var_info[] PROGMEM = {
     GOBJECTN(gcs[2],  gcs2,       "SR2_",     GCS_MAVLINK),
 #endif
 
+#if MAVLINK_COMM_NUM_BUFFERS > 3
+    // @Group: SR3_
+    // @Path: GCS_Mavlink.pde
+    GOBJECTN(gcs[3],  gcs3,       "SR3_",     GCS_MAVLINK),
+#endif
+
+    // @Group: SERIAL
+    // @Path: ../libraries/AP_SerialManager/AP_SerialManager.cpp
+    GOBJECT(serial_manager,         "SERIAL",   AP_SerialManager),
+
     // @Group: NAVL1_
     // @Path: ../libraries/AP_L1_Control/AP_L1_Control.cpp
     GOBJECT(L1_controller,         "NAVL1_",   AP_L1_Control),
@@ -501,7 +477,7 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @Path: ../libraries/AP_InertialSensor/AP_InertialSensor.cpp
     GOBJECT(ins,                            "INS_", AP_InertialSensor),
 
-#if CONFIG_HAL_BOARD == HAL_BOARD_AVR_SITL
+#if CONFIG_HAL_BOARD == HAL_BOARD_SITL
     // @Group: SIM_
     // @Path: ../libraries/SITL/SITL.cpp
     GOBJECT(sitl, "SIM_", SITL),
@@ -518,9 +494,9 @@ const AP_Param::Info var_info[] PROGMEM = {
 #endif
 
 #if MOUNT == ENABLED
-    // @Group: MNT_
+    // @Group: MNT
     // @Path: ../libraries/AP_Mount/AP_Mount.cpp
-    GOBJECT(camera_mount,           "MNT_", AP_Mount),
+    GOBJECT(camera_mount,           "MNT",  AP_Mount),
 #endif
 
     // @Group: BATT_
@@ -569,6 +545,9 @@ const AP_Param::ConversionInfo conversion_table[] PROGMEM = {
     { Parameters::k_param_volt_div_ratio,     0,      AP_PARAM_FLOAT, "BATT_VOLT_MULT" },
     { Parameters::k_param_curr_amp_per_volt,  0,      AP_PARAM_FLOAT, "BATT_AMP_PERVOLT" },
     { Parameters::k_param_pack_capacity,      0,      AP_PARAM_INT32, "BATT_CAPACITY" },
+    { Parameters::k_param_serial0_baud,       0,      AP_PARAM_INT16, "SERIAL0_BAUD" },
+    { Parameters::k_param_serial1_baud,       0,      AP_PARAM_INT16, "SERIAL1_BAUD" },
+    { Parameters::k_param_serial2_baud,       0,      AP_PARAM_INT16, "SERIAL2_BAUD" },
 };
 
 static void load_parameters(void)
@@ -595,10 +574,6 @@ static void load_parameters(void)
 
 	    cliSerial->printf_P(PSTR("load_all took %luus\n"), micros() - before);
 	}
-
-    // set a lower default filter frequency for rovers, due to very
-    // high vibration levels on rough surfaces
-    ins.set_default_filter(5);
 
     // set a more reasonable default NAVL1_PERIOD for rovers
     L1_controller.set_default_period(8);

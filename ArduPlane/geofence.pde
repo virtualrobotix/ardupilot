@@ -28,6 +28,7 @@ static struct GeofenceState {
                                   // last time we checked
     bool is_enabled;
     GeofenceEnableReason enable_reason;
+    bool floor_enabled;          //typically used for landing
     uint16_t breach_count;
     uint8_t breach_type;
     uint32_t breach_time;
@@ -197,6 +198,10 @@ static bool geofence_set_enabled(bool enable, GeofenceEnableReason r)
     }
 
     geofence_state->is_enabled = enable;
+    if (enable == true) {
+        //turn the floor back on if it had been off
+        geofence_set_floor_enabled(true);
+    }
     geofence_state->enable_reason = r;
     
     return true;
@@ -225,6 +230,18 @@ static bool geofence_enabled(void)
     return true;
 }
 
+/*
+ * Set floor state IF the fence is present.
+ * Return false on failure to set floor state.
+ */
+static bool geofence_set_floor_enabled(bool floor_enable) {
+    if (geofence_state == NULL) {
+        return false;
+    }
+    
+    geofence_state->floor_enabled = floor_enable;
+    return true;
+}
 
 /*
  *  return true if we have breached the geo-fence minimum altiude
@@ -237,7 +254,7 @@ static bool geofence_check_minalt(void)
     if (g.fence_minalt == 0) {
         return false;
     }
-    return (adjusted_altitude_cm() < (g.fence_minalt*100.0) + home.alt);
+    return (adjusted_altitude_cm() < (g.fence_minalt*100.0f) + home.alt);
 }
 
 /*
@@ -251,7 +268,7 @@ static bool geofence_check_maxalt(void)
     if (g.fence_maxalt == 0) {
         return false;
     }
-    return (adjusted_altitude_cm() > (g.fence_maxalt*100.0) + home.alt);
+    return (adjusted_altitude_cm() > (g.fence_maxalt*100.0f) + home.alt);
 }
 
 
@@ -290,7 +307,12 @@ static void geofence_check(bool altitude_check_only)
     uint8_t breach_type = FENCE_BREACH_NONE;
     struct Location loc;
 
-    if (geofence_check_minalt()) {
+    // Never trigger a fence breach in the final stage of landing
+    if (flight_stage == AP_SpdHgtControl::FLIGHT_LAND_FINAL) {
+        return;
+    }
+
+    if (geofence_state->floor_enabled && geofence_check_minalt()) {
         outside = true;
         breach_type = FENCE_BREACH_MINALT;
     } else if (geofence_check_maxalt()) {
@@ -356,14 +378,14 @@ static void geofence_check(bool altitude_check_only)
         } else { //return to fence return point, not a rally point
             if (g.fence_retalt > 0) {
                 //fly to the return point using fence_retalt
-                guided_WP_loc.alt = home.alt + 100.0*g.fence_retalt;
+                guided_WP_loc.alt = home.alt + 100.0f*g.fence_retalt;
             } else if (g.fence_minalt >= g.fence_maxalt) {
                 // invalid min/max, use RTL_altitude
                 guided_WP_loc.alt = home.alt + g.RTL_altitude_cm;
             } else {
                 // fly to the return point, with an altitude half way between
                 // min and max
-                guided_WP_loc.alt = home.alt + 100.0*(g.fence_minalt + g.fence_maxalt)/2;
+                guided_WP_loc.alt = home.alt + 100.0f*(g.fence_minalt + g.fence_maxalt)/2;
             }
             guided_WP_loc.options = 0;
             guided_WP_loc.lat = geofence_state->boundary[0].x;
@@ -449,6 +471,10 @@ static bool geofence_present(void) {
 }
 
 static bool geofence_set_enabled(bool enable, GeofenceEnableReason r) {
+    return false;
+}
+
+static bool geofence_set_floor_enabled(bool floor_enable) {
     return false;
 }
 

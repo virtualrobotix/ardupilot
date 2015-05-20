@@ -32,12 +32,10 @@ static void circle_run()
     float target_yaw_rate = 0;
     float target_climb_rate = 0;
 
-    // if not auto armed set throttle to zero and exit immediately
-    if(!ap.auto_armed || ap.land_complete) {
+    // if not auto armed or motor interlock not enabled set throttle to zero and exit immediately
+    if(!ap.auto_armed || ap.land_complete || !motors.get_interlock()) {
         // To-Do: add some initialisation of position controllers
-        attitude_control.relax_bf_rate_controller();
-        attitude_control.set_yaw_target_to_current_heading();
-        attitude_control.set_throttle_out(0, false);
+        attitude_control.set_throttle_out_unstabilized(0,true,g.throttle_filt);
         pos_control.set_alt_target_to_current_alt();
         return;
     }
@@ -46,7 +44,7 @@ static void circle_run()
     if (!failsafe.radio) {
         // get pilot's desired yaw rate
         target_yaw_rate = get_pilot_desired_yaw_rate(g.rc_4.control_in);
-        if (target_yaw_rate != 0) {
+        if (!is_zero(target_yaw_rate)) {
             circle_pilot_yaw_override = true;
         }
 
@@ -75,7 +73,7 @@ static void circle_run()
     // run altitude controller
     if (sonar_alt_health >= SONAR_ALT_HEALTH_MAX) {
         // if sonar is ok, use surface tracking
-        target_climb_rate = get_throttle_surface_tracking(target_climb_rate, pos_control.get_alt_target(), G_Dt);
+        target_climb_rate = get_surface_tracking_climb_rate(target_climb_rate, pos_control.get_alt_target(), G_Dt);
     }
     // update altitude target and call position controller
     pos_control.set_alt_target_from_climb_rate(target_climb_rate, G_Dt);

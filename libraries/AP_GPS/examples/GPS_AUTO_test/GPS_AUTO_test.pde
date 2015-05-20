@@ -10,7 +10,7 @@
 #include <AP_Param.h>
 #include <AP_HAL.h>
 #include <AP_HAL_AVR.h>
-#include <AP_HAL_AVR_SITL.h>
+#include <AP_HAL_SITL.h>
 #include <AP_HAL_PX4.h>
 #include <AP_HAL_Linux.h>
 #include <AP_HAL_Empty.h>
@@ -36,6 +36,9 @@
 #include <AP_NavEKF.h>
 #include <AP_Rally.h>
 #include <AP_Scheduler.h>
+#include <AP_BattMonitor.h>
+#include <AP_SerialManager.h>
+#include <AP_RangeFinder.h>
 
 const AP_HAL::HAL& hal = AP_HAL_BOARD_DRIVER;
 
@@ -43,6 +46,8 @@ const AP_HAL::HAL& hal = AP_HAL_BOARD_DRIVER;
 AP_BoardLED board_led;
 
 AP_GPS gps;
+
+AP_SerialManager serial_manager;
 
 #define T6 1000000
 #define T7 10000000
@@ -53,6 +58,8 @@ void setup()
 
     // initialise the leds
     board_led.init();
+    serial_manager.init();
+    gps.init(NULL, serial_manager);
 }
 
 void loop()

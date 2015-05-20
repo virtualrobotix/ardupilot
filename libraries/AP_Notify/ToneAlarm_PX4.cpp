@@ -59,7 +59,7 @@ const ToneAlarm_PX4::Tone ToneAlarm_PX4::_tones[] {
     { "MFT200L8G>C3", false },
     #define AP_NOTIFY_PX4_TONE_LOUD_LAND_WARNING_CTS 11
     { "MBT200L2A-G-A-G-A-G-", true },
-    #define AP_NOTIFY_PX4_TONE_LOUD_LOST_COPTER_CTS 12
+    #define AP_NOTIFY_PX4_TONE_LOUD_VEHICLE_LOST_CTS 12
     { "MBT200>B#1", true },
     #define AP_NOTIFY_PX4_TONE_LOUD_BATTERY_ALERT_CTS 13
     { "MBNT255>B#8B#8B#8B#8B#8B#8B#8B#8B#8B#8B#8B#8B#8B#8B#8B#8", true },
@@ -68,9 +68,9 @@ const ToneAlarm_PX4::Tone ToneAlarm_PX4::_tones[] {
 bool ToneAlarm_PX4::init()
 {
     // open the tone alarm device
-    _tonealarm_fd = open(TONEALARM_DEVICE_PATH, O_WRONLY);
+    _tonealarm_fd = open(TONEALARM0_DEVICE_PATH, O_WRONLY);
     if (_tonealarm_fd == -1) {
-        hal.console->printf("Unable to open " TONEALARM_DEVICE_PATH);
+        hal.console->printf("ToneAlarm_PX4: Unable to open " TONEALARM0_DEVICE_PATH);
         return false;
     }
     
@@ -105,7 +105,7 @@ void ToneAlarm_PX4::play_string(const char *str) {
 
 void ToneAlarm_PX4::stop_cont_tone() {
     if(_cont_tone_playing == _tone_playing) {
-        play_string("stop");
+        play_string("");
         _tone_playing = -1;
     }
     _cont_tone_playing = -1;
@@ -171,11 +171,8 @@ void ToneAlarm_PX4::update()
     }
 
     // notify the user when arming fails
-    if (flags.arming_failed != AP_Notify::flags.arming_failed) {
-        flags.arming_failed = AP_Notify::flags.arming_failed;
-        if (flags.arming_failed) {
-            play_tone(AP_NOTIFY_PX4_TONE_QUIET_NEG_FEEDBACK);
-        }
+    if (AP_Notify::events.arming_failed) {
+        play_tone(AP_NOTIFY_PX4_TONE_QUIET_NEG_FEEDBACK);
     }
 
     // notify the user when RC contact is lost
@@ -233,6 +230,17 @@ void ToneAlarm_PX4::update()
             play_tone(AP_NOTIFY_PX4_TONE_LOUD_ATTENTION_NEEDED);
         }
     }
+
+    // lost vehicle tone
+    if (flags.vehicle_lost != AP_Notify::flags.vehicle_lost) {
+        flags.vehicle_lost = AP_Notify::flags.vehicle_lost;
+        if (flags.vehicle_lost) {
+            play_tone(AP_NOTIFY_PX4_TONE_LOUD_VEHICLE_LOST_CTS);
+        } else {
+            stop_cont_tone();
+        }
+    }
+
 }
 
 #endif // CONFIG_HAL_BOARD == HAL_BOARD_PX4

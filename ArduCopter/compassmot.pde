@@ -101,7 +101,6 @@ static uint8_t mavlink_compassmot(mavlink_channel_t chan)
     // disable throttle and battery failsafe
     g.failsafe_throttle = FS_THR_DISABLED;
     g.failsafe_battery_enabled = FS_BATT_DISABLED;
-    g.failsafe_gps_enabled = FS_GPS_DISABLED;
 
     // disable motor compensation
     compass.motor_compensation_type(AP_COMPASS_MOT_COMP_DISABLED);
@@ -125,7 +124,7 @@ static uint8_t mavlink_compassmot(mavlink_channel_t chan)
 
     // enable motors and pass through throttle
     init_rc_out();
-    output_min();
+    enable_motor_output();
     motors.armed(true);
 
     // initialise run time
@@ -259,7 +258,6 @@ static uint8_t mavlink_compassmot(mavlink_channel_t chan)
     // re-enable failsafes
     g.failsafe_throttle.load();
     g.failsafe_battery_enabled.load();
-    g.failsafe_gps_enabled.load();
 
     // flag we have completed
     ap.compass_mot = false;

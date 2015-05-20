@@ -455,7 +455,8 @@ bool AP_Mission::mavlink_to_mission_cmd(const mavlink_mission_item_t& packet, AP
 {
     bool copy_location = false;
     bool copy_alt = false;
-    uint8_t num_turns, radius_m;    // used by MAV_CMD_NAV_LOITER_TURNS
+    uint8_t num_turns, radius_m; // used by MAV_CMD_NAV_LOITER_TURNS & _TO_ALT
+    uint8_t heading_req;         // used by MAV_CMD_NAV_LOITER_TO_ALT
 
     // command's position in mission list and mavlink id
     cmd.index = packet.seq;
@@ -489,7 +490,7 @@ bool AP_Mission::mavlink_to_mission_cmd(const mavlink_mission_item_t& packet, AP
     case MAV_CMD_NAV_LOITER_TURNS:                      // MAV ID: 18
         copy_location = true;
         num_turns = packet.param1;                      // number of times to circle is held in param1
-        radius_m = fabs(packet.param3);                 // radius in meters is held in high in param3
+        radius_m = fabsf(packet.param3);                // radius in meters is held in high in param3
         cmd.p1 = (((uint16_t)radius_m)<<8) | (uint16_t)num_turns;   // store radius in high byte of p1, num turns in low byte of p1
         cmd.content.location.flags.loiter_ccw = (packet.param3 < 0);
         break;
@@ -515,6 +516,22 @@ bool AP_Mission::mavlink_to_mission_cmd(const mavlink_mission_item_t& packet, AP
 
     case MAV_CMD_NAV_CONTINUE_AND_CHANGE_ALT:           // MAV ID: 30
         copy_location = true;                           // only using alt
+        break;
+
+    case MAV_CMD_NAV_LOITER_TO_ALT:                     // MAV ID: 31
+        copy_location = true;
+
+        heading_req = packet.param1;                    //heading towards next waypoint required (0 = False)
+                      
+        cmd.content.location.flags.loiter_ccw = (packet.param2 < 0);
+        //Don't give users the impression I can set the radius size.
+        //I can only set the direction at this time and so can every 
+        //other command, despite what is implied (I'm looking at YOU
+        //NAV_LOITER_TURNS):
+        radius_m = 1; 
+        
+        cmd.p1 = (((uint16_t)radius_m)<<8) | (uint16_t)heading_req; // store "radius" in high byte of p1, heading_req in low byte of p1
+        
         break;
 
     case MAV_CMD_NAV_SPLINE_WAYPOINT:                   // MAV ID: 82
@@ -603,9 +620,29 @@ bool AP_Mission::mavlink_to_mission_cmd(const mavlink_mission_item_t& packet, AP
         cmd.p1 = packet.param1;                         // 0 = no roi, 1 = next waypoint, 2 = waypoint number, 3 = fixed location, 4 = given target (not supported)
         break;
 
+    case MAV_CMD_DO_DIGICAM_CONFIGURE:                  // MAV ID: 202
+        cmd.content.digicam_configure.shooting_mode = packet.param1;
+        cmd.content.digicam_configure.shutter_speed = packet.param2;
+        cmd.content.digicam_configure.aperture = packet.param3;
+        cmd.content.digicam_configure.ISO = packet.param4;
+        cmd.content.digicam_configure.exposure_type = packet.x;
+        cmd.content.digicam_configure.cmd_id = packet.y;
+        cmd.content.digicam_configure.engine_cutoff_time = packet.z;
+        break;
+
     case MAV_CMD_DO_DIGICAM_CONTROL:                    // MAV ID: 203
+        cmd.content.digicam_control.session = packet.param1;
+        cmd.content.digicam_control.zoom_pos = packet.param2;
+        cmd.content.digicam_control.zoom_step = packet.param3;
+        cmd.content.digicam_control.focus_lock = packet.param4;
+        cmd.content.digicam_control.shooting_cmd = packet.x;
+        cmd.content.digicam_control.cmd_id = packet.y;
+        break;
+
     case MAV_CMD_DO_MOUNT_CONTROL:                      // MAV ID: 205
-        // these commands takes no parameters
+        cmd.content.mount_control.pitch = packet.param1;
+        cmd.content.mount_control.roll = packet.param2;
+        cmd.content.mount_control.yaw = packet.param3;
         break;
 
     case MAV_CMD_DO_SET_CAM_TRIGG_DIST:                 // MAV ID: 206
@@ -790,6 +827,16 @@ bool AP_Mission::mission_cmd_to_mavlink(const AP_Mission::Mission_Command& cmd, 
         copy_location = true;                           //only using alt.
         break;
 
+    case MAV_CMD_NAV_LOITER_TO_ALT:                     // MAV ID: 31
+        copy_location = true;
+        packet.param1 = LOWBYTE(cmd.p1);                //heading towards next waypoint required (0 = False) 
+        packet.param2 = HIGHBYTE(cmd.p1);               //loiter radius(m)
+        if (cmd.content.location.flags.loiter_ccw) {
+            packet.param2 = -packet.param2;
+        }
+
+        break;
+
     case MAV_CMD_NAV_SPLINE_WAYPOINT:                   // MAV ID: 82
         copy_location = true;
         packet.param1 = cmd.p1;                         // delay at waypoint in seconds
@@ -876,9 +923,29 @@ bool AP_Mission::mission_cmd_to_mavlink(const AP_Mission::Mission_Command& cmd, 
         packet.param1 = cmd.p1;                         // 0 = no roi, 1 = next waypoint, 2 = waypoint number, 3 = fixed location, 4 = given target (not supported)
         break;
 
+    case MAV_CMD_DO_DIGICAM_CONFIGURE:                  // MAV ID: 202
+        packet.param1 = cmd.content.digicam_configure.shooting_mode;
+        packet.param2 = cmd.content.digicam_configure.shutter_speed;
+        packet.param3 = cmd.content.digicam_configure.aperture;
+        packet.param4 = cmd.content.digicam_configure.ISO;
+        packet.x = cmd.content.digicam_configure.exposure_type;
+        packet.y = cmd.content.digicam_configure.cmd_id;
+        packet.z = cmd.content.digicam_configure.engine_cutoff_time;
+        break;
+
     case MAV_CMD_DO_DIGICAM_CONTROL:                    // MAV ID: 203
+        packet.param1 = cmd.content.digicam_control.session;
+        packet.param2 = cmd.content.digicam_control.zoom_pos;
+        packet.param3 = cmd.content.digicam_control.zoom_step;
+        packet.param4 = cmd.content.digicam_control.focus_lock;
+        packet.x = cmd.content.digicam_control.shooting_cmd;
+        packet.y = cmd.content.digicam_control.cmd_id;
+        break;
+
     case MAV_CMD_DO_MOUNT_CONTROL:                      // MAV ID: 205
-        // these commands takes no parameters
+        packet.param1 = cmd.content.mount_control.pitch;
+        packet.param2 = cmd.content.mount_control.roll;
+        packet.param3 = cmd.content.mount_control.yaw;
         break;
 
     case MAV_CMD_DO_SET_CAM_TRIGG_DIST:                 // MAV ID: 206
@@ -1099,7 +1166,7 @@ bool AP_Mission::get_next_cmd(uint16_t start_index, Mission_Command& cmd, bool i
             }
 
             // check for invalid target
-            if (temp_cmd.content.jump.target >= (unsigned)_cmd_total) {
+            if ((temp_cmd.content.jump.target >= (unsigned)_cmd_total) || (temp_cmd.content.jump.target == 0)) {
                 // To-Do: log an error?
                 return false;
             }
@@ -1190,7 +1257,7 @@ void AP_Mission::init_jump_tracking()
 int16_t AP_Mission::get_jump_times_run(const Mission_Command& cmd)
 {
     // exit immediatley if cmd is not a do-jump command or target is invalid
-    if (cmd.id != MAV_CMD_DO_JUMP || cmd.content.jump.target >= (unsigned)_cmd_total) {
+    if ((cmd.id != MAV_CMD_DO_JUMP) || (cmd.content.jump.target >= (unsigned)_cmd_total) || (cmd.content.jump.target == 0)) {
         // To-Do: log an error?
         return AP_MISSION_JUMP_TIMES_MAX;
     }

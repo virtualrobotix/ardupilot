@@ -1,4 +1,90 @@
-ArduCopter Release Notes:
+APM:Copter Release Notes:
+------------------------------------------------------------------
+Copter 3.3-rc4 17-May-2015
+Changes from 3.3-rc3
+1) AutoTune:
+    a) save roll, pitch, yaw rate acceleration limits along with gains
+    b) more conservative gains 
+2) Roll, pitch rate control feed-forward now on by default (set ATC_RATE_FF_ENAB to "0" to disable)
+3) Serial ports increased to maximum of 4 (set SERIALX_PROTOCOL to 1)
+4) MOT_THR_MIX_MIN param to control minimum throttle vs attitude during landing (higher = more attitude control but bumpier landing) 
+5) EKF fixes/improvements
+    a) prevent yaw errors during fast spins
+    b) bug fix preventing external selection of optical flow mode
+6) Parachute:
+    a) servo/relay held open for 2sec when deploying (was 1sec)
+    b) fix altitude check to be alt-above-home (was alt-above ekf origin which could be slightly different)
+7) TradHeli:
+    a) parameters moved to stop possibility of corruption if board is switched between tradheli and multicopter firmware.  Heli users may need to re-setup some heli-specific params.
+    b) H_COLYAW param can be float 
+8) Small Improvements / Bug Fixes:
+    a) reduced spline overshoot after very long track followed by very short track
+    b) log entire mission to dataflash whenver it's uploaded
+    c) altitude reported if vehicle takes off before GPS lock
+    d) high speed logging of IMU
+    e) STOP flight mode renamed to BRAKE and aux switch option added
+------------------------------------------------------------------
+Copter 3.3-rc2/rc3 02-May-2015
+Changes from 3.3-rc1
+1) AutoTune reliability fixes (improved filtering to reduce noise interference)
+2) Optical flow improvements:
+    a) Range Finder pre-arm check - lift vehicle between 50cm ~ 2m before arming.  Can be disabled by setting ARMING_CHECK to "Skip Params/Sonar"
+    b) Vehicle altitude limited to range finder altitude when optical flow is enabled 
+3) AltHold & Take-off changes:
+    a) feed-forward controller and jerk limiting should result in slightly snappier performance and smoother take-offs
+    b) vehicle climbs automatically to PILOT_TKOFF_ALT alt when taking off in Loiter, AltHold, PosHold, Sport (disabled by default, pilot's throttle input overrides takeoff)
+    c) PILOT_THR_FILT allows enforcing smoother throttle response in manual flight modes (defaults to 0 = off)
+    d) TX with sprung throttle can set PILOT_THR_BHV to "1" so motor feedback when landed starts from mid-stick instead of bottom of stick
+    e) GCS can initiate takeoff even in Loiter, AltHold, PosHold and sport by issuing NAV_TAKEOFF mavlink command
+4) Stop flight mode - causes vehicle to stop quickly, and does not respond to user input or waypoint movement via MAVLink.  Requires GPS, will be renamed to Brake mode.
+5) Aux channel features:
+    a) Emergency Stop - stops all motors immediately and disarms in 5 seconds
+    b) Motor Interlock - opposite of Emergency Stop, must be on to allow motors to spin motors, must be off to arm
+6) Air pressure gain scaling (of roll, pitch, yaw) should mostly remove need to re-tune when flying at very different altitudes
+7) landing detector simplified to only check vehicle is not accelerating & motors have hit their lower limit
+8) Loiter tuning params to remove "freight train" stops:
+       raising WPNAV_LOIT_MAXA makes vehicle start and stop faster
+       raising WPNAV_LOIT_MINA makes vehicle stop more quickly when sticks centered 
+9) Other items:
+    a) faster EKF startup
+    b) Camera control messages sent via MAVLink to smart cameras.  Allow control of camera zoom for upcoming IntelEdison/Sony QX1 camera control board
+    c) Lost Copter Alarm can be triggered by holding throttle down, roll right, pitch back
+10) Bug fixes:
+    a) Home position set to latest arm position (it was being set to previous disarm location or first GPS lock position)
+    b) bug fix to mission Jump to command zero
+------------------------------------------------------------------
+Copter 3.3-rc1 11-Apr-2015
+Changes from 3.2.1
+1) Only support fast CPUs boards (Pixhawk, VRBrain, etc) and drop support for APM1, APM2 (sorry!)
+2) AutoTune for yaw
+3) Smooth throttle curve which should reduce wobbles during fast climbs and descents
+4) ch7/ch8 aux switches expanded to ch9 ~ ch12 (see CH9_OPT ~ CH12_OPT params)
+5) PX4Flow support in Loiter mode (still somewhat experimental)
+6) Safety features:
+    a) EKF on by default replacing DCM/InertialNav which should improve robustness
+    b) increased accelerometer range from 8G to 16G to reduce chance of climb due to high vibrations (requires accel calibration)
+7) Landing features:
+    a) improved landing on slopes
+    b) retractable landing gear (see LGR_ parameters)
+8) Camera Gimbal features:
+    a) SToRM32 gimbal support (using MAVLink)
+    b) AlexMos gimbal support (using AlexMos serial interface)
+    c) do-mount-control commands supported in missions (allows controlling gimbal angle in missions)
+9) Battery related features:
+    a) PID scaling for battery voltage (disabled by default, see MOT_THST_BAT_ parameters)
+    b) smart battery support
+10) Other:
+    a) support do-set-home command (allows return-to-me and locked home position once GCS enhancements are completed)
+    b) performance improvements for Pixhawk reduce CPU load from 80% to 15%
+    c) firmware string name changed from ArduCopter to APM:Copter
+------------------------------------------------------------------
+ArduCopter 3.2.1 11-Feb-2015 / 3.2.1-rc2 30-Jan-2015
+Changes from 3.2.1-rc1
+1) Bug Fixes:
+    a) prevent infinite loop with linked jump commands
+    b) Pixhawk memory corruption fix when connecting via USB
+    c) vehicle stops at fence altitude limit in Loiter, AltHold, PosHold
+    d) protect against multiple arming messages from GCS causing silent gyro calibration failure    
 ------------------------------------------------------------------
 ArduCopter 3.2.1-rc1 08-Jan-2015
 Changes from 3.2

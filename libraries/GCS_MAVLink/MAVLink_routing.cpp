@@ -92,6 +92,13 @@ routing table.
 */
 bool MAVLink_routing::check_and_forward(mavlink_channel_t in_channel, const mavlink_message_t* msg)
 {
+    // handle the case of loopback of our own messages, due to
+    // incorrect serial configuration.
+    if (msg->sysid == mavlink_system.sysid && 
+        msg->compid == mavlink_system.compid) {
+        return true;
+    }
+
     // learn new routes
     learn_route(in_channel, msg);
 
@@ -146,6 +153,34 @@ bool MAVLink_routing::check_and_forward(mavlink_channel_t in_channel, const mavl
     }
 
     return process_locally;
+}
+
+/*
+  send a MAVLink message to all components with this vehicle's system id
+
+  This is a no-op if no routes to components have been learned
+*/
+void MAVLink_routing::send_to_components(const mavlink_message_t* msg)
+{
+    bool sent_to_chan[MAVLINK_COMM_NUM_BUFFERS];
+    memset(sent_to_chan, 0, sizeof(sent_to_chan));
+
+    // check learned routes
+    for (uint8_t i=0; i<num_routes; i++) {
+        if ((routes[i].sysid == mavlink_system.sysid) && !sent_to_chan[routes[i].channel]) {
+            if (comm_get_txspace(routes[i].channel) >= ((uint16_t)msg->len) + MAVLINK_NUM_NON_PAYLOAD_BYTES) {
+#if ROUTING_DEBUG
+                ::printf("send msg %u on chan %u sysid=%u compid=%u\n",
+                         msg->msgid,
+                         (unsigned)routes[i].channel,
+                         (unsigned)routes[i].sysid,
+                         (unsigned)routes[i].compid);
+#endif
+                _mavlink_resend_uart(routes[i].channel, msg);
+                sent_to_chan[routes[i].channel] = true;
+            }
+        }
+    }
 }
 
 /*
@@ -419,6 +454,14 @@ void MAVLink_routing::get_targets(const mavlink_message_t* msg, int16_t &sysid, 
     case MAVLINK_MSG_ID_V2_EXTENSION:
         sysid  = mavlink_msg_v2_extension_get_target_system(msg);
         compid = mavlink_msg_v2_extension_get_target_component(msg);
+        break;
+    case MAVLINK_MSG_ID_GIMBAL_REPORT:
+        sysid  = mavlink_msg_gimbal_report_get_target_system(msg);
+        compid = mavlink_msg_gimbal_report_get_target_component(msg);
+        break;
+    case MAVLINK_MSG_ID_GIMBAL_CONTROL:
+        sysid  = mavlink_msg_gimbal_control_get_target_system(msg);
+        compid = mavlink_msg_gimbal_control_get_target_component(msg);
         break;
     }
 }

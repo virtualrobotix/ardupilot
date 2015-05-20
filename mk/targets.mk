@@ -1,9 +1,13 @@
 default: all
 
 # convenient targets for our supported boards
-sitl: HAL_BOARD = HAL_BOARD_AVR_SITL
+sitl: HAL_BOARD = HAL_BOARD_SITL
 sitl: TOOLCHAIN = NATIVE
 sitl: all
+
+sitl-arm: HAL_BOARD = HAL_BOARD_SITL
+sitl-arm: TOOLCHAIN = RPI
+sitl-arm: all
 
 apm1: HAL_BOARD = HAL_BOARD_APM1
 apm1: TOOLCHAIN = AVR
@@ -60,21 +64,26 @@ empty: all
 # cope with OBC targets
 %-obc: EXTRAFLAGS += "-DOBC_FAILSAFE=ENABLED "
 
+# support debug build
+%-debug: OPTFLAGS = -g -O0
+
 # cope with -nologging
 %-nologging: EXTRAFLAGS += "-DLOGGING_ENABLED=DISABLED "
 
 # cope with copter and hil targets
-FRAMES = quad tri hexa y6 octa octa-quad heli single obc nologging
-BOARDS = apm1 apm2 apm2beta apm1-1280 px4 px4-v1 px4-v2 sitl flymaple linux vrbrain vrbrain-v45 vrbrain-v51 vrbrain-v52 vrubrain-v51 vrubrain-v52 erle pxf navio
+FRAMES = quad tri hexa y6 octa octa-quad heli single coax obc nologging
+BOARDS = apm1 apm2 apm2beta apm1-1280 px4 px4-v1 px4-v2 sitl flymaple linux vrbrain vrbrain-v40 vrbrain-v45 vrbrainv-50 vrbrain-v51 vrbrain-v52 vrubrain-v51 vrubrain-v52 vrhero-v10 erle pxf navio bbbmini
 
 define frame_template
 $(1)-$(2) : EXTRAFLAGS += "-DFRAME_CONFIG=$(shell echo $(2) | tr a-z A-Z | sed s/-/_/g)_FRAME "
 $(1)-$(2) : $(1)
 $(1)-$(2)-hil : $(1)-$(2)
+$(1)-$(2)-debug : $(1)-$(2)
 $(1)-$(2)-hilsensors : $(1)-$(2)
 $(1)-$(2)-upload : $(1)-$(2)
 $(1)-$(2)-upload : $(1)-upload
 $(1)-hil : $(1)
+$(1)-debug : $(1)
 $(1)-hilsensors : $(1)
 endef
 
