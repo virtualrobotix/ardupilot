@@ -51,7 +51,6 @@ OpticalFlow::OpticalFlow(void) :
 #else
     backend(NULL),
 #endif
-    backend(NULL)
     _last_update_ms(0)
 {
     AP_Param::setup_object_defaults(this, var_info);
