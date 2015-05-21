@@ -1,6 +1,6 @@
 # VRBRAIN build is via external build system
 
-ifneq ($(VRBRAIN_ROOT),)
+VRBRAIN_ROOT=../VRNuttX
 
 # cope with relative paths
 ifeq ($(wildcard $(VRBRAIN_ROOT)/nuttx-configs),)
@@ -84,11 +84,17 @@ endif
 
 .PHONY: module_mk
 module_mk:
+	$(v) echo "Building $(SKETCHBOOK)/module.mk"
 	$(RULEHDR)
 	$(v) echo "# Auto-generated file - do not edit" > $(SKETCHBOOK)/module.mk.new
 	$(v) echo "MODULE_COMMAND = ArduPilot" >> $(SKETCHBOOK)/module.mk.new
+ifeq (,$(MAKE_INC))
 	$(v) echo "SRCS = Build.$(SKETCH)/$(SKETCH).cpp $(SKETCHLIBSRCSRELATIVE)" >> $(SKETCHBOOK)/module.mk.new
+else
+	$(v) echo "SRCS = $(wildcard $(SRCROOT)/*.cpp) $(SKETCHLIBSRCSRELATIVE)" >> $(SKETCHBOOK)/module.mk.new
+endif
 	$(v) echo "MODULE_STACKSIZE = 4096" >> $(SKETCHBOOK)/module.mk.new
+	$(v) echo "EXTRACXXFLAGS = -Wframe-larger-than=1200" >> $(SKETCHBOOK)/module.mk.new
 	$(v) cmp $(SKETCHBOOK)/module.mk $(SKETCHBOOK)/module.mk.new 2>/dev/null || mv $(SKETCHBOOK)/module.mk.new $(SKETCHBOOK)/module.mk
 	$(v) rm -f $(SKETCHBOOK)/module.mk.new
 
@@ -389,13 +395,3 @@ $(VRBRAIN_ROOT)/Archives/vrubrain-v52.export:
 vrbrain-archives:
 	$(v) $(VRBRAIN_MAKE_ARCHIVES)
 
-else
-
-vrbrain_nx:
-	$(error ERROR: You need to add VRBRAIN_ROOT to your config.mk)
-
-vrbrain-clean: vrbrain
-
-vrbrain-upload: vrbrain
-
-endif
