@@ -77,6 +77,10 @@
 
 #define SCHED_TASK(func, rate_hz, max_time_micros) SCHED_TASK_CLASS(Copter, &copter, func, rate_hz, max_time_micros)
 
+#if CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
+    uint8_t textId=0, g_severity;
+#endif
+
 /*
   scheduler table for fast CPUs - all regular tasks apart from the fast_loop()
   should be listed here, along with how often they should be called
@@ -141,7 +145,10 @@ const AP_Scheduler::Task Copter::scheduler_tasks[] = {
     SCHED_TASK(adsb_update,            1,    100),
 #endif
 #if FRSKY_TELEM_ENABLED == ENABLED
+#if CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
     SCHED_TASK(frsky_telemetry_send,   5,     75),
+#else
+    SCHED_TASK(frsky_telemetry_send,  80,     75),
 #endif
 #if EPM_ENABLED == ENABLED
     SCHED_TASK(epm_update,            10,     75),
