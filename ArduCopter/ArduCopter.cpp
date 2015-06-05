@@ -75,6 +75,10 @@
 
 #include "Copter.h"
 
+#if CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
+    uint8_t textId=0, g_severity;
+#endif
+
 #define SCHED_TASK(func) FUNCTOR_BIND(&copter, &Copter::func, void)
 
 /*
@@ -130,7 +134,11 @@ const AP_Scheduler::Task Copter::scheduler_tasks[] PROGMEM = {
     { SCHED_TASK(read_receiver_rssi),   40,     75 },
     { SCHED_TASK(rpm_update),           40,    200 },
 #if FRSKY_TELEM_ENABLED == ENABLED
+#if CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
+    { SCHED_TASK(frsky_telemetry_send),  2,     75 },
+#else
     { SCHED_TASK(frsky_telemetry_send), 80,     75 },
+#endif
 #endif
 #if EPM_ENABLED == ENABLED
     { SCHED_TASK(epm_update),           40,     75 },
