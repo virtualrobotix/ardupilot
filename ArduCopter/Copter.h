@@ -98,6 +98,9 @@
 #include "config.h"
 
 // libraries which are dependent on #defines in defines.h and/or config.h
+#if CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
+#include <AP_Frsky_Telem/AP_Frsky_VRBRAIN.h>
+#endif
 #if SPRAYER == ENABLED
 #include <AC_Sprayer/AC_Sprayer.h>         // crop sprayer library
 #endif
@@ -384,7 +387,11 @@ private:
 
     // FrSky telemetry support
 #if FRSKY_TELEM_ENABLED == ENABLED
+#if CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
+    AP_Frsky_VRBRAIN frsky_telemetry;
+#else
     AP_Frsky_Telem frsky_telemetry;
+#endif
 #endif
 
     // Altitude
