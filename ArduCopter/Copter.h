@@ -91,6 +91,9 @@
 #include <AP_BattMonitor.h>     // Battery monitor library
 #include <AP_BoardConfig.h>     // board configuration library
 #include <AP_Frsky_Telem.h>
+#if CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
+#include <AP_Frsky_VRBRAIN.h>
+#endif
 #if SPRAYER == ENABLED
 #include <AC_Sprayer.h>         // crop sprayer library
 #endif
@@ -357,7 +360,11 @@ private:
 
     // FrSky telemetry support
 #if FRSKY_TELEM_ENABLED == ENABLED
+#if CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
+    AP_Frsky_VRBRAIN frsky_telemetry;
+#else
     AP_Frsky_Telem frsky_telemetry;
+#endif
 #endif
 
     // Altitude
