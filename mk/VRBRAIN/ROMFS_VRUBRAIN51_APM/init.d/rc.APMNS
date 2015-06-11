@@ -73,16 +73,31 @@ else
     sh /etc/init.d/rc.error
 fi
 
-echo "[APMNS] Starting MEAS I2C Airspeed"
-if meas_airspeed start
+# optional ETS airspeed sensor
+if ets_airspeed start
 then
-    echo "Found MEAS airspeed sensor"
+    echo "[APMNS] Found ETS airspeed sensor"
 fi
 
-echo "[APMNS] Starting MB12XX Range Finder Sensor"
+if meas_airspeed start
+then
+    echo "[APMNS] Found MEAS airspeed sensor"
+fi
+
+# optional Range Finder sensor
+if ll40ls -X start
+then
+    echo "[APMNS] Found external ll40ls sensor"
+fi
+
+if trone start
+then
+    echo "[APMNS] Found trone sensor"
+fi
+
 if mb12xx start
 then
-    echo "Found mb12xx sensor"
+    echo "[APMNS] Found mb12xx sensor"
 fi
 
 echo "[APMNS] Starting MTD driver"
