@@ -42,10 +42,14 @@ void VRBRAINRCOutput::init(void* unused)
         return;
     }
 
-	_pwm_sub = orb_subscribe(ORB_ID(actuator_outputs));
+    for (uint8_t i=0; i<ORB_MULTI_MAX_INSTANCES; i++) {
+        _outputs[i].pwm_sub = orb_subscribe_multi(ORB_ID(actuator_outputs), i);
+    }
 
-    // mark number of outputs given by px4io as zero
-    _outputs.noutputs = 0;
+
+
+
+
 
 
     // ensure not to write zeros to disabled channels
@@ -55,15 +59,28 @@ void VRBRAINRCOutput::init(void* unused)
     }
 
     // publish actuator vaules on demand
-    _actuator_direct_pub = -1;
+    _actuator_direct_pub = NULL;
 
     // and armed state
-    _actuator_armed_pub = -1;
+    _actuator_armed_pub = NULL;
 }
 
 
 void VRBRAINRCOutput::_init_alt_channels(void)
 {
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 }
 
@@ -93,6 +110,17 @@ void VRBRAINRCOutput::set_freq(uint32_t chmask, uint16_t freq_hz)
     if (freq_hz > 50) {
         // we are setting high rates on the given channels
         _rate_mask |= chmask & 0xFF;
+#if defined(CONFIG_ARCH_BOARD_VRUBRAIN_V52)
+        if (_rate_mask & 0x0F) {
+            _rate_mask |= 0x0F;
+        }
+        if (_rate_mask & 0x30) {
+            _rate_mask |= 0x30;
+        }
+        if (_rate_mask & 0xC0) {
+            _rate_mask |= 0xC0;
+        }
+#else
         if (_rate_mask & 0x07) {
             _rate_mask |= 0x07;
         }
@@ -102,8 +130,20 @@ void VRBRAINRCOutput::set_freq(uint32_t chmask, uint16_t freq_hz)
         if (_rate_mask & 0xC0) {
             _rate_mask |= 0xC0;
         }
+#endif
     } else {
         // we are setting low rates on the given channels
+#if defined(CONFIG_ARCH_BOARD_VRUBRAIN_V52)
+        if (chmask & 0x0F) {
+            _rate_mask &= ~0x0F;
+        }
+        if (chmask & 0x30) {
+            _rate_mask &= ~0x30;
+        }
+        if (chmask & 0xC0) {
+            _rate_mask &= ~0xC0;
+        }
+#else
         if (chmask & 0x07) {
             _rate_mask &= ~0x07;
         }
@@ -113,6 +153,7 @@ void VRBRAINRCOutput::set_freq(uint32_t chmask, uint16_t freq_hz)
         if (chmask & 0xC0) {
             _rate_mask &= ~0xC0;
         }
+#endif
     }
 
     if (ioctl(_pwm_fd, PWM_SERVO_SET_SELECT_UPDATE_RATE, _rate_mask) != 0) {
@@ -135,6 +176,9 @@ void VRBRAINRCOutput::enable_ch(uint8_t ch)
     }
 
     _enabled_channels |= (1U<<ch);
+    if (_period[ch] == PWM_IGNORE_THIS_CHANNEL) {
+        _period[ch] = 0;
+    }
 }
 
 void VRBRAINRCOutput::disable_ch(uint8_t ch)
@@ -144,6 +188,7 @@ void VRBRAINRCOutput::disable_ch(uint8_t ch)
     }
 
     _enabled_channels &= ~(1U<<ch);
+    _period[ch] = PWM_IGNORE_THIS_CHANNEL;
 }
 
 void VRBRAINRCOutput::set_safety_pwm(uint32_t chmask, uint16_t period_us)
@@ -223,6 +268,16 @@ uint16_t VRBRAINRCOutput::read(uint8_t ch)
     if (ch >= VRBRAIN_NUM_OUTPUT_CHANNELS) {
         return 0;
     }
+    // if px4io has given us a value for this channel use that,
+    // otherwise use the value we last sent. This makes it easier to
+    // observe the behaviour of failsafe in px4io
+    for (uint8_t i=0; i<ORB_MULTI_MAX_INSTANCES; i++) {
+        if (_outputs[i].pwm_sub >= 0 && 
+            ch < _outputs[i].outputs.noutputs &&
+            _outputs[i].outputs.output[ch] > 0) {
+            return _outputs[i].outputs.output[ch];
+        }
+    }
     return _period[ch];
 }
 
@@ -249,7 +304,7 @@ void VRBRAINRCOutput::_arm_actuators(bool arm)
     _armed.lockdown = false;
     _armed.force_failsafe = false;
 
-    if (_actuator_armed_pub == -1) {
+    if (_actuator_armed_pub == NULL) {
         _actuator_armed_pub = orb_advertise(ORB_ID(actuator_armed), &_armed);
     } else {
         orb_publish(ORB_ID(actuator_armed), _actuator_armed_pub, &_armed);
@@ -263,9 +318,15 @@ void VRBRAINRCOutput::_publish_actuators(void)
 {
 	struct actuator_direct_s actuators;
 
+
+
+
+
+
+
 	actuators.nvalues = _max_channel;
-    if (actuators.nvalues > NUM_ACTUATORS_DIRECT) {
-        actuators.nvalues = NUM_ACTUATORS_DIRECT;
+    if (actuators.nvalues > actuators.NUM_ACTUATORS_DIRECT) {
+        actuators.nvalues = actuators.NUM_ACTUATORS_DIRECT;
     }
     // don't publish more than 8 actuators for now, as the uavcan ESC
     // driver refuses to update any motors if you try to publish more
@@ -273,14 +334,19 @@ void VRBRAINRCOutput::_publish_actuators(void)
     if (actuators.nvalues > 8) {
         actuators.nvalues = 8;
     }
+    bool armed = hal.util->get_soft_armed();
 	actuators.timestamp = hrt_absolute_time();
     for (uint8_t i=0; i<actuators.nvalues; i++) {
-        actuators.values[i] = (_period[i] - _esc_pwm_min) / (float)(_esc_pwm_max - _esc_pwm_min);
+        if (!armed) {
+            actuators.values[i] = 0;
+        } else {
+            actuators.values[i] = (_period[i] - _esc_pwm_min) / (float)(_esc_pwm_max - _esc_pwm_min);
+        }
         // actuator values are from -1 to 1
         actuators.values[i] = actuators.values[i]*2 - 1;
     }
 
-    if (_actuator_direct_pub == -1) {
+    if (_actuator_direct_pub == NULL) {
         _actuator_direct_pub = orb_advertise(ORB_ID(actuator_direct), &actuators);
     } else {
         orb_publish(ORB_ID(actuator_direct), _actuator_direct_pub, &actuators);
@@ -309,7 +375,19 @@ void VRBRAINRCOutput::_timer_tick(void)
     if (_need_update && _pwm_fd != -1) {
         _need_update = false;
         perf_begin(_perf_rcout);
-        ::write(_pwm_fd, _period, _max_channel*sizeof(_period[0]));
+
+            ::write(_pwm_fd, _period, _max_channel*sizeof(_period[0]));
+
+
+
+
+
+
+
+
+
+
+
 
         // also publish to actuator_direct
         _publish_actuators();
@@ -319,10 +397,14 @@ void VRBRAINRCOutput::_timer_tick(void)
     }
 
 update_pwm:
-	bool rc_updated = false;
-	if (_pwm_sub >= 0 && orb_check(_pwm_sub, &rc_updated) == 0 && rc_updated) {
-        orb_copy(ORB_ID(actuator_outputs), _pwm_sub, &_outputs);
-	}
+    for (uint8_t i=0; i<ORB_MULTI_MAX_INSTANCES; i++) {
+        bool rc_updated = false;
+        if (_outputs[i].pwm_sub >= 0 && 
+            orb_check(_outputs[i].pwm_sub, &rc_updated) == 0 && 
+            rc_updated) {
+            orb_copy(ORB_ID(actuator_outputs), _outputs[i].pwm_sub, &_outputs[i].outputs);
+        }
+    }
 
 }
 
