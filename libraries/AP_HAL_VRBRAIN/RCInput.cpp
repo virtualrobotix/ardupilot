@@ -114,4 +114,22 @@ void VRBRAINRCInput::_timer_tick(void)
 	perf_end(_perf_rcin);
 }
 
+bool VRBRAINRCInput::rc_bind(int dsmMode)
+{
+
+
+
+
+
+
+
+
+
+
+
+
+
+    return true;
+}
+
 #endif
