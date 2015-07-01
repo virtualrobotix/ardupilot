@@ -42,14 +42,16 @@ private:
 
     uint32_t _rate_mask;
     uint16_t _enabled_channels;
-    int _pwm_sub;
-    actuator_outputs_s _outputs;
+    struct {
+        int pwm_sub;
+        actuator_outputs_s outputs;
+    } _outputs[ORB_MULTI_MAX_INSTANCES] {};
     actuator_armed_s _armed;
 
-    int _actuator_direct_pub = -1;
-    int _actuator_armed_pub = -1;
-    uint16_t _esc_pwm_min = 1000;
-    uint16_t _esc_pwm_max = 2000;
+    orb_advert_t _actuator_direct_pub = NULL;
+    orb_advert_t _actuator_armed_pub = NULL;
+    uint16_t _esc_pwm_min = 0;
+    uint16_t _esc_pwm_max = 0;
 
     void _init_alt_channels(void);
     void _publish_actuators(void);
