@@ -11,4 +11,5 @@ namespace VRBRAIN {
 	class VRBRAINUtil;
         class VRBRAINGPIO;
         class VRBRAINDigitalSource;
+        class NSHShellStream;
 }
