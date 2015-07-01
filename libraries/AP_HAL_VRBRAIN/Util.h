@@ -5,6 +5,29 @@
 #include <AP_HAL/AP_HAL.h>
 #include "AP_HAL_VRBRAIN_Namespace.h"
 
+class VRBRAIN::NSHShellStream : public AP_HAL::Stream {
+public:
+    size_t write(uint8_t);
+    size_t write(const uint8_t *buffer, size_t size);
+    int16_t read();
+    int16_t available();
+    int16_t txspace();
+private:
+    int shell_stdin = -1;
+    int shell_stdout = -1;
+    pthread_t shell_thread_ctx;
+
+    struct {
+        int in = -1;
+        int out = -1;
+    } child;
+    bool showed_memory_warning = false;
+    bool showed_armed_warning = false;
+
+    void start_shell(void);
+    void shell_thread(void);
+};
+
 class VRBRAIN::VRBRAINUtil : public AP_HAL::Util {
 public:
 	VRBRAINUtil(void);
@@ -24,8 +47,14 @@ public:
 
     uint16_t available_memory(void);
 
+    /*
+      return a stream for access to nsh shell
+     */
+    AP_HAL::Stream *get_shell_stream() { return &_shell_stream; }
+
 private:
     int _safety_handle;
+    VRBRAIN::NSHShellStream _shell_stream;
 };
 
 #endif // __AP_HAL_VRBRAIN_UTIL_H__
