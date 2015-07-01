@@ -100,6 +100,12 @@ then
     echo "[APMNS] Found mb12xx sensor"
 fi
 
+# [APMNS] Starting Optional PX4Flow sensor
+if px4flow start
+then
+    echo "[APMNS] Found PX4Flow sensor"
+fi
+
 echo "[APMNS] Starting MTD driver"
 if mtd start /fs/mtd
 then
