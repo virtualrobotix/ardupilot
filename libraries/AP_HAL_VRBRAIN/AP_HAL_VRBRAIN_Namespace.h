@@ -13,6 +13,7 @@ namespace VRBRAIN {
 	class VRBRAINUtil;
         class VRBRAINGPIO;
         class VRBRAINDigitalSource;
+        class NSHShellStream;
 }
 
 #endif //__AP_HAL_VRBRAIN_NAMESPACE_H__
