@@ -259,12 +259,12 @@ void HAL_VRBRAIN::init(int argc, char * const argv[]) const
                    SKETCHNAME, deviceA, deviceC, deviceD, deviceE);
 
             _vrbrain_thread_should_exit = false;
-            daemon_task = task_spawn_cmd(SKETCHNAME,
-                                         SCHED_FIFO,
-                                         APM_MAIN_PRIORITY,
-                                         APM_MAIN_THREAD_STACK_SIZE,
-                                         main_loop,
-                                         NULL);
+            daemon_task = px4_task_spawn_cmd(SKETCHNAME,
+                                             SCHED_FIFO,
+                                             APM_MAIN_PRIORITY,
+                                             APM_MAIN_THREAD_STACK_SIZE,
+                                             main_loop,
+                                             NULL);
             exit(0);
         }
 
