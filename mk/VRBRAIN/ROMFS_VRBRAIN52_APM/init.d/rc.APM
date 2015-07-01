@@ -124,30 +124,30 @@ else
 #    sh /etc/init.d/rc.error
 fi
 
-echo "[APM] Starting HMC5983 External EXP"
-if hmc5983 -X start
+echo "[APM] Starting HMC5883 External EXP"
+if hmc5883 -x start
 then
-    echo "[APM] HMC5983 external EXP started OK"
-    if hmc5983 -X calibrate
+    echo "[APM] HMC5883 external EXP started OK"
+    if hmc5883 -x calibrate
     then
-      echo "[APM] HMC5983 external EXP calibrate OK"
+      echo "[APM] HMC5883 external EXP calibrate OK"
     else 
-      echo "[APM] HMC5983 external EXP calibrate failed"
+      echo "[APM] HMC5883 external EXP calibrate failed"
     fi
 else
     echo "[APM] HMC5983 external EXP start failed"
 #    sh /etc/init.d/rc.error
 fi
 
-echo "[APM] Starting HMC5983 External IMU"
-if hmc5983 -U start
+echo "[APM] Starting HMC5883 External IMU"
+if hmc5883 -u start
 then
-    echo "[APM] HMC5983 external IMU started OK"
-    if hmc5983 -U calibrate
+    echo "[APM] HMC5883 external IMU started OK"
+    if hmc5883 -u calibrate
     then
-      echo "[APM] HMC5983 external IMU calibrate OK"
+      echo "[APM] HMC5883 external IMU calibrate OK"
     else 
-      echo "[APM] HMC5983 external IMU calibrate failed"
+      echo "[APM] HMC5883 external IMU calibrate failed"
     fi
 else
     echo "[APM] HMC5983 external IMU start failed"
@@ -198,6 +198,11 @@ then
     echo "[APM] Found external ll40ls sensor"
 fi
 
+if ll40ls -I start
+then
+    echo "[APM] Found internal ll40ls sensor"
+fi
+
 if trone start
 then
     echo "[APM] Found trone sensor"
@@ -206,6 +211,12 @@ fi
 if mb12xx start
 then
     echo "[APM] Found mb12xx sensor"
+fi
+
+# [APM] Starting Optional PX4Flow sensor
+if px4flow start
+then
+    echo "[APM] Found PX4Flow sensor"
 fi
 
 echo "[APM] Starting MTD driver"
