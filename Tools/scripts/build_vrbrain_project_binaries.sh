@@ -282,10 +282,10 @@ build_rover() {
     }
 }
 
-for build in latest; do
-    build_arduplane $build
+for build in beta; do
+    #build_arduplane $build
     build_arducopter $build
-    build_rover $build
+    #build_rover $build
 done
 
 rm -rf $TMPDIR
