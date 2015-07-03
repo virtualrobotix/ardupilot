@@ -10,12 +10,14 @@ rm -rf $TMPDIR
 echo "Building in $TMPDIR"
 
 date
-git checkout master
+git remote update
+git checkout -B for_merge remotes/origin/for_merge
 githash=$(git rev-parse HEAD)
 
 hdate=$(date +"%Y-%m/%Y-%m-%d-%H:%m")
 mkdir -p binaries/$hdate
 binaries=$PWD/../buildlogs/binaries
+BASEDIR=$PWD
 
 error_count=0
 
@@ -27,25 +29,21 @@ checkout() {
     tag="$2"
     git stash
     if [ "$tag" = "latest" ]; then
-	vbranch="for_build"
-	vbranch2="for_build"
+	vbranch="for_merge"
     else
 	vbranch="$vehicle-$tag"
-	vbranch2="for_build"
     fi
 
-    echo "Checkout with branch $branch"
+    echo "Checkout for $vehicle with branch $vbranch"
 
     git remote update
-    git checkout -B "$vbranch" remotes/origin/"$vbranch"
-    git pull -v --progress  "origin" "$vbranch" || return 1
+    git checkout -B "$vbranch" remotes/origin/"$vbranch" || return 1
 
     git log -1
 
     pushd ../../VRNuttX
     git remote update
-    git checkout -B "$vbranch2" remotes/origin/"$vbranch2"
-    git pull -v --progress  "origin" "$vbranch2" || {
+    git checkout -B "$vbranch" remotes/origin/"$vbranch" || git checkout -B for_merge remotes/origin/for_merge || {
         popd
         return 1
     }
@@ -55,7 +53,8 @@ checkout() {
     return 0
 }
 
-# check if we should skip this build because we have already built this version
+# check if we should skip this build because we have already
+# built this version
 skip_build() {
     [ "$FORCE_BUILD" = "1" ] && return 1
     tag="$1"
@@ -122,7 +121,6 @@ build_arduplane() {
             return
         }
 	skip_build $tag $ddir || {
-	    make vrbrain-clean &&
 	    make vrbrain || {
                 echo "Failed build of ArduPlane VRBRAIN $tag"
                 error_count=$((error_count+1))
@@ -189,12 +187,11 @@ build_arducopter() {
             popd
             return
         }
-	make vrbrain-clean || return
+        rm -rf ../Build.ArduCopter
 	for f in $frames; do
 	    echo "Building ArduCopter VRBRAIN-$f binaries"
 	    ddir="$binaries/Copter/$hdate/VRX-$f"
 	    skip_build $tag $ddir && continue
-            rm -rf ../Build.ArduCopter
 	    make vrbrain-$f || {
                 echo "Failed build of ArduCopter VRBRAIN $tag"
                 error_count=$((error_count+1))
@@ -259,7 +256,6 @@ build_rover() {
             return
         }
 	skip_build $tag $ddir || {
-	    make vrbrain-clean &&
 	    make vrbrain || {
                 echo "Failed build of APMrover2 VRBRAIN $tag"
                 error_count=$((error_count+1))
@@ -308,7 +304,7 @@ build_rover() {
 	    copyit APMrover2-vrubrain-v52.hex $ddir $tag
 	}
     }
-    checkout Rover "latest"
+    checkout Rover $tag
     popd
 }
 
