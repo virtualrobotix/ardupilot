@@ -817,7 +817,7 @@ void setup() {
 
     AP_Notify::flags.failsafe_battery = false;
 
-    notify.init(false);
+    notify.init(true);
 
     rssi_analog_source = hal.analogin->channel(ANALOG_INPUT_NONE);
 
