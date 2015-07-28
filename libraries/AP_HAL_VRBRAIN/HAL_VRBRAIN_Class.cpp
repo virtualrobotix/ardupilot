@@ -97,9 +97,9 @@ HAL_VRBRAIN::HAL_VRBRAIN() :
         &uartCDriver,  /* uartC */
         &uartDDriver,  /* uartD */
         &uartEDriver,  /* uartE */
-        &i2cDriver, /* Empty i2c */
-        &i2cDriver, /* Empty i2c */
-        &i2cDriver, /* Empty i2c */
+        &i2cDriver, /* i2c */
+        NULL,   /* only one i2c */
+        NULL,   /* only one i2c */
         &spiDeviceManager, /* spi */
         &analogIn, /* analogin */
         &storageDriver, /* storage */
