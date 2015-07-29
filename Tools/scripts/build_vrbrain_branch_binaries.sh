@@ -121,6 +121,7 @@ build_arduplane() {
             return
         }
 	skip_build $tag $ddir || {
+	    make vrbrain-clean &&
 	    make vrbrain || {
                 echo "Failed build of ArduPlane VRBRAIN $tag"
                 error_count=$((error_count+1))
@@ -187,11 +188,11 @@ build_arducopter() {
             popd
             return
         }
-        rm -rf ../Build.ArduCopter
 	for f in $frames; do
 	    echo "Building ArduCopter VRBRAIN-$f binaries"
 	    ddir="$binaries/Copter/$hdate/VRX-$f"
 	    skip_build $tag $ddir && continue
+	    make vrbrain-clean &&
 	    make vrbrain-$f || {
                 echo "Failed build of ArduCopter VRBRAIN $tag"
                 error_count=$((error_count+1))
@@ -256,6 +257,7 @@ build_rover() {
             return
         }
 	skip_build $tag $ddir || {
+	    make vrbrain-clean &&
 	    make vrbrain || {
                 echo "Failed build of APMrover2 VRBRAIN $tag"
                 error_count=$((error_count+1))
