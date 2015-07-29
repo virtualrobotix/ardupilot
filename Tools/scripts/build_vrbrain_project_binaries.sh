@@ -114,6 +114,7 @@ build_arduplane() {
 	echo "Building ArduPlane VRBRAIN binaries"
 	ddir=$binaries/Plane/$hdate/VRX
 	skip_build $tag $ddir || {
+	    make vrbrain-clean &&
 	    make vrbrain || {
                 echo "Failed build of ArduPlane VRBRAIN $tag"
                 error_count=$((error_count+1))
@@ -169,11 +170,11 @@ build_arducopter() {
     pushd ArduCopter
     frames="quad tri hexa y6 octa octa-quad heli"
     test -n "$VRBRAIN_ROOT"
-        rm -rf ../Build.ArduCopter
 	for f in $frames; do
 	    echo "Building ArduCopter VRBRAIN-$f binaries"
 	    ddir="$binaries/Copter/$hdate/VRX-$f"
 	    skip_build $tag $ddir && continue
+	    make vrbrain-clean &&
 	    make vrbrain-$f || {
                 echo "Failed build of ArduCopter VRBRAIN $tag"
                 error_count=$((error_count+1))
@@ -230,6 +231,7 @@ build_rover() {
 	echo "Building APMrover2 VRBRAIN binaries"
 	ddir=$binaries/Rover/$hdate/VRX
 	skip_build $tag $ddir || {
+	    make vrbrain-clean &&
 	    make vrbrain || {
                 echo "Failed build of APMrover2 VRBRAIN $tag"
                 error_count=$((error_count+1))
