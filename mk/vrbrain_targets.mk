@@ -1,38 +1,39 @@
 # VRBRAIN build is via external build system
 
-ifeq ($(VRBRAIN_ROOT),)
-VRBRAIN_ROOT=../VRNuttX
+ifneq ($(VRBRAIN_ROOT),)
+$(error VRBRAIN_ROOT found in config.mk - Please see http://dev.ardupilot.com/wiki/git-submodules/)
 endif
 
-# cope with relative paths
-ifeq ($(wildcard $(VRBRAIN_ROOT)/nuttx-configs),)
-VRBRAIN_ROOT := $(shell cd $(SKETCHBOOK)/$(VRBRAIN_ROOT) && pwd)
-endif
-
-# check it is a valid VRBRAIN Firmware tree
-ifeq ($(wildcard $(VRBRAIN_ROOT)/nuttx-configs),)
-$(error ERROR: VRBRAIN_ROOT not set correctly - no nuttx-configs directory found)
+ifneq ($(NUTTX_SRC),)
+$(error NUTTX_SRC found in config.mk - Please see http://dev.ardupilot.com/wiki/git-submodules/)
 endif
 
 
 
 
 
-# default to VRBRAIN NuttX above the VRBRAIN Firmware tree
-ifeq ($(VRBRAIN_NUTTX_SRC),)
-VRBRAIN_NUTTX_SRC := $(shell cd $(VRBRAIN_ROOT)/NuttX/nuttx && pwd)/
-endif
+# these can be overridden in developer.mk
+VRBRAINFIRMWARE_DIRECTORY ?= ../../VRNuttX
+VRBRAINNUTTX_DIRECTORY ?= ../../VRNuttX/NuttX
 
-# cope with relative paths for VRBRAIN_NUTTX_SRC
-ifeq ($(wildcard $(VRBRAIN_NUTTX_SRC)/configs),)
-VRBRAIN_NUTTX_SRC := $(shell cd $(SKETCHBOOK)/$(VRBRAIN_NUTTX_SRC) && pwd)/
-endif
 
-ifeq ($(wildcard $(VRBRAIN_NUTTX_SRC)configs),)
-$(error ERROR: VRBRAIN_NUTTX_SRC not set correctly - no configs directory found)
-endif
+VRBRAIN_ROOT := $(shell cd $(VRBRAINFIRMWARE_DIRECTORY) && pwd)
+NUTTX_ROOT := $(shell cd $(VRBRAINNUTTX_DIRECTORY) && pwd)
+NUTTX_SRC := $(NUTTX_ROOT)/nuttx/
 
-NUTTX_GIT_VERSION := $(shell cd $(VRBRAIN_NUTTX_SRC) && git rev-parse HEAD | cut -c1-8)
+
+
+
+
+
+
+
+
+
+
+
+
+NUTTX_GIT_VERSION := $(shell cd $(NUTTX_SRC) && git rev-parse HEAD | cut -c1-8)
 VRBRAIN_GIT_VERSION   := $(shell cd $(VRBRAIN_ROOT) && git rev-parse HEAD | cut -c1-8)
 
 EXTRAFLAGS += -DNUTTX_GIT_VERSION="\"$(NUTTX_GIT_VERSION)\""
@@ -59,7 +60,7 @@ VRBRAIN_VU51_CONFIG_FILE=config_vrubrain-v51_APM.mk
 VRBRAIN_VU51P_CONFIG_FILE=config_vrubrain-v51P_APM.mk
 VRBRAIN_VU52_CONFIG_FILE=config_vrubrain-v52_APM.mk
 
-SKETCHFLAGS=$(SKETCHLIBINCLUDES) -I$(PWD) -DARDUPILOT_BUILD -DTESTS_MATHLIB_DISABLE -DCONFIG_HAL_BOARD=HAL_BOARD_VRBRAIN -DSKETCHNAME="\\\"$(SKETCH)\\\"" -DSKETCH_MAIN=ArduPilot_main -DAPM_BUILD_DIRECTORY=APM_BUILD_$(SKETCH)
+SKETCHFLAGS=$(SKETCHLIBINCLUDES) -DARDUPILOT_BUILD -DTESTS_MATHLIB_DISABLE -DCONFIG_HAL_BOARD=HAL_BOARD_VRBRAIN -DSKETCHNAME="\\\"$(SKETCH)\\\"" -DSKETCH_MAIN=ArduPilot_main -DAPM_BUILD_DIRECTORY=APM_BUILD_$(SKETCH)
 
 WARNFLAGS = -Werror -Wno-psabi -Wno-packed -Wno-error=double-promotion -Wno-error=unused-variable -Wno-error=reorder -Wno-error=float-equal -Wno-error=pmf-conversions -Wno-error=missing-declarations -Wno-error=unused-function
 
@@ -69,16 +70,16 @@ WARNFLAGS = -Werror -Wno-psabi -Wno-packed -Wno-error=double-promotion -Wno-erro
 PYTHONPATH=$(SKETCHBOOK)/mk/VRBRAIN/Tools/genmsg/src:$(SKETCHBOOK)/mk/VRBRAIN/Tools/gencpp/src
 export PYTHONPATH
 
-VRBRAIN_MAKE = $(v) ARDUPILOT_BUILD=1 make -C $(SKETCHBOOK) -f $(VRBRAIN_ROOT)/Makefile EXTRADEFINES="$(SKETCHFLAGS) $(WARNFLAGS) "'$(EXTRAFLAGS)' APM_MODULE_DIR=$(SKETCHBOOK) SKETCHBOOK=$(SKETCHBOOK) CCACHE=$(CCACHE) VRBRAIN_ROOT=$(VRBRAIN_ROOT) VRBRAIN_NUTTX_SRC=$(VRBRAIN_NUTTX_SRC) MAXOPTIMIZATION="-Os"
-VRBRAIN_MAKE_ARCHIVES = make -C $(VRBRAIN_ROOT) VRBRAIN_NUTTX_SRC=$(VRBRAIN_NUTTX_SRC) CCACHE=$(CCACHE) archives MAXOPTIMIZATION="-Os"
+VRBRAIN_MAKE = $(v) ARDUPILOT_BUILD=1 make -C $(SKETCHBOOK) -f $(VRBRAIN_ROOT)/Makefile EXTRADEFINES="$(SKETCHFLAGS) $(WARNFLAGS) "'$(EXTRAFLAGS)' APM_MODULE_DIR=$(SKETCHBOOK) SKETCHBOOK=$(SKETCHBOOK) CCACHE=$(CCACHE) VRBRAIN_ROOT=$(VRBRAIN_ROOT) NUTTX_SRC=$(NUTTX_SRC) MAXOPTIMIZATION="-Os"
+VRBRAIN_MAKE_ARCHIVES = make -C $(VRBRAIN_ROOT) NUTTX_SRC=$(NUTTX_SRC) CCACHE=$(CCACHE) archives MAXOPTIMIZATION="-Os"
 
 HASHADDER_FLAGS += --ardupilot "$(SKETCHBOOK)"
 
 ifneq ($(wildcard $(VRBRAIN_ROOT)),)
 HASHADDER_FLAGS += --vrbrain "$(VRBRAIN_ROOT)"
 endif
-ifneq ($(wildcard $(VRBRAIN_NUTTX_SRC)/..),)
-HASHADDER_FLAGS += --nuttx "$(VRBRAIN_NUTTX_SRC)/.."
+ifneq ($(wildcard $(NUTTX_SRC)/..),)
+HASHADDER_FLAGS += --nuttx "$(NUTTX_SRC)/.."
 endif
 
 
@@ -88,7 +89,7 @@ module_mk:
 	$(RULEHDR)
 	$(v) echo "# Auto-generated file - do not edit" > $(SKETCHBOOK)/module.mk.new
 	$(v) echo "MODULE_COMMAND = ArduPilot" >> $(SKETCHBOOK)/module.mk.new
-	$(v) echo "SRCS = $(wildcard $(SRCROOT)/*.cpp) $(SKETCHLIBSRCSRELATIVE)" >> $(SKETCHBOOK)/module.mk.new
+	$(v) echo "SRCS = $(subst $(SKETCHBOOK)/,,$(wildcard $(SRCROOT)/*.cpp)) $(SKETCHLIBSRCSRELATIVE)" >> $(SKETCHBOOK)/module.mk.new
 	$(v) echo "MODULE_STACKSIZE = 4096" >> $(SKETCHBOOK)/module.mk.new
 	$(v) echo "EXTRACXXFLAGS = -Wframe-larger-than=1300" >> $(SKETCHBOOK)/module.mk.new
 	$(v) cmp $(SKETCHBOOK)/module.mk $(SKETCHBOOK)/module.mk.new 2>/dev/null || mv $(SKETCHBOOK)/module.mk.new $(SKETCHBOOK)/module.mk
@@ -283,112 +284,67 @@ vrbrainProP: vrbrain-v51ProP vrbrain-v52ProP
 
 vrbrain: vrbrainStd vrbrainStdP vrbrainPro vrbrainProP
 
-#vrbrain-clean: clean vrbrain-archives-clean vrbrain-cleandep
-vrbrain-clean: clean vrbrain-cleandep
-	$(v) /bin/rm -rf $(VRBRAIN_ROOT)/makefiles/build $(VRBRAIN_ROOT)/Build
-
-vrbrain-cleandep: clean
-	$(v) find $(VRBRAIN_ROOT)/Build -type f -name '*.d' | xargs rm -f
-	$(v) find $(SKETCHBOOK)/$(SKETCH) -type f -name '*.d' | xargs rm -f
-	$(v) find $(VRBRAIN_ROOT)/Build -type f -name '*.o' | xargs rm -f
-	$(v) find $(SKETCHBOOK)/$(SKETCH) -type f -name '*.o' | xargs rm -f
-
-vrbrain-v45-upload: vrbrain-v45
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrbrain-v45_APM upload
-
-vrbrain-v45P-upload: vrbrain-v45P
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrbrain-v45P_APM upload
-
-vrbrain-v51-upload: vrbrain-v51
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrbrain-v51_APM upload
-
-vrbrain-v51P-upload: vrbrain-v51P
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrbrain-v51P_APM upload
-
-vrbrain-v51Pro-upload: vrbrain-v51Pro
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrbrain-v51Pro_APM upload
-
-vrbrain-v51ProP-upload: vrbrain-v51ProP
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrbrain-v51ProP_APM upload
-
-vrbrain-v52-upload: vrbrain-v52
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrbrain-v52_APM upload
-
-vrbrain-v52P-upload: vrbrain-v52P
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrbrain-v52P_APM upload
-
-vrbrain-v52Pro-upload: vrbrain-v52Pro
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrbrain-v52Pro_APM upload
-
-vrbrain-v52ProP-upload: vrbrain-v52ProP
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrbrain-v52ProP_APM upload
-
-vrubrain-v51-upload: vrubrain-v51
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrubrain-v51_APM upload
-
-vrubrain-v51P-upload: vrubrain-v51P
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrubrain-v51P_APM upload
-
-vrubrain-v52-upload: vrubrain-v52
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrubrain-v52_APM upload
-
-vrbrain-upload: vrbrain-v45-upload
+#vrbrain-clean: clean vrbrain-archives-clean
+vrbrain-clean: clean
+	$(v) /bin/rm -rf $(VRBRAIN_ROOT)/Build
+	$(v) /bin/rm -rf $(BUILD_ROOT)
 
 vrbrain-archives-clean:
 	$(v) /bin/rm -rf $(VRBRAIN_ROOT)/Archives
 
 $(VRBRAIN_ROOT)/Archives/vrbrain-v45.export:
-	$(v) $(VRBRAIN_MAKE_ARCHIVES)
+	$(v) $(VRBRAIN_MAKE_ARCHIVES) BOARDS="vrbrain-v45"
 
 $(VRBRAIN_ROOT)/Archives/vrbrain-v45P.export:
-	$(v) $(VRBRAIN_MAKE_ARCHIVES)
+	$(v) $(VRBRAIN_MAKE_ARCHIVES) BOARDS="vrbrain-v45P"
 
 $(VRBRAIN_ROOT)/Archives/vrbrain-v51.export:
-	$(v) $(VRBRAIN_MAKE_ARCHIVES)
+	$(v) $(VRBRAIN_MAKE_ARCHIVES) BOARDS="vrbrain-v51"
 
 $(VRBRAIN_ROOT)/Archives/vrbrain-v51P.export:
-	$(v) $(VRBRAIN_MAKE_ARCHIVES)
+	$(v) $(VRBRAIN_MAKE_ARCHIVES) BOARDS="vrbrain-v51P"
 
 $(VRBRAIN_ROOT)/Archives/vrbrain-v51Pro.export:
-	$(v) $(VRBRAIN_MAKE_ARCHIVES)
+	$(v) $(VRBRAIN_MAKE_ARCHIVES) BOARDS="vrbrain-v51Pro"
 
 $(VRBRAIN_ROOT)/Archives/vrbrain-v51ProP.export:
-	$(v) $(VRBRAIN_MAKE_ARCHIVES)
+	$(v) $(VRBRAIN_MAKE_ARCHIVES) BOARDS="vrbrain-v51ProP"
 
 $(VRBRAIN_ROOT)/Archives/vrbrain-v52.export:
-	$(v) $(VRBRAIN_MAKE_ARCHIVES)
+	$(v) $(VRBRAIN_MAKE_ARCHIVES) BOARDS="vrbrain-v52"
 
 $(VRBRAIN_ROOT)/Archives/vrbrain-v52P.export:
-	$(v) $(VRBRAIN_MAKE_ARCHIVES)
+	$(v) $(VRBRAIN_MAKE_ARCHIVES) BOARDS="vrbrain-v52P"
 
 $(VRBRAIN_ROOT)/Archives/vrbrain-v52Pro.export:
-	$(v) $(VRBRAIN_MAKE_ARCHIVES)
+	$(v) $(VRBRAIN_MAKE_ARCHIVES) BOARDS="vrbrain-v52Pro"
 
 $(VRBRAIN_ROOT)/Archives/vrbrain-v52ProP.export:
-	$(v) $(VRBRAIN_MAKE_ARCHIVES)
+	$(v) $(VRBRAIN_MAKE_ARCHIVES) BOARDS="vrbrain-v52ProP"
 
 $(VRBRAIN_ROOT)/Archives/vrubrain-v51.export:
-	$(v) $(VRBRAIN_MAKE_ARCHIVES)
+	$(v) $(VRBRAIN_MAKE_ARCHIVES) BOARDS="vrubrain-v51"
 
 $(VRBRAIN_ROOT)/Archives/vrubrain-v51P.export:
-	$(v) $(VRBRAIN_MAKE_ARCHIVES)
+	$(v) $(VRBRAIN_MAKE_ARCHIVES) BOARDS="vrubrain-v51P"
 
 $(VRBRAIN_ROOT)/Archives/vrubrain-v52.export:
-	$(v) $(VRBRAIN_MAKE_ARCHIVES)
+	$(v) $(VRBRAIN_MAKE_ARCHIVES) BOARDS="vrubrain-v52"
 
 vrbrain-archives:
 	$(v) $(VRBRAIN_MAKE_ARCHIVES)
 
+vrbrain-info: module_mk
+	@echo "VRBRAINFIRMWARE_DIRECTORY    $(VRBRAINFIRMWARE_DIRECTORY)"
+	@echo "VRBRAINNUTTX_DIRECTORY       $(VRBRAINNUTTX_DIRECTORY)"
+	@echo "NUTTX_ROOT                   $(NUTTX_ROOT)"
+	@echo "VRBRAIN_ROOT                 $(VRBRAIN_ROOT)"
+	@echo "NUTTX_SRC                    $(NUTTX_SRC)"
+	@echo "SKETCHLIBS                   $(SKETCHLIBS)"
+	@echo "SKETCHLIBNAMES               $(SKETCHLIBNAMES)"
+	@echo "SKETCHLIBSRCDIRS             $(SKETCHLIBSRCDIRS)"
+	@echo "SKETCHLIBSRCS                $(SKETCHLIBSRCS)"
+	@echo "SKETCHLIBOBJS                $(SKETCHLIBOBJS)"
+	@echo "SKETCHLIBINCLUDES            $(SKETCHLIBINCLUDES)"
+	@echo "SKETCHLIBSRCSRELATIVE        $(SKETCHLIBSRCSRELATIVE)"
+	@echo "SRCS                         $(subst $(SKETCHBOOK)/,,$(wildcard $(SRCROOT)/*.cpp))"
