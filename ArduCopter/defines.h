@@ -65,7 +65,8 @@ enum aux_sw_func {
     AUXSW_LOST_COPTER_SOUND =   30, // Play lost copter sound
     AUXSW_MOTOR_ESTOP =         31, // Emergency Stop Switch
     AUXSW_MOTOR_INTERLOCK =     32, // Motor On/Off switch
-    AUXSW_BRAKE =               33  // Brake flight mode
+    AUXSW_BRAKE =               33, // Brake flight mode
+	AUXSW_CIRCLE_SET_CNTR =     34  // sets circle center
 };
 
 // Frame types

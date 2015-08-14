@@ -231,6 +231,7 @@ private:
             enum HomeState home_state   : 2; // 18,19   // home status (unset, set, locked)
             uint8_t using_interlock     : 1; // 20      // aux switch motor interlock function is in use
             uint8_t motor_emergency_stop: 1; // 21      // motor estop switch, shuts off motors when enabled
+			uint8_t circle_center_set   : 1; // 17 true if we have set a circle center using AUX switch
         };
         uint32_t value;
     } ap;
@@ -332,6 +333,7 @@ private:
 
     // Circle
     bool circle_pilot_yaw_override; // true if pilot is overriding yaw
+    uint8_t circle_aux_chan;            //used to remember which channel is used for setting circle center
 
     // SIMPLE Mode
     // Used to track the orientation of the copter for Simple mode. This value is reset at each arming
@@ -550,6 +552,7 @@ private:
     void set_pre_arm_rc_check(bool b);
     void set_using_interlock(bool b);
     void set_motor_emergency_stop(bool b);
+	void set_circle_center(bool b);
     float get_smoothing_gain();
     void get_pilot_desired_lean_angles(float roll_in, float pitch_in, float &roll_out, float &pitch_out);
     float get_pilot_desired_yaw_rate(int16_t stick_angle);
@@ -707,6 +710,7 @@ private:
     void brake_run();
     bool circle_init(bool ignore_checks);
     void circle_run();
+    uint8_t read_circle_chan();
     bool drift_init(bool ignore_checks);
     void drift_run();
     int16_t get_throttle_assist(float velz, int16_t pilot_throttle_scaled);

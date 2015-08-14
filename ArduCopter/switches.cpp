@@ -244,6 +244,7 @@ void Copter::init_aux_switch_function(int8_t ch_option, uint8_t ch_flag)
         case AUXSW_RELAY:
         case AUXSW_LANDING_GEAR:
         case AUXSW_MOTOR_ESTOP:
+        case AUXSW_CIRCLE_SET_CNTR:
             do_aux_switch_function(ch_option, ch_flag);
             break;
 
@@ -585,6 +586,14 @@ void Copter::do_aux_switch_function(int8_t ch_function, uint8_t ch_flag)
                     reset_control_switch();
                 }
             }
+            break;
+
+        case AUXSW_CIRCLE_SET_CNTR:
+        	// Cricle set center switch
+        	if(ch_flag == AUX_SWITCH_HIGH) {
+        	    		circle_nav.set_center(inertial_nav.get_position());
+        	    		set_circle_center(true);
+        	    	}
             break;
     }
 }
