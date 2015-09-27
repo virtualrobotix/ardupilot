@@ -6,19 +6,7 @@ include $(SKETCHBOOK)/mk/VRBRAIN/vrbrain_common.mk
 #
 # Use the configuration's ROMFS.
 #
-ROMFS_ROOT	 = $(SKETCHBOOK)/mk/VRBRAIN/ROMFS_VRUBRAIN52_APM
-
-
-
-
-
-
-
-
-
-
-
-
+ROMFS_ROOT	 = $(SKETCHBOOK)/mk/VRBRAIN/ROMFS_VRBRAIN_APM
 
 
 

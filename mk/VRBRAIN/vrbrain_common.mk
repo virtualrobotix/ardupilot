@@ -44,28 +44,22 @@ MODULES		+= drivers/meas_airspeed
 #MODULES		+= drivers/mkblctrl
 MODULES		+= drivers/px4flow
 #MODULES		+= drivers/oreoled
-
-#MODULES		+= drivers/md25
-#MODULES		+= drivers/roboclaw
-#MODULES		+= drivers/pca8574
-#MODULES		+= drivers/pca9685
+#MODULES		+= drivers/gimbal
 #MODULES		+= drivers/pwm_input
-#MODULES		+= drivers/batt_smbus
 
 MODULES		+= drivers/buzzer
 
 MODULES		+= drivers/vrbrain/vroutput
 MODULES		+= drivers/vrbrain/vrinput
+MODULES		+= drivers/vrbrain/boardinfo
 
 #
 # System commands
 #
 MODULES		+= systemcmds/bl_update
-#MODULES		+= systemcmds/boardinfo
 #MODULES		+= systemcmds/mixer
 #MODULES		+= systemcmds/param
 #MODULES		+= systemcmds/perf
-#MODULES		+= systemcmds/preflight_check
 MODULES		+= systemcmds/pwm
 #MODULES		+= systemcmds/esc_calib
 MODULES		+= systemcmds/reboot
@@ -91,6 +85,7 @@ MODULES		+= systemcmds/tests
 # Estimation modules (EKF/ SO3 / other filters)
 #
 #MODULES		+= modules/attitude_estimator_ekf
+#MODULES		+= modules/attitude_estimator_q
 #MODULES		+= modules/ekf_att_pos_estimator
 #MODULES		+= modules/position_estimator_inav
 
@@ -141,6 +136,11 @@ MODULES		+= lib/conversion
 # PX4 flow estimator, good for indoors
 #
 #MODULES		+= examples/flow_position_estimator
+
+#
+# Rover apps
+#
+#MODULES		+= examples/rover_steering_control
 
 #
 # Demo apps
