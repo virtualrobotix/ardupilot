@@ -3,7 +3,7 @@ echo "Error in startup"
 
 if [ $HAVE_RGBLED == 1 ]
 then
-        rgbled rgb 16 0 0
+    rgbled rgb 16 0 0
 fi
 
 nshterm /dev/ttyACM0 &
