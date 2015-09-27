@@ -6,7 +6,7 @@
   try to access FRAM in an invalid manner
  */
 
-#include <AP_HAL.h>
+#include <AP_HAL/AP_HAL.h>
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
 #include <px4_defines.h>
