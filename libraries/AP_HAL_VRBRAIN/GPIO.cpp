@@ -265,7 +265,13 @@ bool VRBRAINGPIO::attach_interrupt(uint8_t interrupt_num, AP_HAL::Proc p, uint8_
  */
 bool VRBRAINGPIO::usb_connected(void)
 {
-    return stm32_gpioread(GPIO_OTGFS_VBUS);
+    /*
+      we use a combination of voltage on the USB connector and the
+      open of the /dev/ttyACM0 character device. This copes with
+      systems where the VBUS may go high even with no USB connected
+      (such as AUAV-X2)
+     */
+    return stm32_gpioread(GPIO_OTGFS_VBUS) && _usb_connected;
 }
 
 
