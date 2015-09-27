@@ -20,7 +20,7 @@
 /* 
    FRSKY Telemetry library
 */
-#include <AP_Frsky_VRBRAIN.h>
+#include "AP_Frsky_VRBRAIN.h"
 
 extern const AP_HAL::HAL& hal;
 
