@@ -5,17 +5,19 @@
 export PATH=$PATH:/bin:/usr/bin
 
 export TMPDIR=$PWD/build.tmp.$$
-echo $TMDIR
+echo $TMPDIR
 rm -rf $TMPDIR
 echo "Building in $TMPDIR"
 
 date
-git checkout master
+git remote update
+git checkout -B for_merge remotes/origin/for_merge
 githash=$(git rev-parse HEAD)
 
-hdate=$(date +"%Y-%m/%Y-%m-%d-%H:%m")
+hdate=$(date +"%Y-%m/%Y-%m-%d-%H-%m")
 mkdir -p binaries/$hdate
 binaries=$PWD/../buildlogs/binaries
+BASEDIR=$PWD
 
 error_count=0
 
@@ -27,35 +29,30 @@ checkout() {
     tag="$2"
     git stash
     if [ "$tag" = "latest" ]; then
-	vbranch="for_build"
-	vbranch2="for_build"
+	vbranch="for_merge"
     else
 	vbranch="$vehicle-$tag"
-	vbranch2="for_build"
     fi
 
-    echo "Checkout with branch $branch"
+    echo "Checkout for $vehicle with branch $vbranch"
 
     git remote update
-    git checkout -B "$vbranch" remotes/origin/"$vbranch"
-    git pull -v --progress  "origin" "$vbranch" || return 1
-
+    git checkout -B "$vbranch" remotes/origin/"$vbranch" || return 1
     git log -1
 
-    pushd ../../VRNuttX
+    pushd ../VRNuttX
+
     git remote update
-    git checkout -B "$vbranch2" remotes/origin/"$vbranch2"
-    git pull -v --progress  "origin" "$vbranch2" || {
-        popd
-        return 1
-    }
+    git checkout -B "$vbranch" remotes/origin/"$vbranch" || git checkout -B for_merge remotes/origin/for_merge || return 1
     git log -1
+
     popd
 
     return 0
 }
 
-# check if we should skip this build because we have already built this version
+# check if we should skip this build because we have already
+# built this version
 skip_build() {
     [ "$FORCE_BUILD" = "1" ] && return 1
     tag="$1"
@@ -168,10 +165,7 @@ build_arduplane() {
 	    copyit ArduPlane-vrubrain-v51P.hex $ddir $tag &&
 	    copyit ArduPlane-vrubrain-v52.vrx $ddir $tag && 
 	    copyit ArduPlane-vrubrain-v52.bin $ddir $tag && 
-	    copyit ArduPlane-vrubrain-v52.hex $ddir $tag && 
-	    copyit ArduPlane-vrubrain-v52P.vrx $ddir $tag && 
-	    copyit ArduPlane-vrubrain-v52P.bin $ddir $tag && 
-	    copyit ArduPlane-vrubrain-v52P.hex $ddir $tag
+	    copyit ArduPlane-vrubrain-v52.hex $ddir $tag
 	}
     }
     checkout Plane "latest"
@@ -192,12 +186,11 @@ build_arducopter() {
             popd
             return
         }
-	make vrbrain-clean || return
 	for f in $frames; do
 	    echo "Building ArduCopter VRBRAIN-$f binaries"
 	    ddir="$binaries/Copter/$hdate/VRX-$f"
 	    skip_build $tag $ddir && continue
-            rm -rf ../Build.ArduCopter
+	    make vrbrain-clean &&
 	    make vrbrain-$f || {
                 echo "Failed build of ArduCopter VRBRAIN $tag"
                 error_count=$((error_count+1))
@@ -241,10 +234,7 @@ build_arducopter() {
 	    copyit ArduCopter-vrubrain-v51P.hex $ddir $tag &&
 	    copyit ArduCopter-vrubrain-v52.vrx $ddir $tag && 
 	    copyit ArduCopter-vrubrain-v52.bin $ddir $tag && 
-	    copyit ArduCopter-vrubrain-v52.hex $ddir $tag && 
-	    copyit ArduCopter-vrubrain-v52P.vrx $ddir $tag && 
-	    copyit ArduCopter-vrubrain-v52P.bin $ddir $tag && 
-	    copyit ArduCopter-vrubrain-v52P.hex $ddir $tag
+	    copyit ArduCopter-vrubrain-v52.hex $ddir $tag
 	done
     }
     checkout Copter "latest"
@@ -311,10 +301,7 @@ build_rover() {
 	    copyit APMrover2-vrubrain-v51P.hex $ddir $tag &&
 	    copyit APMrover2-vrubrain-v52.vrx $ddir $tag && 
 	    copyit APMrover2-vrubrain-v52.bin $ddir $tag && 
-	    copyit APMrover2-vrubrain-v52.hex $ddir $tag && 
-	    copyit APMrover2-vrubrain-v52P.vrx $ddir $tag && 
-	    copyit APMrover2-vrubrain-v52P.bin $ddir $tag && 
-	    copyit APMrover2-vrubrain-v52P.hex $ddir $tag
+	    copyit APMrover2-vrubrain-v52.hex $ddir $tag
 	}
     }
     checkout Rover "latest"
