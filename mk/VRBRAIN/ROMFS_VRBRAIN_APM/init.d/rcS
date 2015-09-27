@@ -42,12 +42,36 @@ if mount -t vfat /dev/mmcsd0 /fs/microsd
 then
 	echo "[init] card mounted at /fs/microsd"
         set HAVE_MICROSD 1
+
+
 else
 	echo "[init] no microSD card found"
         set HAVE_MICROSD 0
-        if [ $HAVE_RGBLED == 1 ]
+	echo "Trying format of microSD"
+
+        if mkfatfs /dev/mmcsd0
         then
-                rgbled rgb 16 0 0
+        	echo "microSD card formatted"
+                if mount -t vfat /dev/mmcsd0 /fs/microsd
+                then
+                        echo "format succeeded"
+                        set HAVE_MICROSD 1
+
+                else
+                        echo "mount failed"
+
+                        if [ $HAVE_RGBLED == 1 ]
+                        then
+                           rgbled rgb 16 0 0
+                        fi
+                fi
+        else
+        	echo "format failed"
+
+                if [ $HAVE_RGBLED == 1 ]
+                then
+                        rgbled rgb 16 0 0
+                fi
         fi
 fi
 
@@ -69,6 +93,14 @@ then
 	sh /fs/microsd/etc/rc.txt
 fi
 
+# Verifying bootloader's update
+if [ -f /fs/microsd/bootloader.bin ]
+then
+	bl_update /fs/microsd/bootloader.bin
+	rm /fs/microsd/bootloader.bin
+else
+fi
+
 #
 # Check for USB host
 #
@@ -84,35 +116,24 @@ else
 	fi
 fi
 
-if [ $HAVE_MICROSD == 1 ]
+if [ $HAVE_MICROSD == 0 ]
 then
-	if [ -f /fs/microsd/bootloader.bin ]
-	then
-		bl_update /fs/microsd/bootloader.bin
-		rm /fs/microsd/bootloader.bin
-	else
-	fi
+        if usb_connected
+        then
+                echo "Opening USB nsh"
+        else
+                echo "booting with no microSD"
+                set HAVE_MICROSD 1
+        fi
+fi
 
-	if [ ! -f /fs/microsd/APM/nostart ]
-	then
-		if [ -f /etc/init.d/rc.APM ]
-		then
-			echo "[init] Running rc.APM"
-			# if APM startup is successful then nsh will exit
-			sh /etc/init.d/rc.APM
-		else
-	        nshterm /dev/ttyACM0 &
-		fi
-	else
-        nshterm /dev/ttyACM0 &
-	fi
+# if this is an APM build then there will be a rc.APM script
+# from an EXTERNAL_SCRIPTS build option
+if [ -f /etc/init.d/rc.APM -a $HAVE_MICROSD == 1 -a ! -f /fs/microsd/APM/nostart ]
+then
+	echo Running rc.APM
+	# if APM startup is successful then nsh will exit
+	sh /etc/init.d/rc.APM
 else
-	if [ -f /etc/init.d/rc.APMNS ]
-	then
-		echo "[init] Running rc.APM without SD"
-		# if APM startup is successful then nsh will exit
-		sh /etc/init.d/rc.APMNS
-	else
-		nshterm /dev/ttyACM0 &
-	fi
+        nshterm /dev/ttyACM0 &
 fi
