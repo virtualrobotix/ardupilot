@@ -36,9 +36,13 @@ public:
     /* return true if USB cable is connected */
     bool usb_connected(void);
 
+    // used by UART code to avoid a hw bug in the AUAV-X2
+    void set_usb_connected(void) { _usb_connected = true; }
+
 private:
     int _led_fd;
     int _buzzer_fd;
+    bool _usb_connected = false;
 };
 
 class VRBRAIN::VRBRAINDigitalSource : public AP_HAL::DigitalSource {
