@@ -77,6 +77,10 @@ void VRBRAINGPIO::init()
 #if defined(GPIO_GPIO1_OUTPUT)
     stm32_configgpio(GPIO_GPIO1_OUTPUT);
 #endif
+
+#if defined(GPIO_GPIO5_OUTPUT)
+    stm32_configgpio(GPIO_GPIO5_OUTPUT);
+#endif
 }
 
 void VRBRAINGPIO::pinMode(uint8_t pin, uint8_t output)
@@ -103,6 +107,11 @@ uint8_t VRBRAINGPIO::read(uint8_t pin)
         case EXTERNAL_RELAY2_PIN:
 #if defined(GPIO_GPIO1_OUTPUT)
         	return (stm32_gpioread(GPIO_GPIO1_OUTPUT))?HIGH:LOW;
+#endif
+            break;
+        case EXTERNAL_RELAY3_PIN:
+#if defined(GPIO_GPIO5_OUTPUT)
+            return (stm32_gpioread(GPIO_GPIO5_OUTPUT))?HIGH:LOW;
 #endif
             break;
     }
@@ -183,6 +192,11 @@ void VRBRAINGPIO::write(uint8_t pin, uint8_t value)
         	stm32_gpiowrite(GPIO_GPIO1_OUTPUT, (value==HIGH));
 #endif
         	break;
+        case EXTERNAL_RELAY3_PIN:
+#if defined(GPIO_GPIO5_OUTPUT)
+            stm32_gpiowrite(GPIO_GPIO5_OUTPUT, (value==HIGH));
+#endif
+            break;
 
     }
 }
