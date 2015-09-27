@@ -5,7 +5,7 @@
 export PATH=$PATH:/bin:/usr/bin
 
 export TMPDIR=$PWD/build.tmp.$$
-echo $TMDIR
+echo $TMPDIR
 rm -rf $TMPDIR
 echo "Building in $TMPDIR"
 
@@ -14,7 +14,7 @@ date
 #git checkout -B for_merge remotes/origin/for_merge
 #githash=$(git rev-parse HEAD)
 
-hdate=$(date +"%Y-%m/%Y-%m-%d-%H:%m")
+hdate=$(date +"%Y-%m/%Y-%m-%d-%H-%m")
 mkdir -p binaries/$hdate
 binaries=$PWD/../buildlogs/binaries
 BASEDIR=$PWD
@@ -38,16 +38,14 @@ checkout() {
 
     git remote update
     git checkout -B "$vbranch" remotes/origin/"$vbranch" || return 1
-
     git log -1
 
-    pushd ../../VRNuttX
+    pushd ../VRNuttX
+
     git remote update
-    git checkout -B "$vbranch" remotes/origin/"$vbranch" || git checkout -B for_merge remotes/origin/for_merge || {
-        popd
-        return 1
-    }
+    git checkout -B "$vbranch" remotes/origin/"$vbranch" || git checkout -B for_merge remotes/origin/for_merge || return 1
     git log -1
+
     popd
 
     return 0
@@ -282,8 +280,8 @@ build_rover() {
 
 for build in beta; do
     #build_arduplane $build
-    #build_arducopter $build
-    build_rover $build
+    build_arducopter $build
+    #build_rover $build
 done
 
 rm -rf $TMPDIR
