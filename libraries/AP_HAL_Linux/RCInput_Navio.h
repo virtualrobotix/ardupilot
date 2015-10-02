@@ -1,6 +1,8 @@
 #ifndef __AP_HAL_LINUX_RCINPUT_NAVIO_H__
 #define __AP_HAL_LINUX_RCINPUT_NAVIO_H__
 
+#if CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_NAVIO
+
 #include "AP_HAL_Linux.h"
 #include "RCInput.h"
 #include <signal.h>
@@ -130,5 +132,7 @@ private:
     void deinit() override;
 
 };
+
+#endif // CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_NAVIO
 
 #endif // __AP_HAL_LINUX_RCINPUT_NAVIO_H__
