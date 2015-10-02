@@ -41,6 +41,8 @@ static LinuxI2CDriver  i2cDriver0(&i2cSemaphore0, "/dev/i2c-1");
 static LinuxSPIDeviceManager spiDeviceManager;
 #if CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_NAVIO
 static NavioAnalogIn analogIn;
+#elif CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_VRLXBRAIN
+static VRLXBrainAnalogIn analogIn;
 #else
 static LinuxAnalogIn analogIn;
 #endif
@@ -64,6 +66,8 @@ static LinuxGPIO_BBB gpioDriver;
  */
 #elif CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_NAVIO
 static LinuxGPIO_RPI gpioDriver;
+#elif CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_VRLXBRAIN
+static LinuxGPIO_RPI gpioDriver;
 #else
 static Empty::EmptyGPIO gpioDriver;
 #endif
@@ -79,6 +83,8 @@ static LinuxRCInput_AioPRU rcinDriver;
 static LinuxRCInput_Navio rcinDriver;
 #elif CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_ZYNQ
 static LinuxRCInput_ZYNQ rcinDriver;
+#elif CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_VRLXBRAIN
+static LinuxRCInput_VRLXBrain rcinDriver;
 #else
 static LinuxRCInput rcinDriver;
 #endif
@@ -99,6 +105,8 @@ static LinuxRCOutput_Navio rcoutDriver;
 static LinuxRCOutput_ZYNQ rcoutDriver;
 #elif CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_BEBOP
 static LinuxRCOutput_Bebop rcoutDriver;
+#elif CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_VRLXBRAIN
+static LinuxRCOutput_VRLXBrain rcoutDriver;
 #else
 static Empty::EmptyRCOutput rcoutDriver;
 #endif
