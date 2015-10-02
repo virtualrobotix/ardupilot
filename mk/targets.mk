@@ -54,6 +54,10 @@ navio: HAL_BOARD = HAL_BOARD_LINUX
 navio: TOOLCHAIN = RPI
 navio: all
 
+vrlxbrain: HAL_BOARD = HAL_BOARD_LINUX
+vrlxbrain: TOOLCHAIN = RPI
+vrlxbrain: all
+
 bbbmini: HAL_BOARD = HAL_BOARD_LINUX
 bbbmini: TOOLCHAIN = BBONE
 bbbmini: all
@@ -77,7 +81,7 @@ empty: all
 
 # cope with copter and hil targets
 FRAMES = quad tri hexa y6 octa octa-quad heli single coax obc nologging
-BOARDS = apm1 apm2 apm2beta apm1-1280 px4 px4-v1 px4-v2 sitl flymaple linux vrbrain vrbrain-v45 vrbrain-v51 vrbrain-v52 vrubrain-v51 vrubrain-v52 erle pxf navio bbbmini
+BOARDS = apm1 apm2 apm2beta apm1-1280 px4 px4-v1 px4-v2 sitl flymaple linux vrbrain vrbrain-v45 vrbrain-v51 vrbrain-v52 vrubrain-v51 vrubrain-v52 erle pxf navio bbbmini vrlxbrain
 
 define frame_template
 $(1)-$(2) : EXTRAFLAGS += "-DFRAME_CONFIG=$(shell echo $(2) | tr a-z A-Z | sed s/-/_/g)_FRAME "

@@ -26,6 +26,7 @@ help:
 	@echo "  px4-v2 - the Pixhawk"
 	@echo "  pxf - the Beagle Bone Black (BBB) + PXF cape combination"
 	@echo "  navio - the RaspberryPi + NavIO cape combination"
+	@echo "  vrlxbrain - the RaspberryPi + Neuron II cape combination"
 	@echo "  linux - a generic Linux build"
 	@echo "  flymaple - the FlyMaple board"
 	@echo "  vrbrain - the VRBrain boards"
