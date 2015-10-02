@@ -23,7 +23,7 @@
 
 #include "RGBLed.h"
 
-class NavioLED: public RGBLed {
+class VRLXBrainLED: public RGBLed {
 public:
     VRLXBrainLED();
 };

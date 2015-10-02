@@ -1,5 +1,5 @@
 /*
-  NavioLED I2C driver
+  VRLXBrainLED I2C driver
 */
 /*
    This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@
 
 extern const AP_HAL::HAL& hal;
 
-bool NavioLED_I2C::hw_init()
+bool VRLXBrainLED_I2C::hw_init()
 {
     // get pointer to i2c bus semaphore
     AP_HAL::Semaphore* i2c_sem = hal.i2c->get_semaphore();
@@ -50,7 +50,7 @@ bool NavioLED_I2C::hw_init()
 }
 
 // set_rgb - set color as a combination of red, green and blue values
-bool NavioLED_I2C::hw_set_rgb(uint8_t red, uint8_t green, uint8_t blue)
+bool VRLXBrainLED_I2C::hw_set_rgb(uint8_t red, uint8_t green, uint8_t blue)
 {
     // get pointer to i2c bus semaphore
     AP_HAL::Semaphore* i2c_sem = hal.i2c->get_semaphore();

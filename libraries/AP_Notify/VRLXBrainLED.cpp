@@ -22,7 +22,7 @@
 #define VRLXBRAIN_LED_DIM    0x4F    // dim brightness
 #define VRLXBRAIN_LED_OFF    0xFF    // off
 
-NavioLED::NavioLED() : 
+VRLXBrainLED::VRLXBrainLED() :
     RGBLed(VRLXBRAIN_LED_OFF, VRLXBRAIN_LED_BRIGHT, VRLXBRAIN_LED_MEDIUM, VRLXBRAIN_LED_DIM)
 {
 
