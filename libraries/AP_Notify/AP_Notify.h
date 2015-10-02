@@ -27,6 +27,7 @@
 #include "ToneAlarm_PX4.h"
 #include "ToneAlarm_Linux.h"
 #include "NavioLED_I2C.h"
+#include "VRLXBrainLED_I2C.h"
 #include "ExternalLED.h"
 #include "Buzzer.h"
 #include "VRBoard_LED.h"
