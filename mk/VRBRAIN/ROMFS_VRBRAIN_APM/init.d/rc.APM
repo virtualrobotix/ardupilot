@@ -6,33 +6,36 @@
 # a bug in an earlier firmware release
 if [ -f /fs/microsd/APM ]
 then
-   echo "[APM] APM file found - renaming"
-   mv /fs/microsd/APM /fs/microsd/APM.old
+    echo "[APM] APM file found - renaming"
+    mv /fs/microsd/APM /fs/microsd/APM.old
 fi
 
 if [ -f /fs/microsd/APM/nostart ]
 then
-   echo "[APM] APM/nostart found - skipping APM startup"
-   sh /etc/init.d/rc.error
+    echo "[APM] APM/nostart found - skipping APM startup"
+    sh /etc/init.d/rc.error
 fi
 
 # mount binfs so we can find the built-in apps
 if [ -f /bin/reboot ]
 then
-	echo "[APM] binfs already mounted"
+    echo "[APM] binfs already mounted"
 else
-	echo "[APM] Mounting binfs"
-        if mount -t binfs /dev/null /bin
-        then
-                echo "[APM] binfs mounted OK"
-        else
-                sh /etc/init.d/rc.error
-        fi
+    echo "[APM] Mounting binfs"
+    if mount -t binfs /dev/null /bin
+    then
+        echo "[APM] binfs mounted OK"
+    else
+        sh /etc/init.d/rc.error
+    fi
 fi
 
-if rm /fs/microsd/APM/boot.log
+if [ -f /fs/microsd/APM/boot.log ]
 then
-   echo "[APM] Removed old boot.log"
+    if rm /fs/microsd/APM/boot.log
+    then
+        echo "[APM] Removed old boot.log"
+    fi
 fi
 set logfile /fs/microsd/APM/BOOT.LOG
 
@@ -50,71 +53,99 @@ fi
 echo "[APM] Verifying board"
 
 set BOARD NO_BRAIN_BOARD
+set EXTERNAL_EXP false
+set EXTERNAL_IMU false
+set INTERNAL_MAG false
+set LL_I2C_AUX false
+set LL_PWM_INPUT false
 
 if [ -f /bin/VRBRAIN_V45 ]
 then
-     echo "[APM] Detected VRBrain 4.5 board"
-     set BOARD VRBRAIN_V45
+    echo "[APM] Detected VRBrain 4.5 board"
+    set BOARD VRBRAIN_V45
+    set INTERNAL_MAG true
 fi
 if [ -f /bin/VRBRAIN_V45P ]
 then
-     echo "[APM] Detected VRBrain 4.5 PWM version board"
-     set BOARD VRBRAIN_V45P
+    echo "[APM] Detected VRBrain 4.5 PWM version board"
+    set BOARD VRBRAIN_V45P
+    set INTERNAL_MAG true
 fi
 if [ -f /bin/VRBRAIN_V51 ]
 then
-     echo "[APM] Detected VRBrain 5.1 board"
-     set BOARD VRBRAIN_V51
+    echo "[APM] Detected VRBrain 5.1 board"
+    set BOARD VRBRAIN_V51
+    set INTERNAL_MAG true
+    set LL_PWM_INPUT true
 fi
 if [ -f /bin/VRBRAIN_V51P ]
 then
      echo "[APM] Detected VRBrain 5.1 PWM version board"
      set BOARD VRBRAIN_V51P
+    set INTERNAL_MAG true
 fi
 if [ -f /bin/VRBRAIN_V51PRO ]
 then
-     echo "[APM] Detected VRBrain 5.1 Professional board"
-     set BOARD VRBRAIN_V51PRO
+    echo "[APM] Detected VRBrain 5.1 Professional board"
+    set BOARD VRBRAIN_V51PRO
+    set EXTERNAL_EXP true
+    set EXTERNAL_IMU true
+    set LL_PWM_INPUT true
 fi
 if [ -f /bin/VRBRAIN_V51PROP ]
 then
-     echo "[APM] Detected VRBrain 5.1 Professional PWM version board"
-     set BOARD VRBRAIN_V51PROP
+    echo "[APM] Detected VRBrain 5.1 Professional PWM version board"
+    set BOARD VRBRAIN_V51PROP
+    set EXTERNAL_EXP true
+    set EXTERNAL_IMU true
 fi
 if [ -f /bin/VRBRAIN_V52 ]
 then
-     echo "[APM] Detected VRBrain 5.2 board"
-     set BOARD VRBRAIN_V52
+    echo "[APM] Detected VRBrain 5.2 board"
+    set BOARD VRBRAIN_V52
+    set INTERNAL_MAG true
+    set LL_I2C_AUX true
+    set LL_PWM_INPUT true
 fi
 if [ -f /bin/VRBRAIN_V52P ]
 then
-     echo "[APM] Detected VRBrain 5.2 PWM version board"
-     set BOARD VRBRAIN_V52P
+    echo "[APM] Detected VRBrain 5.2 PWM version board"
+    set BOARD VRBRAIN_V52P
+    set INTERNAL_MAG true
+    set LL_I2C_AUX true
 fi
 if [ -f /bin/VRBRAIN_V52PRO ]
 then
-     echo "[APM] Detected VRBrain 5.2 Professional board"
-     set BOARD VRBRAIN_V52PRO
+    echo "[APM] Detected VRBrain 5.2 Professional board"
+    set BOARD VRBRAIN_V52PRO
+    set EXTERNAL_EXP true
+    set EXTERNAL_IMU true
+    set LL_I2C_AUX true
+    set LL_PWM_INPUT true
 fi
 if [ -f /bin/VRBRAIN_V52PROP ]
 then
-     echo "[APM] Detected VRBrain 5.2 Professional PWM version board"
-     set BOARD VRBRAIN_V52PROP
+    echo "[APM] Detected VRBrain 5.2 Professional PWM version board"
+    set BOARD VRBRAIN_V52PROP
+    set EXTERNAL_EXP true
+    set EXTERNAL_IMU true
+    set LL_I2C_AUX true
 fi
 if [ -f /bin/VRUBRAIN_V51 ]
 then
-     echo "[APM] Detected VR Micro Brain 5.1 board"
-     set BOARD VRUBRAIN_V51
+    echo "[APM] Detected VR Micro Brain 5.1 board"
+    set BOARD VRUBRAIN_V51
+    set LL_PWM_INPUT true
 fi
 if [ -f /bin/VRUBRAIN_V51P ]
 then
-     echo "[APM] Detected VR Micro Brain 5.1 PWM version board"
-     set BOARD VRUBRAIN_V51P
+    echo "[APM] Detected VR Micro Brain 5.1 PWM version board"
+    set BOARD VRUBRAIN_V51P
 fi
 if [ -f /bin/VRUBRAIN_V52 ]
 then
-     echo "[APM] Detected VR Micro Brain 5.2 board"
-     set BOARD VRUBRAIN_V52
+    echo "[APM] Detected VR Micro Brain 5.2 board"
+    set BOARD VRUBRAIN_V52
 fi
 
 if [ $BOARD == NO_BRAIN_BOARD ]
@@ -150,7 +181,7 @@ else
     sh /etc/init.d/rc.error
 fi
 
-if [ $BOARD == VRBRAIN_V51PRO -o $BOARD == VRBRAIN_V51PROP -o $BOARD == VRBRAIN_V52PRO -o $BOARD == VRBRAIN_V52PROP ]
+if [ $EXTERNAL_EXP == true ]
 then
     echo "[APM] Starting MS5611 External EXP"
     if ms5611 -X start
@@ -160,7 +191,9 @@ then
         echo "[APM] MS5611 external EXP start failed"
 #        sh /etc/init.d/rc.error
     fi
-
+fi
+if [ $EXTERNAL_IMU == true ]
+then
     echo "[APM] Starting MS5611 External IMU"
     if ms5611 -U start
     then
@@ -186,7 +219,7 @@ else
 #    sh /etc/init.d/rc.error
 fi
 
-if [ $BOARD != VRUBRAIN_V51 -a $BOARD != VRUBRAIN_V51P -a $BOARD == VRUBRAIN_V52 ]
+if [ $INTERNAL_MAG == true ]
 then
     echo "[APM] Starting HMC5883 Internal"
     if hmc5883 -I start
@@ -204,7 +237,7 @@ then
     fi
 fi
 
-if [ $BOARD == VRBRAIN_V51PRO -o $BOARD == VRBRAIN_V51PROP -o $BOARD == VRBRAIN_V52PRO -o $BOARD == VRBRAIN_V52PROP ]
+if [ $EXTERNAL_EXP == true ]
 then
     echo "[APM] Starting HMC5883 External EXP"
     if hmc5883 -x start
@@ -220,7 +253,10 @@ then
         echo "[APM] HMC5983 external EXP start failed"
 #       sh /etc/init.d/rc.error
     fi
+fi
 
+if [ $EXTERNAL_IMU == true ]
+then
     echo "[APM] Starting HMC5883 External IMU"
     if hmc5883 -u start
     then
@@ -246,7 +282,7 @@ else
     sh /etc/init.d/rc.error
 fi
 
-if [ $BOARD == VRBRAIN_V51PRO -o $BOARD == VRBRAIN_V51PROP -o $BOARD == VRBRAIN_V52PRO -o $BOARD == VRBRAIN_V52PROP ]
+if [ $EXTERNAL_EXP == true ]
 then
     echo "[APM] Starting MPU6000 External EXP"
     if mpu6000 -X start
@@ -256,7 +292,10 @@ then
         echo "[APM] MPU6000 external EXP start failed"
 #        sh /etc/init.d/rc.error
     fi
+fi
 
+if [ $EXTERNAL_IMU == true ]
+then
     echo "[APM] Starting MPU6000 External IMU"
     if mpu6000 -U start
     then
@@ -284,7 +323,7 @@ then
     echo "[APM] Found external ll40ls sensor"
 fi
 
-if [ $BOARD == VRBRAIN_V52 -o $BOARD == VRBRAIN_V52P -o $BOARD == VRBRAIN_V52PRO -o $BOARD == VRBRAIN_V52PROP ]
+if [ $LL_I2C_AUX == true ]
 then
     if ll40ls -I start
     then
@@ -292,7 +331,7 @@ then
     fi
 fi
 
-if [ $BOARD == VRBRAIN_V51 -o $BOARD == VRBRAIN_V51PRO -o $BOARD == VRBRAIN_V52 -o $BOARD == VRBRAIN_V52PRO  -o $BOARD == VRUBRAIN_V51 ]
+if [ $LL_PWM_INPUT == true ]
 then
     # optional PWM input driver
     if pwm_input start
