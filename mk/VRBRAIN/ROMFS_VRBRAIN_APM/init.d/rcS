@@ -27,11 +27,11 @@ set USB autoconnect
 
 if rgbled start
 then
-        set HAVE_RGBLED 1
-        # show startup white
-        rgbled rgb 16 16 16
+    set HAVE_RGBLED 1
+    # show startup white
+    rgbled rgb 16 16 16
 else
-        set HAVE_RGBLED 0
+    set HAVE_RGBLED 0
 fi
 
 #
@@ -40,39 +40,34 @@ fi
 echo "[init] looking for microSD..."
 if mount -t vfat /dev/mmcsd0 /fs/microsd
 then
-	echo "[init] card mounted at /fs/microsd"
-        set HAVE_MICROSD 1
-
-
+    echo "[init] card mounted at /fs/microsd"
+    set HAVE_MICROSD 1
 else
-	echo "[init] no microSD card found"
-        set HAVE_MICROSD 0
-	echo "Trying format of microSD"
-
-        if mkfatfs /dev/mmcsd0
+    echo "[init] no microSD card found"
+    set HAVE_MICROSD 0
+    
+    echo "Trying format of microSD"
+    if mkfatfs /dev/mmcsd0
+    then
+        echo "microSD card formatted"
+        if mount -t vfat /dev/mmcsd0 /fs/microsd
         then
-        	echo "microSD card formatted"
-                if mount -t vfat /dev/mmcsd0 /fs/microsd
-                then
-                        echo "format succeeded"
-                        set HAVE_MICROSD 1
-
-                else
-                        echo "mount failed"
-
-                        if [ $HAVE_RGBLED == 1 ]
-                        then
-                           rgbled rgb 16 0 0
-                        fi
-                fi
+            echo "format succeeded"
+            set HAVE_MICROSD 1
         else
-        	echo "format failed"
-
-                if [ $HAVE_RGBLED == 1 ]
-                then
-                        rgbled rgb 16 0 0
-                fi
+            echo "mount failed"
+            if [ $HAVE_RGBLED == 1 ]
+            then
+                rgbled rgb 16 0 0
+            fi
         fi
+    else
+        echo "format failed"
+        if [ $HAVE_RGBLED == 1 ]
+        then
+            rgbled rgb 16 0 0
+        fi
+    fi
 fi
 
 #
@@ -83,21 +78,21 @@ fi
 #
 if [ -f /fs/microsd/etc/rc ]
 then
-	echo "[init] reading /fs/microsd/etc/rc"
-	sh /fs/microsd/etc/rc
+    echo "[init] reading /fs/microsd/etc/rc"
+    sh /fs/microsd/etc/rc
 fi
 # Also consider rc.txt files
 if [ -f /fs/microsd/etc/rc.txt ]
 then
-	echo "[init] reading /fs/microsd/etc/rc.txt"
-	sh /fs/microsd/etc/rc.txt
+    echo "[init] reading /fs/microsd/etc/rc.txt"
+    sh /fs/microsd/etc/rc.txt
 fi
 
 # Verifying bootloader's update
 if [ -f /fs/microsd/bootloader.bin ]
 then
-	bl_update /fs/microsd/bootloader.bin
-	rm /fs/microsd/bootloader.bin
+    bl_update /fs/microsd/bootloader.bin
+    rm /fs/microsd/bootloader.bin
 else
 fi
 
@@ -106,34 +101,34 @@ fi
 #
 if [ $USB != autoconnect ]
 then
-	echo "[init] not connecting USB"
+    echo "[init] not connecting USB"
 else
-	if sercon
-	then
-		echo "[init] USB interface connected"
-	else
-		echo "[init] No USB connected"
-	fi
+    if sercon
+    then
+        echo "[init] USB interface connected"
+    else
+        echo "[init] No USB connected"
+    fi
 fi
 
 if [ $HAVE_MICROSD == 0 ]
 then
-        if usb_connected
-        then
-                echo "Opening USB nsh"
-        else
-                echo "booting with no microSD"
-                set HAVE_MICROSD 1
-        fi
+#    if usb_connected
+#    then
+#        echo "Opening USB nsh"
+#    else
+        echo "booting with no microSD"
+        set HAVE_MICROSD 1
+#    fi
 fi
 
 # if this is an APM build then there will be a rc.APM script
 # from an EXTERNAL_SCRIPTS build option
 if [ -f /etc/init.d/rc.APM -a $HAVE_MICROSD == 1 -a ! -f /fs/microsd/APM/nostart ]
 then
-	echo Running rc.APM
-	# if APM startup is successful then nsh will exit
-	sh /etc/init.d/rc.APM
+    echo Running rc.APM
+    # if APM startup is successful then nsh will exit
+    sh /etc/init.d/rc.APM
 else
-        nshterm /dev/ttyACM0 &
+    nshterm /dev/ttyACM0 &
 fi
