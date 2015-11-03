@@ -35,6 +35,16 @@ else
 fi
 
 #
+# Start playing the startup tune
+#
+if tone_alarm start
+then
+    set HAVE_TONEALARM 1
+else
+    set HAVE_TONEALARM 0
+fi
+
+#
 # Try to mount the microSD card.
 #
 echo "[init] looking for microSD..."
