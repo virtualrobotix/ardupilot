@@ -15,6 +15,13 @@ ROMFS_ROOT	 = $(SKETCHBOOK)/mk/VRBRAIN/ROMFS_VRBRAIN_APM
 
 
 
+MODULES		+= drivers/stm32/tone_alarm
+
+
+
+
+
+
 
 
 
@@ -41,8 +48,12 @@ ROMFS_ROOT	 = $(SKETCHBOOK)/mk/VRBRAIN/ROMFS_VRBRAIN_APM
 MODULES		+= drivers/pwm_input
 
 
-
 MODULES		+= drivers/boards/vrbrain-v52
+
+
+
+
+
 
 
 
