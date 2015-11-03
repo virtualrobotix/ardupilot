@@ -1,5 +1,10 @@
 echo "Error in startup"
 
+if [ $HAVE_TONEALARM == 1 ]
+then
+    tone_alarm MNCC
+fi
+
 
 if [ $HAVE_RGBLED == 1 ]
 then
