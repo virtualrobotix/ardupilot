@@ -52,11 +52,20 @@ if mount -t vfat /dev/mmcsd0 /fs/microsd
 then
     echo "[init] card mounted at /fs/microsd"
     set HAVE_MICROSD 1
+    if [ $HAVE_TONEALARM == 1 ]
+    then
+        # Start playing the startup tune
+        tone_alarm 1
+    fi
 else
     echo "[init] no microSD card found"
     set HAVE_MICROSD 0
     
     echo "Trying format of microSD"
+    if [ $HAVE_TONEALARM == 1 ]
+    then
+        tone_alarm MBAGP
+    fi
     if mkfatfs /dev/mmcsd0
     then
         echo "microSD card formatted"
@@ -64,8 +73,16 @@ else
         then
             echo "format succeeded"
             set HAVE_MICROSD 1
+            if [ $HAVE_TONEALARM == 1 ]
+            then
+                tone_alarm 1
+            fi
         else
             echo "mount failed"
+            if [ $HAVE_TONEALARM == 1 ]
+            then
+                tone_alarm MNBG
+            fi
             if [ $HAVE_RGBLED == 1 ]
             then
                 rgbled rgb 16 0 0
@@ -73,6 +90,10 @@ else
         fi
     else
         echo "format failed"
+        if [ $HAVE_TONEALARM == 1 ]
+        then
+            tone_alarm MNBGG
+        fi
         if [ $HAVE_RGBLED == 1 ]
         then
             rgbled rgb 16 0 0
