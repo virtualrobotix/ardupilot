@@ -64,14 +64,6 @@ error_count=0
 
 
 
-
-
-
-
-
-
-
-
 # check if we should skip this build because we have already
 # built this version
 skip_build() {
@@ -129,10 +121,11 @@ copyit() {
 build_arduplane() {
     tag="$1"
     withgit="$2"
+    board="$3"
 
     echo "Building ArduPlane $tag binaries from $(pwd)"
     pushd ArduPlane
-    echo "Building ArduPlane VRBRAIN binaries"
+    echo "Building ArduPlane $board binaries"
     ddir=$binaries/Plane/$hdate/VRX
 
 
@@ -142,7 +135,7 @@ build_arduplane() {
 
 
     skip_build $tag $ddir || {
-        make vrbrain-clean && make vrbrain || {
+        make vrbrain-clean && make $board || {
             echo "Failed build of ArduPlane VRX $tag"
             error_count=$((error_count+1))
 
@@ -197,6 +190,7 @@ build_arduplane() {
 build_arducopter() {
     tag="$1"
     withgit="$2"
+    board="$3"
 
     echo "Building ArduCopter $tag binaries from $(pwd)"
     pushd ArduCopter
@@ -208,11 +202,11 @@ build_arducopter() {
 
 
 
-        # echo "Building ArduCopter VRBRAIN-$f binaries"
+        echo "Building ArduCopter $board-$f binaries"
         ddir="$binaries/Copter/$hdate/VRX-$f"
         skip_build $tag $ddir && continue
-        make vrbrain-clean && make vrbrain-$f || {
-            echo "Failed build of ArduCopter VRBRAIN $tag"
+        make vrbrain-clean && make $board-$f || {
+            echo "Failed build of ArduCopter VRX $tag"
             error_count=$((error_count+1))
             continue
         }
@@ -264,10 +258,11 @@ build_arducopter() {
 build_rover() {
     tag="$1"
     withgit="$2"
+    board="$3"
 
     echo "Building APMrover2 $tag binaries from $(pwd)"
     pushd APMrover2
-    echo "Building APMrover2 VRX binaries"
+    echo "Building APMrover2 $board binaries"
     ddir=$binaries/Rover/$hdate/VRX
 
 
@@ -275,7 +270,7 @@ build_rover() {
 
 
     skip_build $tag $ddir || {
-        make vrbrain-clean && make vrbrain || {
+        make vrbrain-clean && make $board || {
             echo "Failed build of APMrover2 VRX $tag"
             error_count=$((error_count+1))
 
@@ -329,18 +324,19 @@ build_rover() {
 build_vehicle() {
     vehicle="$1"
     release="$2"
+    board="$3"
 
     withgit='1'
     if [ "$release" = "local" ]; then
         withgit='0'
     fi
 
-    echo "Build $release for $vehicle with git $withgit"
+    echo "Build $release for $vehicle with git $withgit for board $board"
 
     case "$vehicle" in
-        Copter) build_arducopter $release $withgit ;;
-        Plane) build_arduplane $release $withgit ;;
-        Rover) build_rover $release $withgit ;;
+        Copter) build_arducopter $release $withgit $board ;;
+        Plane) build_arduplane $release $withgit $board ;;
+        Rover) build_rover $release $withgit $board ;;
         *) error "Unexpected vehicle $vehicle" ;;
     esac
 }
@@ -351,20 +347,22 @@ build_vehicle() {
 
 rflag='local'
 vflag='Plane Copter Rover'
+bflag='vrbrain'
 
-while getopts 'g:v:' flag; do
+while getopts 'v:b:' flag; do
     case "${flag}" in
 
         v) vflag="${OPTARG}" ;;
+        b) bflag="${OPTARG}" ;;
         *) error "Unexpected option ${flag}" ;;
     esac
 done
 
-echo "Parameters - release: $rflag; vehicle: $vflag"
+echo "Parameters - release: $rflag; vehicle: $vflag; boards: $bflag"
 
 for v in $vflag; do
     for r in $rflag; do
-        build_vehicle $v $r
+        build_vehicle $v $r $bflag
     done
 done
 
