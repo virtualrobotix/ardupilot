@@ -35,6 +35,16 @@ else
 fi
 
 #
+# Start playing the startup tune
+#
+if tone_alarm start
+then
+    set HAVE_TONEALARM 1
+else
+    set HAVE_TONEALARM 0
+fi
+
+#
 # Try to mount the microSD card.
 #
 echo "[init] looking for microSD..."
@@ -42,6 +52,11 @@ if mount -t vfat /dev/mmcsd0 /fs/microsd
 then
 	echo "[init] card mounted at /fs/microsd"
         set HAVE_MICROSD 1
+        if [ $HAVE_TONEALARM == 1 ]
+        then
+                # Start playing the startup tune
+                tone_alarm 1
+        fi
 else
 	echo "[init] no microSD card found"
         set HAVE_MICROSD 0
