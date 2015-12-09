@@ -116,6 +116,8 @@ bool VRBRAINUtil::get_system_id(char buf[40])
     const char *board_type = "VRUBRAINv51";
 #elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V52)
     const char *board_type = "VRUBRAINv52";
+#elif defined(CONFIG_ARCH_BOARD_VRCORE_V10)
+    const char *board_type = "VRCOREv10";
 #endif
     // this format is chosen to match the human_readable_serial()
     // function in auth.c
