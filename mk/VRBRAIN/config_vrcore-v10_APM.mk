@@ -15,6 +15,7 @@ ROMFS_ROOT	 = $(SKETCHBOOK)/mk/VRBRAIN/ROMFS_VRBRAIN_APM
 
 
 
+MODULES		+= drivers/stm32/tone_alarm
 
 
 
@@ -38,11 +39,21 @@ MODULES		+= drivers/mpu9250
 
 
 
+
+
+
+
+
+
 MODULES		+= drivers/pwm_input
 
 
-
 MODULES		+= drivers/boards/vrcore-v10
+
+
+
+
+
 
 
 
