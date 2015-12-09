@@ -61,6 +61,11 @@
  # define AP_BATT_CURR_PIN                  1
  # define AP_BATT_VOLTDIVIDER_DEFAULT       10.1f
  # define AP_BATT_CURR_AMP_PERVOLT_DEFAULT  17.0f
+#elif defined(CONFIG_ARCH_BOARD_VRCORE_V10)
+ # define AP_BATT_VOLT_PIN                  10
+ # define AP_BATT_CURR_PIN                  11
+ # define AP_BATT_VOLTDIVIDER_DEFAULT       10.1f
+ # define AP_BATT_CURR_AMP_PERVOLT_DEFAULT  17.0f
 #endif
 #else
  # define AP_BATT_VOLT_PIN                  -1
