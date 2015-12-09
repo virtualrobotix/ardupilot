@@ -60,6 +60,12 @@ static const struct {
     {  2, 3.3f/4096 },
     {  3, 3.3f/4096 },
     { 10, 3.3f/4096 },
+#elif defined(CONFIG_ARCH_BOARD_VRCORE_V10)
+    { 10, 3.3f/4096 },
+    { 11, 3.3f/4096 },
+#if APM_BUILD_TYPE(APM_BUILD_ArduPlane)
+    { 14, 3.3f/4096 },
+#endif
 #else
 #error "Unknown board type for AnalogIn scaling"
 #endif
