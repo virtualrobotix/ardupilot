@@ -74,6 +74,12 @@ static VRBRAINGPIO gpioDriver;
 #define UARTC_DEFAULT_DEVICE "/dev/ttyS2"
 #define UARTD_DEFAULT_DEVICE "/dev/ttyS0"
 #define UARTE_DEFAULT_DEVICE "/dev/null"
+#elif defined(CONFIG_ARCH_BOARD_VRCORE_V10)
+#define UARTA_DEFAULT_DEVICE "/dev/ttyACM0"
+#define UARTB_DEFAULT_DEVICE "/dev/ttyS0"
+#define UARTC_DEFAULT_DEVICE "/dev/ttyS2"
+#define UARTD_DEFAULT_DEVICE "/dev/ttyS1"
+#define UARTE_DEFAULT_DEVICE "/dev/null"
 #else
 #define UARTA_DEFAULT_DEVICE "/dev/ttyACM0"
 #define UARTB_DEFAULT_DEVICE "/dev/null"
