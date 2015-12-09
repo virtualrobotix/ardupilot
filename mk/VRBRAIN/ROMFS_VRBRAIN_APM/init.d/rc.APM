@@ -53,6 +53,8 @@ fi
 echo "[APM] Verifying board"
 
 set BOARD NO_BRAIN_BOARD
+set INTERNAL_MPU6000 false
+set INTERNAL_MPU9250 false
 set EXTERNAL_EXP false
 set EXTERNAL_IMU false
 set INTERNAL_MAG false
@@ -63,18 +65,21 @@ if [ -f /bin/VRBRAIN_V45 ]
 then
     echo "[APM] Detected VRBrain 4.5 board"
     set BOARD VRBRAIN_V45
+    set INTERNAL_MPU6000 true
     set INTERNAL_MAG true
 fi
 if [ -f /bin/VRBRAIN_V45P ]
 then
     echo "[APM] Detected VRBrain 4.5 PWM version board"
     set BOARD VRBRAIN_V45P
+    set INTERNAL_MPU6000 true
     set INTERNAL_MAG true
 fi
 if [ -f /bin/VRBRAIN_V51 ]
 then
     echo "[APM] Detected VRBrain 5.1 board"
     set BOARD VRBRAIN_V51
+    set INTERNAL_MPU6000 true
     set INTERNAL_MAG true
     set LL_PWM_INPUT true
 fi
@@ -82,12 +87,14 @@ if [ -f /bin/VRBRAIN_V51P ]
 then
      echo "[APM] Detected VRBrain 5.1 PWM version board"
      set BOARD VRBRAIN_V51P
+    set INTERNAL_MPU6000 true
     set INTERNAL_MAG true
 fi
 if [ -f /bin/VRBRAIN_V51PRO ]
 then
     echo "[APM] Detected VRBrain 5.1 Professional board"
     set BOARD VRBRAIN_V51PRO
+    set INTERNAL_MPU6000 true
     set EXTERNAL_EXP true
     set EXTERNAL_IMU true
     set LL_PWM_INPUT true
@@ -96,6 +103,7 @@ if [ -f /bin/VRBRAIN_V51PROP ]
 then
     echo "[APM] Detected VRBrain 5.1 Professional PWM version board"
     set BOARD VRBRAIN_V51PROP
+    set INTERNAL_MPU6000 true
     set EXTERNAL_EXP true
     set EXTERNAL_IMU true
 fi
@@ -103,6 +111,7 @@ if [ -f /bin/VRBRAIN_V52 ]
 then
     echo "[APM] Detected VRBrain 5.2 board"
     set BOARD VRBRAIN_V52
+    set INTERNAL_MPU6000 true
     set INTERNAL_MAG true
     set LL_I2C_AUX true
     set LL_PWM_INPUT true
@@ -111,6 +120,7 @@ if [ -f /bin/VRBRAIN_V52P ]
 then
     echo "[APM] Detected VRBrain 5.2 PWM version board"
     set BOARD VRBRAIN_V52P
+    set INTERNAL_MPU6000 true
     set INTERNAL_MAG true
     set LL_I2C_AUX true
 fi
@@ -118,6 +128,7 @@ if [ -f /bin/VRBRAIN_V52PRO ]
 then
     echo "[APM] Detected VRBrain 5.2 Professional board"
     set BOARD VRBRAIN_V52PRO
+    set INTERNAL_MPU6000 true
     set EXTERNAL_EXP true
     set EXTERNAL_IMU true
     set LL_I2C_AUX true
@@ -127,6 +138,7 @@ if [ -f /bin/VRBRAIN_V52PROP ]
 then
     echo "[APM] Detected VRBrain 5.2 Professional PWM version board"
     set BOARD VRBRAIN_V52PROP
+    set INTERNAL_MPU6000 true
     set EXTERNAL_EXP true
     set EXTERNAL_IMU true
     set LL_I2C_AUX true
@@ -135,17 +147,35 @@ if [ -f /bin/VRUBRAIN_V51 ]
 then
     echo "[APM] Detected VR Micro Brain 5.1 board"
     set BOARD VRUBRAIN_V51
+    set INTERNAL_MPU6000 true
     set LL_PWM_INPUT true
 fi
 if [ -f /bin/VRUBRAIN_V51P ]
 then
     echo "[APM] Detected VR Micro Brain 5.1 PWM version board"
+    set INTERNAL_MPU6000 true
     set BOARD VRUBRAIN_V51P
 fi
 if [ -f /bin/VRUBRAIN_V52 ]
 then
     echo "[APM] Detected VR Micro Brain 5.2 board"
+    set INTERNAL_MPU6000 true
     set BOARD VRUBRAIN_V52
+fi
+if [ -f /bin/VRCORE_V10 ]
+then
+    echo "[APM] Detected VRCore 1.0 board"
+    set BOARD VRCORE_V10
+    set INTERNAL_MPU9250 true
+    set LL_I2C_AUX true
+    set LL_PWM_INPUT true
+fi
+if [ -f /bin/VRCORE_V10P ]
+then
+    echo "[APM] Detected VRCore 1.0 PWM version board"
+    set BOARD VRCORE_V10P
+    set INTERNAL_MPU9250 true
+    set LL_I2C_AUX true
 fi
 
 if [ $BOARD == NO_BRAIN_BOARD ]
@@ -273,13 +303,28 @@ then
     fi
 fi
 
-echo "[APM] Starting MPU6000 Internal"
-if mpu6000 -I start
+if [ $INTERNAL_MPU6000 == true ]
 then
-    echo "[APM] MPU6000 onboard started OK"
-else
-    echo "[APM] MPU6000 onboard start failed"
-    sh /etc/init.d/rc.error
+    echo "[APM] Starting MPU6000 Internal"
+    if mpu6000 -I start
+    then
+        echo "[APM] MPU6000 onboard started OK"
+    else
+        echo "[APM] MPU6000 onboard start failed"
+        sh /etc/init.d/rc.error
+    fi
+fi
+
+if [ $INTERNAL_MPU9250 == true ]
+then
+    echo "[APM] Starting MPU9250 Internal"
+    if mpu9250 -I start
+    then
+        echo "[APM] MPU9250 onboard started OK"
+    else
+        echo "[APM] MPU9250 onboard start failed"
+        sh /etc/init.d/rc.error
+    fi
 fi
 
 if [ $EXTERNAL_EXP == true ]
