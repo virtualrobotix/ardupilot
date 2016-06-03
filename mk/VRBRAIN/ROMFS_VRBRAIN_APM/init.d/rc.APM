@@ -355,11 +355,25 @@ fi
 if ets_airspeed start
 then
     echo "[APM] Found ETS airspeed sensor"
+else
+    if ets_airspeed start -b 2
+    then
+        echo "[APM] Found ETS airspeed sensor"
+    else
+        echo "[APM] ETS airspeed sensor start failed"
+    fi
 fi
 
 if meas_airspeed start
 then
     echo "[APM] Found MEAS airspeed sensor"
+else
+    if meas_airspeed start -b 2
+    then
+        echo "[APM] Found MEAS airspeed sensor"
+    else
+        echo "[APM] MEAS airspeed sensor start failed"
+    fi
 fi
 
 # optional Range Finder sensor
