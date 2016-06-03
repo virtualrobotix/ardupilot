@@ -5,6 +5,11 @@
 #include <systemlib/perf_counter.h>
 #include <pthread.h>
 
+
+#ifndef RC_INPUT_MAX_CHANNELS
+#define RC_INPUT_MAX_CHANNELS 18
+#endif
+
 class VRBRAIN::VRBRAINRCInput : public AP_HAL::RCInput {
 public:
     void init();
