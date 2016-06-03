@@ -2,7 +2,7 @@
 
 echo "Checking modules"
 
-MODULE_LIST="PX4Firmware PX4NuttX mavlink uavcan uavcan/dsdl uavcan/libuavcan/dsdl_compiler/pyuavcan"
+MODULE_LIST="mavlink uavcan uavcan/dsdl uavcan/libuavcan/dsdl_compiler/pyuavcan"
 
 NEED_INIT=0
 
