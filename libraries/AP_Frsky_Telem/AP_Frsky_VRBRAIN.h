@@ -17,14 +17,14 @@
 #ifndef __AP_Frsky_VRBRAIN_H__
 #define __AP_Frsky_VRBRAIN_H__
 
-#include <AP_HAL.h>
-#include <AP_Param.h>
-#include <AP_Math.h>
-#include <AP_GPS.h>
-#include <AP_AHRS.h>
-#include <AP_Baro.h>
-#include <AP_BattMonitor.h>
-#include <AP_SerialManager.h>
+#include <AP_HAL/AP_HAL.h>
+#include <AP_Param/AP_Param.h>
+#include <AP_Math/AP_Math.h>
+#include <AP_GPS/AP_GPS.h>
+#include <AP_AHRS/AP_AHRS.h>
+#include <AP_Baro/AP_Baro.h>
+#include <AP_BattMonitor/AP_BattMonitor.h>
+#include <AP_SerialManager/AP_SerialManager.h>
 
 //#define CONFIG_HAL_BOARD HAL_BOARD_VRBRAIN
 //#define APM_BUILD_TYPE APM_BUILD_ArduCopter
