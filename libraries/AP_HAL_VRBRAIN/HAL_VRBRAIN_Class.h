@@ -1,6 +1,4 @@
-
-#ifndef __AP_HAL_VRBRAIN_CLASS_H__
-#define __AP_HAL_VRBRAIN_CLASS_H__
+#pragma once
 
 #include <AP_HAL.h>
 
@@ -14,12 +12,9 @@
 class HAL_VRBRAIN : public AP_HAL::HAL {
 public:
     HAL_VRBRAIN();
-    void init(int argc, char * const argv[]) const;
+    void run(int argc, char* const argv[], Callbacks* callbacks) const override;
 };
 
 void hal_vrbrain_set_priority(uint8_t priority);
 
-extern const HAL_VRBRAIN AP_HAL_VRBRAIN;
-
 #endif // CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
-#endif // __AP_HAL_VRBRAIN_CLASS_H__

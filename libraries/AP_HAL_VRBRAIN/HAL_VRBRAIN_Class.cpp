@@ -15,6 +15,7 @@
 #include "AnalogIn.h"
 #include "Util.h"
 #include "GPIO.h"
+#include "I2CDriver.h"
 
 #include <AP_HAL_Empty.h>
 #include <AP_HAL_Empty_Private.h>
@@ -30,10 +31,9 @@
 
 using namespace VRBRAIN;
 
-static Empty::EmptySemaphore  i2cSemaphore;
-static Empty::EmptyI2CDriver  i2cDriver(&i2cSemaphore);
-static Empty::EmptySPIDeviceManager spiDeviceManager;
-//static Empty::EmptyGPIO gpioDriver;
+static VRBRAINI2CDriver i2cDriver;
+static Empty::SPIDeviceManager spiDeviceManager;
+//static Empty::GPIO gpioDriver;
 
 static VRBRAINScheduler schedulerInstance;
 static VRBRAINStorage storageDriver;
@@ -43,7 +43,8 @@ static VRBRAINAnalogIn analogIn;
 static VRBRAINUtil utilInstance;
 static VRBRAINGPIO gpioDriver;
 
-//We only support 3 serials for VRBRAIN at the moment
+static Empty::I2CDeviceManager i2c_mgr_instance;
+
 #if  defined(CONFIG_ARCH_BOARD_VRBRAIN_V45)
 #define UARTA_DEFAULT_DEVICE "/dev/ttyACM0"
 #define UARTB_DEFAULT_DEVICE "/dev/null"
@@ -88,7 +89,6 @@ static VRBRAINGPIO gpioDriver;
 #define UARTE_DEFAULT_DEVICE "/dev/null"
 #endif
 
-
 // 3 UART drivers, for GPS plus two mavlink-enabled devices
 static VRBRAINUARTDriver uartADriver(UARTA_DEFAULT_DEVICE, "APM_uartA");
 static VRBRAINUARTDriver uartBDriver(UARTB_DEFAULT_DEVICE, "APM_uartB");
@@ -103,6 +103,7 @@ HAL_VRBRAIN::HAL_VRBRAIN() :
         &uartCDriver,  /* uartC */
         &uartDDriver,  /* uartD */
         &uartEDriver,  /* uartE */
+        &i2c_mgr_instance,
         &i2cDriver, /* i2c */
         NULL,   /* only one i2c */
         NULL,   /* only one i2c */
@@ -114,7 +115,8 @@ HAL_VRBRAIN::HAL_VRBRAIN() :
         &rcinDriver,  /* rcinput */
         &rcoutDriver, /* rcoutput */
         &schedulerInstance, /* scheduler */
-        &utilInstance) /* util */
+        &utilInstance, /* util */
+        NULL)    /* no onboard optical flow */
 {}
 
 bool _vrbrain_thread_should_exit = false;        /**< Daemon exit flag */
@@ -146,21 +148,19 @@ static void loop_overtime(void *)
     vrbrain_ran_overtime = true;
 }
 
+static AP_HAL::HAL::Callbacks* g_callbacks;
+
 static int main_loop(int argc, char **argv)
 {
-    extern void setup(void);
-    extern void loop(void);
-
-
     hal.uartA->begin(115200);
     hal.uartB->begin(38400);
     hal.uartC->begin(57600);
     hal.uartD->begin(57600);
     hal.uartE->begin(57600);
-    hal.scheduler->init(NULL);
-    hal.rcin->init(NULL);
-    hal.rcout->init(NULL);
-    hal.analogin->init(NULL);
+    hal.scheduler->init();
+    hal.rcin->init();
+    hal.rcout->init();
+    hal.analogin->init();
     hal.gpio->init();
 
 
@@ -172,7 +172,7 @@ static int main_loop(int argc, char **argv)
 
     schedulerInstance.hal_initialized();
 
-    setup();
+    g_callbacks->setup();
     hal.scheduler->system_initialized();
 
     perf_counter_t perf_loop = perf_alloc(PC_ELAPSED, "APM_loop");
@@ -197,7 +197,7 @@ static int main_loop(int argc, char **argv)
          */
         hrt_call_after(&loop_overtime_call, 100000, (hrt_callout)loop_overtime, NULL);
 
-        loop();
+        g_callbacks->loop();
 
         if (vrbrain_ran_overtime) {
             /*
@@ -234,7 +234,7 @@ static void usage(void)
 }
 
 
-void HAL_VRBRAIN::init(int argc, char * const argv[]) const
+void HAL_VRBRAIN::run(int argc, char * const argv[], Callbacks* callbacks) const
 {
     int i;
     const char *deviceA = UARTA_DEFAULT_DEVICE;
@@ -248,6 +248,9 @@ void HAL_VRBRAIN::init(int argc, char * const argv[]) const
         usage();
         exit(1);
     }
+
+    assert(callbacks);
+    g_callbacks = callbacks;
 
     for (i=0; i<argc; i++) {
         if (strcmp(argv[i], "start") == 0) {
@@ -339,7 +342,10 @@ void HAL_VRBRAIN::init(int argc, char * const argv[]) const
     exit(1);
 }
 
-const HAL_VRBRAIN AP_HAL_VRBRAIN;
+const AP_HAL::HAL& AP_HAL::get_HAL() {
+    static const HAL_VRBRAIN hal_vrbrain;
+    return hal_vrbrain;
+}
 
 #endif // CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
 

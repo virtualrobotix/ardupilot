@@ -19,12 +19,12 @@ extern const AP_HAL::HAL& hal;
 
 using namespace VRBRAIN;
 
-void VRBRAINRCOutput::init(void* unused)
+void VRBRAINRCOutput::init()
 {
     _perf_rcout = perf_alloc(PC_ELAPSED, "APM_rcout");
     _pwm_fd = open(VROUTPUT_DEVICE_PATH, O_RDWR);
     if (_pwm_fd == -1) {
-        hal.scheduler->panic("Unable to open " VROUTPUT_DEVICE_PATH);
+        AP_HAL::panic("Unable to open " VROUTPUT_DEVICE_PATH);
     }
     if (ioctl(_pwm_fd, PWM_SERVO_ARM, 0) != 0) {
         hal.console->printf("RCOutput: Unable to setup IO arming\n");
@@ -84,6 +84,16 @@ void VRBRAINRCOutput::_init_alt_channels(void)
 
 }
 
+/*
+  set output frequency on outputs associated with fd
+ */
+void VRBRAINRCOutput::set_freq_fd(int fd, uint32_t chmask, uint16_t freq_hz) 
+{
+}
+
+/*
+  set output frequency
+ */
 void VRBRAINRCOutput::set_freq(uint32_t chmask, uint16_t freq_hz)
 {
     // we can't set this per channel yet
@@ -256,13 +266,6 @@ void VRBRAINRCOutput::write(uint8_t ch, uint16_t period_us)
     }
 }
 
-void VRBRAINRCOutput::write(uint8_t ch, uint16_t* period_us, uint8_t len)
-{
-    for (uint8_t i=0; i<len; i++) {
-        write(i, period_us[i]);
-    }
-}
-
 uint16_t VRBRAINRCOutput::read(uint8_t ch)
 {
     if (ch >= VRBRAIN_NUM_OUTPUT_CHANNELS) {
@@ -285,6 +288,22 @@ void VRBRAINRCOutput::read(uint16_t* period_us, uint8_t len)
 {
     for (uint8_t i=0; i<len; i++) {
         period_us[i] = read(i);
+    }
+}
+
+uint16_t VRBRAINRCOutput::read_last_sent(uint8_t ch)
+{
+    if (ch >= VRBRAIN_NUM_OUTPUT_CHANNELS) {
+        return 0;
+    }
+
+    return _period[ch];
+}
+
+void VRBRAINRCOutput::read_last_sent(uint16_t* period_us, uint8_t len)
+{
+    for (uint8_t i=0; i<len; i++) {
+        period_us[i] = read_last_sent(i);
     }
 }
 
@@ -358,7 +377,7 @@ void VRBRAINRCOutput::_publish_actuators(void)
 
 void VRBRAINRCOutput::_timer_tick(void)
 {
-    uint32_t now = hal.scheduler->micros();
+    uint32_t now = AP_HAL::micros();
 
     if ((_enabled_channels & ((1U<<_servo_count)-1)) == 0) {
         // no channels enabled
