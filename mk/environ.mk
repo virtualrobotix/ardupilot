@@ -180,6 +180,7 @@ endif
 ifneq ($(findstring apm2, $(MAKECMDGOALS)),)
 HAL_BOARD = HAL_BOARD_APM2
 HAL_BOARD_SUBTYPE = HAL_BOARD_SUBTYPE_AVR_APM2
+endif
 
 ifneq ($(findstring flymaple, $(MAKECMDGOALS)),)
 HAL_BOARD = HAL_BOARD_FLYMAPLE
