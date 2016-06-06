@@ -168,6 +168,12 @@ build_arduplane() {
        copyit ArduPlane-vrbrain-v52ProP.vrx $ddir $tag && 
        copyit ArduPlane-vrbrain-v52ProP.bin $ddir $tag && 
        copyit ArduPlane-vrbrain-v52ProP.hex $ddir $tag &&
+       copyit ArduPlane-vrcore-v10.vrx $ddir $tag && 
+       copyit ArduPlane-vrcore-v10.bin $ddir $tag && 
+       copyit ArduPlane-vrcore-v10.hex $ddir $tag && 
+       copyit ArduPlane-vrcore-v10P.vrx $ddir $tag && 
+       copyit ArduPlane-vrcore-v10P.bin $ddir $tag && 
+       copyit ArduPlane-vrcore-v10P.hex $ddir $tag &&
        copyit ArduPlane-vrubrain-v51.vrx $ddir $tag && 
        copyit ArduPlane-vrubrain-v51.bin $ddir $tag && 
        copyit ArduPlane-vrubrain-v51.hex $ddir $tag && 
@@ -233,6 +239,12 @@ build_arducopter() {
         copyit ArduCopter-vrbrain-v52ProP.vrx $ddir $tag && 
         copyit ArduCopter-vrbrain-v52ProP.bin $ddir $tag && 
         copyit ArduCopter-vrbrain-v52ProP.hex $ddir $tag &&
+        copyit ArduCopter-vrcore-v10.vrx $ddir $tag && 
+        copyit ArduCopter-vrcore-v10.bin $ddir $tag && 
+        copyit ArduCopter-vrcore-v10.hex $ddir $tag && 
+        copyit ArduCopter-vrcore-v10P.vrx $ddir $tag && 
+        copyit ArduCopter-vrcore-v10P.bin $ddir $tag && 
+        copyit ArduCopter-vrcore-v10P.hex $ddir $tag &&
         copyit ArduCopter-vrubrain-v51.vrx $ddir $tag && 
         copyit ArduCopter-vrubrain-v51.bin $ddir $tag && 
         copyit ArduCopter-vrubrain-v51.hex $ddir $tag && 
@@ -297,6 +309,12 @@ build_rover() {
         copyit APMrover2-vrbrain-v52ProP.vrx $ddir $tag && 
         copyit APMrover2-vrbrain-v52ProP.bin $ddir $tag && 
         copyit APMrover2-vrbrain-v52ProP.hex $ddir $tag &&
+        copyit APMrover2-vrcore-v10.vrx $ddir $tag && 
+        copyit APMrover2-vrcore-v10.bin $ddir $tag && 
+        copyit APMrover2-vrcore-v10.hex $ddir $tag && 
+        copyit APMrover2-vrcore-v10P.vrx $ddir $tag && 
+        copyit APMrover2-vrcore-v10P.bin $ddir $tag && 
+        copyit APMrover2-vrcore-v10P.hex $ddir $tag &&
         copyit APMrover2-vrubrain-v51.vrx $ddir $tag && 
         copyit APMrover2-vrubrain-v51.bin $ddir $tag && 
         copyit APMrover2-vrubrain-v51.hex $ddir $tag && 
