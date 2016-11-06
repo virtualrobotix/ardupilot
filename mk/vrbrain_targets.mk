@@ -22,26 +22,18 @@ NUTTX_ROOT := $(shell cd $(VRBRAINNUTTX_DIRECTORY) && pwd)
 NUTTX_SRC := $(NUTTX_ROOT)/nuttx/
 UAVCAN_DIR=$(shell cd $(UAVCAN_DIRECTORY) && pwd)/
 
-# warn if user has old PX4Firmware or PX4NuttX trees
-ifneq ($(wildcard $(SKETCHBOOK)/../PX4Firmware),)
-$(warning *** You have an old PX4Firmware tree - see http://dev.ardupilot.com/wiki/git-submodules/)
-endif
-ifneq ($(wildcard $(SKETCHBOOK)/../PX4NuttX),)
-$(warning *** You have an old PX4NuttX tree - see http://dev.ardupilot.com/wiki/git-submodules/)
-endif
-ifneq ($(wildcard $(SKETCHBOOK)/../uavcan),)
-$(warning *** You have an old uavcan tree - see http://dev.ardupilot.com/wiki/git-submodules/)
-endif
-
 NUTTX_GIT_VERSION ?= $(shell cd $(NUTTX_SRC) && git rev-parse HEAD | cut -c1-8)
 PX4_GIT_VERSION   ?= $(shell cd $(VRBRAIN_ROOT) && git rev-parse HEAD | cut -c1-8)
 
 EXTRAFLAGS += -DNUTTX_GIT_VERSION="\"$(NUTTX_GIT_VERSION)\""
 EXTRAFLAGS += -DPX4_GIT_VERSION="\"$(PX4_GIT_VERSION)\""
 EXTRAFLAGS += -DUAVCAN=1
+EXTRAFLAGS += -D__STDC_FORMAT_MACROS
 
 # Add missing parts from libc and libstdc++
 EXTRAFLAGS += -DHAVE_STD_NULLPTR_T=0
+EXTRAFLAGS += -DHAVE_ENDIAN_H=0
+EXTRAFLAGS += -DHAVE_BYTESWAP_H=0
 
 EXTRAFLAGS += -I$(BUILDROOT)/libraries/GCS_MAVLink/include/mavlink
 
@@ -72,10 +64,10 @@ VRBRAIN_MAKE_ARCHIVES = $(MAKE) -C $(VRBRAIN_ROOT) -f $(VRBRAIN_ROOT)/Makefile.m
 HASHADDER_FLAGS += --ardupilot "$(SKETCHBOOK)"
 
 ifneq ($(wildcard $(VRBRAIN_ROOT)),)
-HASHADDER_FLAGS += --px4 "$(VRBRAIN_ROOT)/"
+HASHADDER_FLAGS += --px4 "$(VRBRAIN_ROOT)"
 endif
 ifneq ($(wildcard $(NUTTX_SRC)/..),)
-HASHADDER_FLAGS += --nuttx "$(NUTTX_SRC)../"
+HASHADDER_FLAGS += --nuttx "$(NUTTX_SRC)/.."
 endif
 HASHADDER_FLAGS += --uavcan "$(UAVCAN_DIR)"
 
@@ -92,6 +84,7 @@ module_mk:
 	$(v) rm -f $(SKETCHBOOK)/module.mk.new
 
 vrbrain-v51: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_ROOT)/Archives/vrbrain-v51.export $(SKETCHCPP) module_mk
+	$(v) echo Building vrbrain-v51
 	$(RULEHDR)
 	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/nuttx/$(VRBRAIN_V51_CONFIG_FILE)
 	$(v) cp $(VRBRAIN_MK_DIR)/$(VRBRAIN_V51_CONFIG_FILE) $(VRBRAIN_ROOT)/makefiles/nuttx/
@@ -104,6 +97,7 @@ vrbrain-v51: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_
 	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrbrain-v51.vrx"
 
 vrbrain-v52: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_ROOT)/Archives/vrbrain-v52.export $(SKETCHCPP) module_mk
+	$(v) echo Building vrbrain-v52
 	$(RULEHDR)
 	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/nuttx/$(VRBRAIN_V52_CONFIG_FILE)
 	$(v) cp $(VRBRAIN_MK_DIR)/$(VRBRAIN_V52_CONFIG_FILE) $(VRBRAIN_ROOT)/makefiles/nuttx/
@@ -116,6 +110,7 @@ vrbrain-v52: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_
 	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrbrain-v52.vrx"
 
 vrbrain-v54: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_ROOT)/Archives/vrbrain-v54.export $(SKETCHCPP) module_mk
+	$(v) echo Building vrbrain-v54
 	$(RULEHDR)
 	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/nuttx/$(VRBRAIN_V54_CONFIG_FILE)
 	$(v) cp $(VRBRAIN_MK_DIR)/$(VRBRAIN_V54_CONFIG_FILE) $(VRBRAIN_ROOT)/makefiles/nuttx/
@@ -128,6 +123,7 @@ vrbrain-v54: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_
 	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrbrain-v54.vrx"
 
 vrcore-v10: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_ROOT)/Archives/vrcore-v10.export $(SKETCHCPP) module_mk
+	$(v) echo Building vrcore-v10
 	$(RULEHDR)
 	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/nuttx/$(VRCORE_V10_CONFIG_FILE)
 	$(v) cp $(VRBRAIN_MK_DIR)/$(VRCORE_V10_CONFIG_FILE) $(VRBRAIN_ROOT)/makefiles/nuttx/
@@ -140,6 +136,7 @@ vrcore-v10: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_R
 	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrcore-v10.vrx"
 
 vrubrain-v51: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_ROOT)/Archives/vrubrain-v51.export $(SKETCHCPP) module_mk
+	$(v) echo Building vrubrain-v51
 	$(RULEHDR)
 	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/nuttx/$(VRUBRAIN_V51_CONFIG_FILE)
 	$(v) cp $(VRBRAIN_MK_DIR)/$(VRUBRAIN_V51_CONFIG_FILE) $(VRBRAIN_ROOT)/makefiles/nuttx/
@@ -152,6 +149,7 @@ vrubrain-v51: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN
 	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrubrain-v51.vrx"
 
 vrubrain-v52: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_ROOT)/Archives/vrubrain-v52.export $(SKETCHCPP) module_mk
+	$(v) echo Building vrubrain-v52
 	$(RULEHDR)
 	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/nuttx/$(VRUBRAIN_V52_CONFIG_FILE)
 	$(v) cp $(VRBRAIN_MK_DIR)/$(VRUBRAIN_V52_CONFIG_FILE) $(VRBRAIN_ROOT)/makefiles/nuttx/
@@ -175,6 +173,7 @@ vrbrain: vrbrainStd vrbrainStdP vrbrainPro vrbrainProP
 vrbrain-clean: clean CHECK_MODULES vrbrain-archives-clean vrbrain-cleandep
 	$(v) /bin/rm -rf $(VRBRAIN_ROOT)/makefiles/build $(VRBRAIN_ROOT)/Build $(VRBRAIN_ROOT)/Images/*.px4 $(VRBRAIN_ROOT)/Images/*.bin
 	$(v) /bin/rm -rf $(VRBRAIN_ROOT)/src/modules/uORB/topics $(VRBRAIN_ROOT)/src/platforms/nuttx/px4_messages
+	$(v) /bin/rm -f $(SRCROOT)/*.o
 
 vrbrain-cleandep: clean
 	$(v) mkdir -p $(VRBRAIN_ROOT)/Build
