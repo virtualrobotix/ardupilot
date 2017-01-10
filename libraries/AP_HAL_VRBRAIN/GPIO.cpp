@@ -69,6 +69,11 @@ void VRBRAINGPIO::init()
         hal.console->printf("GPIO: Unable to setup GPIO_3\n");
     }
 #endif
+#ifdef GPIO_SERVO_4
+    if (ioctl(_gpio_fmu_fd, GPIO_CLEAR, GPIO_SERVO_4) != 0) {
+        hal.console->printf("GPIO: Unable to setup GPIO_4\n");
+    }
+#endif
 }
 
 void VRBRAINGPIO::pinMode(uint8_t pin, uint8_t output)
@@ -91,6 +96,14 @@ uint8_t VRBRAINGPIO::read(uint8_t pin) {
             uint32_t relays = 0;
             ioctl(_gpio_fmu_fd, GPIO_GET, (unsigned long)&relays);
             return (relays & GPIO_SERVO_3)?HIGH:LOW;
+        }
+#endif
+
+#ifdef GPIO_SERVO_4
+        case EXTERNAL_RELAY2_PIN: {
+            uint32_t relays = 0;
+            ioctl(_gpio_fmu_fd, GPIO_GET, (unsigned long)&relays);
+            return (relays & GPIO_SERVO_4)?HIGH:LOW;
         }
 #endif
 
@@ -144,6 +157,11 @@ void VRBRAINGPIO::write(uint8_t pin, uint8_t value)
             break;
 #endif
 
+#ifdef GPIO_SERVO_4
+        case EXTERNAL_RELAY2_PIN:
+            ioctl(_gpio_fmu_fd, value==LOW?GPIO_CLEAR:GPIO_SET, GPIO_SERVO_4);
+            break;
+#endif
 
     }
 }

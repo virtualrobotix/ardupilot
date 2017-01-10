@@ -12,7 +12,8 @@
  # define EXTERNAL_LED_MOTOR1       30
  # define EXTERNAL_LED_MOTOR2       31
 
- # define EXTERNAL_RELAY1_PIN       33
+ # define EXTERNAL_RELAY1_PIN       34
+ # define EXTERNAL_RELAY2_PIN       33
 
  # define HAL_GPIO_LED_ON           HIGH
  # define HAL_GPIO_LED_OFF          LOW
