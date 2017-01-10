@@ -1,5 +1,3 @@
-/// -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
-
 #include <AP_HAL/AP_HAL.h>
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
@@ -55,11 +53,15 @@ void VRBRAINRCOutput::init()
     }
 
 
-//    _alt_fd = open("/dev/px4fmu", O_RDWR);
-//    if (_alt_fd == -1) {
-//        hal.console->printf("RCOutput: failed to open /dev/px4fmu");
-//        return;
-//    }
+
+
+
+
+
+
+
+
+
 
 
     // ensure not to write zeros to disabled channels
@@ -389,7 +391,11 @@ void VRBRAINRCOutput::_arm_actuators(bool arm)
 
 	_armed.timestamp = hrt_absolute_time();
     _armed.armed = arm;
-    _armed.ready_to_arm = arm;
+    if (arm) {
+        // this latches ready_to_arm to true once set once. Otherwise
+        // we have a race condition with px4io safety switch update
+        _armed.ready_to_arm = true;
+    }
     _armed.lockdown = false;
     _armed.force_failsafe = false;
 
@@ -442,6 +448,8 @@ void VRBRAINRCOutput::_publish_actuators(void)
     }
     if (hal.util->safety_switch_state() != AP_HAL::Util::SAFETY_DISARMED) {
         _arm_actuators(true);
+    } else {
+        _arm_actuators(false);
     }
 }
 
