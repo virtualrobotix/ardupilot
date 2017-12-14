@@ -162,7 +162,9 @@ void Plane::init_ardupilot()
     // setup frsky
 #if FRSKY_TELEM_ENABLED == ENABLED
     // setup frsky, and pass a number of parameters to the library
-    frsky_telemetry.init(serial_manager);
+    frsky_telemetry.init(serial_manager, FIRMWARE_STRING,
+                         MAV_TYPE_FIXED_WING,
+                         &g.fs_batt_voltage, &g.fs_batt_mah);
 #endif
 
 #if LOGGING_ENABLED == ENABLED
