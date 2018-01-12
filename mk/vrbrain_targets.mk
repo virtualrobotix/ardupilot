@@ -8,9 +8,9 @@ ifneq ($(NUTTX_SRC),)
 $(error NUTTX_SRC found in config.mk - Please see http://dev.ardupilot.org/wiki/git-submodules/)
 endif
 
-ifneq ($(UAVCAN_DIR),)
-$(error UAVCAN_DIR found in config.mk - Please see http://dev.ardupilot.org/wiki/git-submodules/)
-endif
+#ifneq ($(UAVCAN_DIR),)
+#$(error UAVCAN_DIR found in config.mk - Please see http://dev.ardupilot.org/wiki/git-submodules/)
+#endif
 
 # these can be overridden in developer.mk
 VRBRAINFIRMWARE_DIRECTORY ?= $(SKETCHBOOK)/modules/PX4Firmware
@@ -34,12 +34,15 @@ EXTRAFLAGS += -D__STDC_FORMAT_MACROS
 EXTRAFLAGS += -DHAVE_STD_NULLPTR_T=0
 EXTRAFLAGS += -DHAVE_ENDIAN_H=0
 EXTRAFLAGS += -DHAVE_BYTESWAP_H=0
+EXTRAFLAGS += -DHAVE_OCLOEXEC=0
 
 EXTRAFLAGS += -I$(BUILDROOT)/libraries/GCS_MAVLink/include/mavlink
+EXTRAFLAGS += -I$(UAVCAN_DIRECTORY)/libuavcan/include
+EXTRAFLAGS += -I$(UAVCAN_DIRECTORY)/libuavcan/include/dsdlc_generated
 
-# we have different config files for vrbrain_v52, vrbrain_v54
 VRBRAIN_MK_DIR=$(MK_DIR)/VRBRAIN
 
+# we have different config files for vrbrain-v51, vrbrain-v52, vrbrain-v54, vrcore-v10, vrubrain-v51, vrubrain-v52
 VRBRAIN_V51_CONFIG_FILE=config_vrbrain-v51_APM.mk
 VRBRAIN_V52_CONFIG_FILE=config_vrbrain-v52_APM.mk
 VRBRAIN_V54_CONFIG_FILE=config_vrbrain-v54_APM.mk
@@ -47,7 +50,9 @@ VRCORE_V10_CONFIG_FILE=config_vrcore-v10_APM.mk
 VRUBRAIN_V51_CONFIG_FILE=config_vrubrain-v51_APM.mk
 VRUBRAIN_V52_CONFIG_FILE=config_vrubrain-v52_APM.mk
 
-SKETCHFLAGS=$(SKETCHLIBINCLUDES) -DARDUPILOT_BUILD -DTESTS_MATHLIB_DISABLE -DCONFIG_HAL_BOARD=HAL_BOARD_VRBRAIN -DSKETCHNAME="\\\"$(SKETCH)\\\"" -DSKETCH_MAIN=ArduPilot_main -DAPM_BUILD_DIRECTORY=APM_BUILD_$(SKETCH)
+# Since actual compiler mode is C++11, the library will default to UAVCAN_CPP11, but it will fail to compile
+# because this platform lacks most of the standard library and STL. Hence we need to force C++03 mode.
+SKETCHFLAGS=$(SKETCHLIBINCLUDES) -DUAVCAN_CPP_VERSION=UAVCAN_CPP03 -DUAVCAN_NO_ASSERTIONS -DUAVCAN_NULLPTR=nullptr -DARDUPILOT_BUILD -DTESTS_MATHLIB_DISABLE -DCONFIG_HAL_BOARD=HAL_BOARD_VRBRAIN -DSKETCHNAME="\\\"$(SKETCH)\\\"" -DSKETCH_MAIN=ArduPilot_main -DAPM_BUILD_DIRECTORY=APM_BUILD_$(SKETCH)
 
 WARNFLAGS = -Wall -Wextra -Wlogical-op -Werror -Wno-unknown-pragmas -Wno-redundant-decls -Wno-psabi -Wno-packed -Wno-error=double-promotion -Wno-error=unused-variable -Wno-error=reorder -Wno-error=float-equal -Wno-error=pmf-conversions -Wno-error=missing-declarations -Wno-error=unused-function
 OPTFLAGS = -fsingle-precision-constant
@@ -77,13 +82,13 @@ module_mk:
 	$(RULEHDR)
 	$(v) echo "# Auto-generated file - do not edit" > $(SKETCHBOOK)/module.mk.new
 	$(v) echo "MODULE_COMMAND = ArduPilot" >> $(SKETCHBOOK)/module.mk.new
-	$(v) echo "SRCS = $(subst $(SKETCHBOOK)/,,$(wildcard $(SRCROOT)/*.cpp)) $(SKETCHLIBSRCSRELATIVE)" >> $(SKETCHBOOK)/module.mk.new
+	$(v) echo "SRCS = $(subst $(SKETCHBOOK)/,,$(wildcard $(SRCROOT)/*.cpp)) $(SKETCHLIBSRCSRELATIVE) $(LIBUAVCAN_SRC)" >> $(SKETCHBOOK)/module.mk.new
 	$(v) echo "MODULE_STACKSIZE = 4096" >> $(SKETCHBOOK)/module.mk.new
 	$(v) echo "EXTRACXXFLAGS = -Wframe-larger-than=1300" >> $(SKETCHBOOK)/module.mk.new
 	$(v) cmp $(SKETCHBOOK)/module.mk $(SKETCHBOOK)/module.mk.new 2>/dev/null || mv $(SKETCHBOOK)/module.mk.new $(SKETCHBOOK)/module.mk
 	$(v) rm -f $(SKETCHBOOK)/module.mk.new
 
-vrbrain-v51: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_ROOT)/Archives/vrbrain-v51.export $(SKETCHCPP) module_mk
+vrbrain-v51: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(UAVCAN_HEADERS) $(VRBRAIN_ROOT)/Archives/vrbrain-v51.export $(SKETCHCPP) module_mk
 	$(v) echo Building vrbrain-v51
 	$(RULEHDR)
 	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/nuttx/$(VRBRAIN_V51_CONFIG_FILE)
@@ -96,7 +101,7 @@ vrbrain-v51: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_
 	$(v) $(SKETCHBOOK)/Tools/scripts/add_git_hashes.py $(HASHADDER_FLAGS) "$(SKETCH)-vrbrain-v51.vrx" "$(SKETCH)-vrbrain-v51.vrx"
 	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrbrain-v51.vrx"
 
-vrbrain-v52: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_ROOT)/Archives/vrbrain-v52.export $(SKETCHCPP) module_mk
+vrbrain-v52: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(UAVCAN_HEADERS) $(VRBRAIN_ROOT)/Archives/vrbrain-v52.export $(SKETCHCPP) module_mk
 	$(v) echo Building vrbrain-v52
 	$(RULEHDR)
 	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/nuttx/$(VRBRAIN_V52_CONFIG_FILE)
@@ -109,7 +114,7 @@ vrbrain-v52: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_
 	$(v) $(SKETCHBOOK)/Tools/scripts/add_git_hashes.py $(HASHADDER_FLAGS) "$(SKETCH)-vrbrain-v52.vrx" "$(SKETCH)-vrbrain-v52.vrx"
 	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrbrain-v52.vrx"
 
-vrbrain-v54: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_ROOT)/Archives/vrbrain-v54.export $(SKETCHCPP) module_mk
+vrbrain-v54: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(UAVCAN_HEADERS) $(VRBRAIN_ROOT)/Archives/vrbrain-v54.export $(SKETCHCPP) module_mk
 	$(v) echo Building vrbrain-v54
 	$(RULEHDR)
 	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/nuttx/$(VRBRAIN_V54_CONFIG_FILE)
@@ -122,7 +127,7 @@ vrbrain-v54: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_
 	$(v) $(SKETCHBOOK)/Tools/scripts/add_git_hashes.py $(HASHADDER_FLAGS) "$(SKETCH)-vrbrain-v54.vrx" "$(SKETCH)-vrbrain-v54.vrx"
 	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrbrain-v54.vrx"
 
-vrcore-v10: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_ROOT)/Archives/vrcore-v10.export $(SKETCHCPP) module_mk
+vrcore-v10: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(UAVCAN_HEADERS) $(VRBRAIN_ROOT)/Archives/vrcore-v10.export $(SKETCHCPP) module_mk
 	$(v) echo Building vrcore-v10
 	$(RULEHDR)
 	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/nuttx/$(VRCORE_V10_CONFIG_FILE)
@@ -135,7 +140,7 @@ vrcore-v10: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_R
 	$(v) $(SKETCHBOOK)/Tools/scripts/add_git_hashes.py $(HASHADDER_FLAGS) "$(SKETCH)-vrcore-v10.vrx" "$(SKETCH)-vrcore-v10.vrx"
 	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrcore-v10.vrx"
 
-vrubrain-v51: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_ROOT)/Archives/vrubrain-v51.export $(SKETCHCPP) module_mk
+vrubrain-v51: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(UAVCAN_HEADERS) $(VRBRAIN_ROOT)/Archives/vrubrain-v51.export $(SKETCHCPP) module_mk
 	$(v) echo Building vrubrain-v51
 	$(RULEHDR)
 	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/nuttx/$(VRUBRAIN_V51_CONFIG_FILE)
@@ -148,7 +153,7 @@ vrubrain-v51: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN
 	$(v) $(SKETCHBOOK)/Tools/scripts/add_git_hashes.py $(HASHADDER_FLAGS) "$(SKETCH)-vrubrain-v51.vrx" "$(SKETCH)-vrubrain-v51.vrx"
 	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrubrain-v51.vrx"
 
-vrubrain-v52: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN_ROOT)/Archives/vrubrain-v52.export $(SKETCHCPP) module_mk
+vrubrain-v52: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(UAVCAN_HEADERS) $(VRBRAIN_ROOT)/Archives/vrubrain-v52.export $(SKETCHCPP) module_mk
 	$(v) echo Building vrubrain-v52
 	$(RULEHDR)
 	$(v) rm -f $(VRBRAIN_ROOT)/makefiles/nuttx/$(VRUBRAIN_V52_CONFIG_FILE)
@@ -160,10 +165,15 @@ vrubrain-v52: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN
 	$(v) cp $(VRBRAIN_ROOT)/Images/vrubrain-v52_APM.px4 $(SKETCH)-vrubrain-v52.vrx
 	$(v) $(SKETCHBOOK)/Tools/scripts/add_git_hashes.py $(HASHADDER_FLAGS) "$(SKETCH)-vrubrain-v52.vrx" "$(SKETCH)-vrubrain-v52.vrx"
 	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrubrain-v52.vrx"
-
-
-
-vrbrainStd: vrbrain-v51 vrbrain-v52 vrbrain-v54 vrcore-v10 vrubrain-v51
+	
+# force the 3 build types to not run in parallel. We got bad binaries with incorrect parameter handling
+# when these were allowed to happen in parallel
+vrbrainStd:
+	$(MAKE) vrbrain-v51
+	$(MAKE) vrbrain-v52
+	$(MAKE) vrbrain-v54
+	$(MAKE) vrcore-v10
+	$(MAKE) vrubrain-v51
 vrbrainStdP: 
 vrbrainPro: 
 vrbrainProP: 
@@ -181,34 +191,58 @@ vrbrain-cleandep: clean
 	$(v) find $(UAVCAN_DIRECTORY) -type f -name '*.d' | xargs rm -f
 	$(v) find $(SKETCHBOOK)/$(SKETCH) -type f -name '*.d' | xargs rm -f
 
-vrbrain-v51-upload: vrbrain-v51
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrbrain-v51_APM upload
 
-vrbrain-v52-upload: vrbrain-v52
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrbrain-v52_APM upload
 
-vrbrain-v54-upload: vrbrain-v54
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrbrain-v54_APM upload
 
-vrcore-v10-upload: vrcore-v10
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrcore-v10_APM upload
 
-vrubrain-v51-upload: vrubrain-v51
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrubrain-v51_APM upload
 
-vrubrain-v52-upload: vrubrain-v52
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrubrain-v52_APM upload
 
-vrbrain-upload: vrbrain-v52-upload
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
 
 vrbrain-archives-clean:
 	$(v) /bin/rm -rf $(VRBRAIN_ROOT)/Archives
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # These targets can't run in parallel because they all need to generate a tool
 # to generate the config.h inside them. This could trigger races if done in
@@ -248,6 +282,7 @@ vrbrain-archives:
 	$(v) $(PX4_MAKE_ARCHIVES) BOARDS="vrbrain-v51 vrbrain-v52 vrbrain-v54 vrcore-v10 vrubrain-v51 vrubrain-v52"
 
 vrbrain-info: module_mk
+	@echo "BUILDROOT                    $(BUILDROOT)"
 	@echo "VRBRAINFIRMWARE_DIRECTORY    $(VRBRAINFIRMWARE_DIRECTORY)"
 	@echo "VRBRAINNUTTX_DIRECTORY       $(VRBRAINNUTTX_DIRECTORY)"
 	@echo "NUTTX_ROOT                   $(NUTTX_ROOT)"
@@ -261,4 +296,5 @@ vrbrain-info: module_mk
 	@echo "SKETCHLIBINCLUDES            $(SKETCHLIBINCLUDES)"
 	@echo "SKETCHLIBSRCSRELATIVE        $(SKETCHLIBSRCSRELATIVE)"
 	@echo "SRCS                         $(subst $(SKETCHBOOK)/,,$(wildcard $(SRCROOT)/*.cpp))"
+	@echo "SRCS                         $(wildcard $(SRCROOT)/*.cpp)"
 	@echo "HASHADDER_FLAGS              $(HASHADDER_FLAGS)"
