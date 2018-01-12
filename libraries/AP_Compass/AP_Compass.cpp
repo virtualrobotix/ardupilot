@@ -535,6 +535,30 @@ void Compass::_detect_backends(void)
         }
         break;
 
+    case AP_BoardConfig::VRX_BOARD_BRAIN51:
+    case AP_BoardConfig::VRX_BOARD_BRAIN52:
+    case AP_BoardConfig::VRX_BOARD_BRAIN54:
+    case AP_BoardConfig::VRX_BOARD_CORE10: {
+        // external i2c bus
+        ADD_BACKEND(AP_Compass_HMC5843::probe(*this, hal.i2c_mgr->get_device(1, HAL_COMPASS_HMC5843_I2C_ADDR),
+                                               true, ROTATION_ROLL_180),
+                     AP_Compass_HMC5843::name, true);
+        }
+        // internal i2c bus
+        ADD_BACKEND(AP_Compass_HMC5843::probe(*this, hal.i2c_mgr->get_device(0, HAL_COMPASS_HMC5843_I2C_ADDR),
+                                               false, ROTATION_YAW_270),
+                     AP_Compass_HMC5843::name, false);
+        break;
+
+    case AP_BoardConfig::VRX_BOARD_UBRAIN51:
+    case AP_BoardConfig::VRX_BOARD_UBRAIN52: {
+        // external i2c bus
+        ADD_BACKEND(AP_Compass_HMC5843::probe(*this, hal.i2c_mgr->get_device(1, HAL_COMPASS_HMC5843_I2C_ADDR),
+                                               true, ROTATION_ROLL_180),
+                     AP_Compass_HMC5843::name, true);
+        }
+        break;
+
     default:
         break;
     }
