@@ -323,6 +323,12 @@ void AP_BoardConfig::px4_setup_drivers(void)
     case PX4_BOARD_PIXRACER:
     case PX4_BOARD_PHMINI:
     case PX4_BOARD_PH2SLIM:
+    case VRX_BOARD_BRAIN51:
+    case VRX_BOARD_BRAIN52:
+    case VRX_BOARD_UBRAIN51:
+    case VRX_BOARD_UBRAIN52:
+    case VRX_BOARD_CORE10:
+    case VRX_BOARD_BRAIN54:
         break;
     default:
         px4_sensor_error("Unknown board type");
@@ -343,6 +349,7 @@ void AP_BoardConfig::px4_tone_alarm(const char *tone_string)
  */
 void AP_BoardConfig::px4_setup_px4io(void)
 {
+#if CONFIG_HAL_BOARD == HAL_BOARD_PX4
     if (px4_start_driver(px4io_main, "px4io", "start norc")) {
         printf("px4io started OK\n");
     } else {
@@ -394,6 +401,7 @@ void AP_BoardConfig::px4_setup_px4io(void)
             px4_tone_alarm("MNGGG");
         }
     }
+#endif
 }
 
 /*
@@ -416,7 +424,11 @@ void AP_BoardConfig::px4_setup_peripherals(void)
 #ifdef CONFIG_ARCH_BOARD_PX4FMU_V1
     const char *fmu_mode = "mode_serial";
 #else
+#if CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
+    const char *fmu_mode = "mode_pwm";
+#else
     const char *fmu_mode = "mode_pwm4";
+#endif
 #endif
     if (px4_start_driver(fmu_main, "fmu", fmu_mode)) {
         printf("fmu %s started OK\n", fmu_mode);
@@ -499,6 +511,24 @@ void AP_BoardConfig::px4_autodetect(void)
     // only one choice
     px4.board_type.set_and_notify(PX4_BOARD_PIXRACER);    
     hal.console->printf("Detected Pixracer\n");
+#elif defined(CONFIG_ARCH_BOARD_VRBRAIN_V51)
+    px4.board_type.set_and_notify(VRX_BOARD_BRAIN51);
+    hal.console->printf("Detected VR Brain 5.1\n");
+#elif defined(CONFIG_ARCH_BOARD_VRBRAIN_V52)
+    px4.board_type.set_and_notify(VRX_BOARD_BRAIN52);
+    hal.console->printf("Detected VR Brain 5.2\n");
+#elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V51)
+    px4.board_type.set_and_notify(VRX_BOARD_UBRAIN51);
+    hal.console->printf("Detected VR Micro Brain 5.1\n");
+#elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V52)
+    px4.board_type.set_and_notify(VRX_BOARD_UBRAIN52);
+    hal.console->printf("Detected VR Micro Brain 5.2\n");
+#elif defined(CONFIG_ARCH_BOARD_VRCORE_V10)
+    px4.board_type.set_and_notify(VRX_BOARD_CORE10);
+    hal.console->printf("Detected VR Core 1.0\n");
+#elif defined(CONFIG_ARCH_BOARD_VRBRAIN_V54)
+    px4.board_type.set_and_notify(VRX_BOARD_BRAIN54);
+    hal.console->printf("Detected VR Brain 5.4\n");
 #endif
     
 }
