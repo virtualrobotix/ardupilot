@@ -642,7 +642,7 @@ void RangeFinder::detect_instance(uint8_t instance)
             _add_backend(AP_RangeFinder_trone::detect(1, *this, instance, state[instance]));
         }
         break;
-#if CONFIG_HAL_BOARD == HAL_BOARD_PX4  || CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
+#if CONFIG_HAL_BOARD == HAL_BOARD_PX4
     case RangeFinder_TYPE_PX4_PWM:
         if (AP_RangeFinder_PX4_PWM::detect(*this, instance)) {
             state[instance].instance = instance;
