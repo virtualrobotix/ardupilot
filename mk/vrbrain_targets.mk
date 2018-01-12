@@ -34,18 +34,23 @@ EXTRAFLAGS += -D__STDC_FORMAT_MACROS
 EXTRAFLAGS += -DHAVE_STD_NULLPTR_T=0
 EXTRAFLAGS += -DHAVE_ENDIAN_H=0
 EXTRAFLAGS += -DHAVE_BYTESWAP_H=0
+EXTRAFLAGS += -DHAVE_OCLOEXEC=0
 
 EXTRAFLAGS += -I$(BUILDROOT)/libraries/GCS_MAVLink/include/mavlink
 
-# we have different config files for vrbrain_v52, vrbrain_v54
+
+
 VRBRAIN_MK_DIR=$(MK_DIR)/VRBRAIN
 
+# we have different config files for vrbrain-v51, vrbrain-v52, vrbrain-v54, vrcore-v10, vrubrain-v51, vrubrain-v52
 VRBRAIN_V51_CONFIG_FILE=config_vrbrain-v51_APM.mk
 VRBRAIN_V52_CONFIG_FILE=config_vrbrain-v52_APM.mk
 VRBRAIN_V54_CONFIG_FILE=config_vrbrain-v54_APM.mk
 VRCORE_V10_CONFIG_FILE=config_vrcore-v10_APM.mk
 VRUBRAIN_V51_CONFIG_FILE=config_vrubrain-v51_APM.mk
 VRUBRAIN_V52_CONFIG_FILE=config_vrubrain-v52_APM.mk
+
+
 
 SKETCHFLAGS=$(SKETCHLIBINCLUDES) -DARDUPILOT_BUILD -DTESTS_MATHLIB_DISABLE -DCONFIG_HAL_BOARD=HAL_BOARD_VRBRAIN -DSKETCHNAME="\\\"$(SKETCH)\\\"" -DSKETCH_MAIN=ArduPilot_main -DAPM_BUILD_DIRECTORY=APM_BUILD_$(SKETCH)
 
@@ -160,10 +165,15 @@ vrubrain-v52: $(BUILDROOT)/make.flags CHECK_MODULES $(MAVLINK_HEADERS) $(VRBRAIN
 	$(v) cp $(VRBRAIN_ROOT)/Images/vrubrain-v52_APM.px4 $(SKETCH)-vrubrain-v52.vrx
 	$(v) $(SKETCHBOOK)/Tools/scripts/add_git_hashes.py $(HASHADDER_FLAGS) "$(SKETCH)-vrubrain-v52.vrx" "$(SKETCH)-vrubrain-v52.vrx"
 	$(v) echo "VRBRAIN $(SKETCH) Firmware is in $(SKETCH)-vrubrain-v52.vrx"
-
-
-
-vrbrainStd: vrbrain-v51 vrbrain-v52 vrbrain-v54 vrcore-v10 vrubrain-v51
+	
+# force the 3 build types to not run in parallel. We got bad binaries with incorrect parameter handling
+# when these were allowed to happen in parallel
+vrbrainStd:
+	$(MAKE) vrbrain-v51
+	$(MAKE) vrbrain-v52
+	$(MAKE) vrbrain-v54
+	$(MAKE) vrcore-v10
+	$(MAKE) vrubrain-v51
 vrbrainStdP: 
 vrbrainPro: 
 vrbrainProP: 
@@ -181,34 +191,58 @@ vrbrain-cleandep: clean
 	$(v) find $(UAVCAN_DIRECTORY) -type f -name '*.d' | xargs rm -f
 	$(v) find $(SKETCHBOOK)/$(SKETCH) -type f -name '*.d' | xargs rm -f
 
-vrbrain-v51-upload: vrbrain-v51
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrbrain-v51_APM upload
 
-vrbrain-v52-upload: vrbrain-v52
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrbrain-v52_APM upload
 
-vrbrain-v54-upload: vrbrain-v54
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrbrain-v54_APM upload
 
-vrcore-v10-upload: vrcore-v10
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrcore-v10_APM upload
 
-vrubrain-v51-upload: vrubrain-v51
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrubrain-v51_APM upload
 
-vrubrain-v52-upload: vrubrain-v52
-	$(RULEHDR)
-	$(v) $(VRBRAIN_MAKE) vrubrain-v52_APM upload
 
-vrbrain-upload: vrbrain-v52-upload
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
 
 vrbrain-archives-clean:
 	$(v) /bin/rm -rf $(VRBRAIN_ROOT)/Archives
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # These targets can't run in parallel because they all need to generate a tool
 # to generate the config.h inside them. This could trigger races if done in
@@ -248,6 +282,7 @@ vrbrain-archives:
 	$(v) $(PX4_MAKE_ARCHIVES) BOARDS="vrbrain-v51 vrbrain-v52 vrbrain-v54 vrcore-v10 vrubrain-v51 vrubrain-v52"
 
 vrbrain-info: module_mk
+	@echo "BUILDROOT                    $(BUILDROOT)"
 	@echo "VRBRAINFIRMWARE_DIRECTORY    $(VRBRAINFIRMWARE_DIRECTORY)"
 	@echo "VRBRAINNUTTX_DIRECTORY       $(VRBRAINNUTTX_DIRECTORY)"
 	@echo "NUTTX_ROOT                   $(NUTTX_ROOT)"
@@ -261,4 +296,5 @@ vrbrain-info: module_mk
 	@echo "SKETCHLIBINCLUDES            $(SKETCHLIBINCLUDES)"
 	@echo "SKETCHLIBSRCSRELATIVE        $(SKETCHLIBSRCSRELATIVE)"
 	@echo "SRCS                         $(subst $(SKETCHBOOK)/,,$(wildcard $(SRCROOT)/*.cpp))"
+	@echo "SRCS                         $(wildcard $(SRCROOT)/*.cpp)"
 	@echo "HASHADDER_FLAGS              $(HASHADDER_FLAGS)"

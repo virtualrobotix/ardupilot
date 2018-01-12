@@ -4,6 +4,9 @@
 
 # To disable APM startup add a /fs/microsd/APM/nostart file
 
+
+
+
 # check for an old file called APM, caused by 
 # a bug in an earlier firmware release
 if [ -f /fs/microsd/APM ]
@@ -50,7 +53,6 @@ then
     echo "Created APM directory"
 fi
 
-echo "Starting uORB"
 if uorb start
 then
     echo "uorb started OK"
@@ -58,50 +60,52 @@ else
     sh /etc/init.d/rc.error
 fi
 
-echo "Starting ADC"
-if adc start
-then
-    echo "ADC started OK"
-else
-    sh /etc/init.d/rc.error
-fi
 
-echo "Starting MTD driver"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 if mtd start /fs/mtd
 then
-    echo "MTD driver started OK"
+    echo "started mtd driver OK"
 else
-    echo "MTD driver start failed"
+    echo "failed to start mtd driver"
+    echo "failed to start mtd driver" >> $logfile
     sh /etc/init.d/rc.error           
 fi
 
-echo "MTD driver read test"
 if mtd readtest /fs/mtd
 then
-    echo "MTD driver readtest OK"
+    echo "mtd readtest OK"
 else
-    echo "MTD driver failed to read"
+    echo "failed to read mtd"
+    echo "failed to read mtd" >> $logfile
     sh /etc/init.d/rc.error           
 fi
-
-echo "FMU mode PWM"
-if fmu mode_pwm
-then
-    echo "Set FMU mode_pwm"
-fi
-
 
 echo "Starting ArduPilot"
 if ArduPilot start
 then
     echo "ArduPilot started OK"
 else
-    echo "ArduPilot start failed"
     sh /etc/init.d/rc.error
 fi
 
-echo "Exiting from nsh shell"
-exit
-
 echo "rc.APM finished"
-
