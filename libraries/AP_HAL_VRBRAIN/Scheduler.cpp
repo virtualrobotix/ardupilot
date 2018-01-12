@@ -104,9 +104,17 @@ void VRBRAINScheduler::create_uavcan_thread()
     (void) pthread_attr_setschedparam(&thread_attr, &param);
     pthread_attr_setschedpolicy(&thread_attr, SCHED_FIFO);
 
-    pthread_create(&_uavcan_thread_ctx, &thread_attr, &VRBRAINScheduler::_uavcan_thread, this);
+    for (uint8_t i = 0; i < MAX_NUMBER_OF_CAN_DRIVERS; i++) {
+        if (hal.can_mgr[i] != nullptr) {
+            if (hal.can_mgr[i]->get_UAVCAN() != nullptr) {
+                _uavcan_thread_arg *arg = new _uavcan_thread_arg;
+                arg->sched = this;
+                arg->uavcan_number = i;
 
-    printf("UAVCAN thread started\n\r");
+                pthread_create(&_uavcan_thread_ctx, &thread_attr, &VRBRAINScheduler::_uavcan_thread, arg);
+            }
+        }
+    }
 #endif
 }
 
@@ -408,18 +416,21 @@ void *VRBRAINScheduler::_storage_thread(void *arg)
 #if HAL_WITH_UAVCAN
 void *VRBRAINScheduler::_uavcan_thread(void *arg)
 {
-    VRBRAINScheduler *sched = (VRBRAINScheduler *) arg;
+    VRBRAINScheduler *sched = ((_uavcan_thread_arg *) arg)->sched;
+    uint8_t uavcan_number = ((_uavcan_thread_arg *) arg)->uavcan_number;
 
-    pthread_setname_np(pthread_self(), "apm_uavcan");
+    char name[15];
+    snprintf(name, sizeof(name), "apm_uavcan:%u", uavcan_number);
+    pthread_setname_np(pthread_self(), name);
 
     while (!sched->_hal_initialized) {
         poll(nullptr, 0, 1);
     }
 
     while (!_px4_thread_should_exit) {
-        if (((VRBRAINCANManager *)hal.can_mgr)->is_initialized()) {
-            if (((VRBRAINCANManager *)hal.can_mgr)->get_UAVCAN() != nullptr) {
-                (((VRBRAINCANManager *)hal.can_mgr)->get_UAVCAN())->do_cyclic();
+        if (((VRBRAINCANManager *)hal.can_mgr[uavcan_number])->is_initialized()) {
+            if (((VRBRAINCANManager *)hal.can_mgr[uavcan_number])->get_UAVCAN() != nullptr) {
+                (((VRBRAINCANManager *)hal.can_mgr[uavcan_number])->get_UAVCAN())->do_cyclic();
             } else {
                 sched->delay_microseconds_semaphore(10000);
             }
@@ -427,6 +438,7 @@ void *VRBRAINScheduler::_uavcan_thread(void *arg)
             sched->delay_microseconds_semaphore(10000);
         }
     }
+
     return nullptr;
 }
 #endif
@@ -434,6 +446,11 @@ void *VRBRAINScheduler::_uavcan_thread(void *arg)
 bool VRBRAINScheduler::in_timerprocess()
 {
     return getpid() != _main_task_pid;
+}
+
+bool VRBRAINScheduler::in_main_thread() const
+{
+    return getpid() == _main_task_pid;
 }
 
 void VRBRAINScheduler::system_initialized()

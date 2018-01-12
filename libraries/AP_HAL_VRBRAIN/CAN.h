@@ -37,6 +37,7 @@ static const int16_t ErrUnsupportedFrame = 1004; ///< Frame not supported (e.g. 
 static const int16_t ErrMsrInakNotSet = 1005; ///< INAK bit of the MSR register is not 1
 static const int16_t ErrMsrInakNotCleared = 1006; ///< INAK bit of the MSR register is not 0
 static const int16_t ErrBitRateNotDetected = 1007; ///< Auto bit rate detection could not be finished
+static const int16_t ErrFilterNumConfigs = 1008; ///< Auto bit rate detection could not be finished
 
 /**
  * RX queue item.
@@ -117,7 +118,7 @@ class VRBRAINCAN: public AP_HAL::CAN {
         NumTxMailboxes = 3
     };
     enum {
-        NumFilters = 28
+        NumFilters = 14
     };
 
     static const uint32_t TSR_ABRQx[NumTxMailboxes];
@@ -126,7 +127,7 @@ class VRBRAINCAN: public AP_HAL::CAN {
     bxcan::CanType* const can_;
     uint64_t error_cnt_;
     uint32_t served_aborts_cnt_;
-    BusEvent& update_event_;
+    BusEvent* update_event_;
     TxItem pending_tx_[NumTxMailboxes];
     uint8_t peak_tx_mailbox_index_;
     const uint8_t self_index_;
@@ -180,6 +181,11 @@ public:
      *   - Caller will configure NVIC by itself
      */
     int init(const uint32_t bitrate, const OperatingMode mode);
+
+    void set_update_event(BusEvent* update_event)
+    {
+        update_event_ = update_event;
+    }
 
     void handleTxInterrupt(uint64_t utc_usec);
     void handleRxInterrupt(uint8_t fifo_index, uint64_t utc_usec);
@@ -253,25 +259,22 @@ class VRBRAINCANManager: public AP_HAL::CANManager {
     BusEvent update_event_;
     VRBRAINCAN if0_;
     VRBRAINCAN if1_;
-    uint8_t can_number_;
 
     virtual int16_t select(uavcan::CanSelectMasks& inout_masks,
                            const uavcan::CanFrame* (&pending_tx)[uavcan::MaxCanIfaces], uavcan::MonotonicTime blocking_deadline) override;
 
-    static void initOnce(uint8_t can_number);
+    void initOnce(uint8_t can_number);
 
     bool initialized_;
 
-    static VRBRAINCAN* ifaces[CAN_STM32_NUM_IFACES];
+    VRBRAINCAN* ifaces[CAN_STM32_NUM_IFACES];
+    uint8_t _ifaces_num;
+    uint8_t _ifaces_out_to_in[CAN_STM32_NUM_IFACES];
+
+    AP_UAVCAN *p_uavcan;
 
 public:
     VRBRAINCANManager() :
-        update_event_(*this), if0_(bxcan::Can[0], update_event_, 0, CAN_STM32_RX_QUEUE_SIZE), if1_(
-            bxcan::Can[1], update_event_, 1, CAN_STM32_RX_QUEUE_SIZE), can_number_(0), initialized_(
-                false), p_uavcan(nullptr)
-    {
-        uavcan::StaticAssert<(CAN_STM32_RX_QUEUE_SIZE <= VRBRAINCAN::MaxRxQueueCapacity)>::check();
-    }
 
     /**
      * This function returns select masks indicating which interfaces are available for read/write.
@@ -290,13 +293,11 @@ public:
     int init(const uint32_t bitrate, const VRBRAINCAN::OperatingMode mode, uint8_t can_number);
 
     virtual VRBRAINCAN* getIface(uint8_t iface_index) override;
+    VRBRAINCAN* getIface_out_to_in(uint8_t iface_index);
 
     virtual uint8_t getNumIfaces() const override
     {
-        if (can_number_ >= 2) {
-            return CAN_STM32_NUM_IFACES;
-        }
-        return 1;
+        return _ifaces_num;
     }
 
     /**
@@ -308,8 +309,8 @@ public:
     bool begin(uint32_t bitrate, uint8_t can_number) override;
 
     bool is_initialized() override;
+    void initialized(bool val) override;
 
-    AP_UAVCAN *p_uavcan;
     AP_UAVCAN *get_UAVCAN(void) override;
     void set_UAVCAN(AP_UAVCAN *uavcan) override;
 };
