@@ -14,6 +14,7 @@
 #include "Util.h"
 #include "GPIO.h"
 #include "I2CDevice.h"
+#include "SPIDevice.h"
 
 #include <AP_HAL_Empty/AP_HAL_Empty.h>
 #include <AP_HAL_Empty/AP_HAL_Empty_Private.h>
@@ -29,7 +30,6 @@
 
 using namespace VRBRAIN;
 
-static Empty::SPIDeviceManager spiDeviceManager;
 //static Empty::GPIO gpioDriver;
 
 static VRBRAINScheduler schedulerInstance;
@@ -41,6 +41,7 @@ static VRBRAINUtil utilInstance;
 static VRBRAINGPIO gpioDriver;
 
 static VRBRAIN::I2CDeviceManager i2c_mgr_instance;
+static VRBRAIN::SPIDeviceManager spi_mgr_instance;
 
 #if defined(CONFIG_ARCH_BOARD_VRBRAIN_V45)
 #define UARTA_DEFAULT_DEVICE "/dev/ttyACM0"
@@ -117,7 +118,7 @@ HAL_VRBRAIN::HAL_VRBRAIN() :
         &uartEDriver,  /* uartE */
         &uartFDriver,  /* uartF */
         &i2c_mgr_instance,
-        &spiDeviceManager, /* spi */
+        &spi_mgr_instance,
         &analogIn, /* analogin */
         &storageDriver, /* storage */
         &uartADriver, /* console */
@@ -168,11 +169,6 @@ static int main_loop(int argc, char **argv)
     hal.uartD->begin(57600);
     hal.uartE->begin(57600);
     hal.scheduler->init();
-    hal.rcin->init();
-    hal.rcout->init();
-    hal.analogin->init();
-    hal.gpio->init();
-
 
     /*
       run setup() at low priority to ensure CLI doesn't hang the
