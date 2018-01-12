@@ -73,6 +73,10 @@ bool VRBRAINUtil::run_debug_shell(AP_HAL::BetterStream *stream)
  */
 enum VRBRAINUtil::safety_state VRBRAINUtil::safety_switch_state(void)
 {
+#if !HAL_HAVE_SAFETY_SWITCH
+    return AP_HAL::Util::SAFETY_NONE;
+#endif
+
     if (_safety_handle == -1) {
         _safety_handle = orb_subscribe(ORB_ID(safety));
     }
@@ -228,6 +232,33 @@ void VRBRAINUtil::set_imu_temp(float current)
 void VRBRAINUtil::set_imu_target_temp(int8_t *target)
 {
     _heater.target = target;
+}
+
+
+extern "C" {
+    extern void *fat_dma_alloc(size_t);
+    extern void fat_dma_free(void *, size_t);
+}
+
+/*
+  allocate DMA-capable memory if possible. Otherwise return normal
+  memory.
+*/
+void *VRBRAINUtil::dma_allocate(size_t size)
+{
+
+
+
+    return malloc(size);
+
+}
+void VRBRAINUtil::dma_free(void *ptr, size_t size)
+{
+
+
+
+    return free(ptr);
+
 }
 
 #endif // CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
