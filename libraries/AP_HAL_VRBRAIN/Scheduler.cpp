@@ -1,5 +1,3 @@
-/// -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
-
 #include <AP_HAL/AP_HAL.h>
 #if CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
 
@@ -22,7 +20,14 @@
 #include "Storage.h"
 #include "RCOutput.h"
 #include "RCInput.h"
+
 #include <AP_Scheduler/AP_Scheduler.h>
+#include <AP_BoardConfig/AP_BoardConfig.h>
+
+#if HAL_WITH_UAVCAN
+#include "CAN.h"
+#include <AP_UAVCAN/AP_UAVCAN.h>
+#endif
 
 using namespace VRBRAIN;
 
@@ -34,7 +39,7 @@ VRBRAINScheduler::VRBRAINScheduler() :
     _perf_timers(perf_alloc(PC_ELAPSED, "APM_timers")),
     _perf_io_timers(perf_alloc(PC_ELAPSED, "APM_IO_timers")),
     _perf_storage_timer(perf_alloc(PC_ELAPSED, "APM_storage_timers")),
-	_perf_delay(perf_alloc(PC_ELAPSED, "APM_delay"))
+    _perf_delay(perf_alloc(PC_ELAPSED, "APM_delay"))
 {}
 
 void VRBRAINScheduler::init()
@@ -42,34 +47,34 @@ void VRBRAINScheduler::init()
     _main_task_pid = getpid();
 
     // setup the timer thread - this will call tasks at 1kHz
-	pthread_attr_t thread_attr;
-	struct sched_param param;
+    pthread_attr_t thread_attr;
+    struct sched_param param;
 
-	pthread_attr_init(&thread_attr);
-	pthread_attr_setstacksize(&thread_attr, 2048);
+    pthread_attr_init(&thread_attr);
+    pthread_attr_setstacksize(&thread_attr, 2048);
 
-	param.sched_priority = APM_TIMER_PRIORITY;
-	(void)pthread_attr_setschedparam(&thread_attr, &param);
+    param.sched_priority = APM_TIMER_PRIORITY;
+    (void)pthread_attr_setschedparam(&thread_attr, &param);
     pthread_attr_setschedpolicy(&thread_attr, SCHED_FIFO);
 
 	pthread_create(&_timer_thread_ctx, &thread_attr, &VRBRAIN::VRBRAINScheduler::_timer_thread, this);
 
     // the UART thread runs at a medium priority
-	pthread_attr_init(&thread_attr);
-	pthread_attr_setstacksize(&thread_attr, 2048);
+    pthread_attr_init(&thread_attr);
+    pthread_attr_setstacksize(&thread_attr, 2048);
 
-	param.sched_priority = APM_UART_PRIORITY;
-	(void)pthread_attr_setschedparam(&thread_attr, &param);
+    param.sched_priority = APM_UART_PRIORITY;
+    (void)pthread_attr_setschedparam(&thread_attr, &param);
     pthread_attr_setschedpolicy(&thread_attr, SCHED_FIFO);
 
 	pthread_create(&_uart_thread_ctx, &thread_attr, &VRBRAIN::VRBRAINScheduler::_uart_thread, this);
 
     // the IO thread runs at lower priority
-	pthread_attr_init(&thread_attr);
-	pthread_attr_setstacksize(&thread_attr, 2048);
+    pthread_attr_init(&thread_attr);
+    pthread_attr_setstacksize(&thread_attr, 2048);
 
-	param.sched_priority = APM_IO_PRIORITY;
-	(void)pthread_attr_setschedparam(&thread_attr, &param);
+    param.sched_priority = APM_IO_PRIORITY;
+    (void)pthread_attr_setschedparam(&thread_attr, &param);
     pthread_attr_setschedpolicy(&thread_attr, SCHED_FIFO);
 
 	pthread_create(&_io_thread_ctx, &thread_attr, &VRBRAIN::VRBRAINScheduler::_io_thread, this);
@@ -83,6 +88,26 @@ void VRBRAINScheduler::init()
     pthread_attr_setschedpolicy(&thread_attr, SCHED_FIFO);
 
     pthread_create(&_storage_thread_ctx, &thread_attr, &VRBRAIN::VRBRAINScheduler::_storage_thread, this);
+}
+
+void VRBRAINScheduler::create_uavcan_thread()
+{
+#if HAL_WITH_UAVCAN
+    pthread_attr_t thread_attr;
+    struct sched_param param;
+
+     //the UAVCAN thread runs at medium priority
+    pthread_attr_init(&thread_attr);
+    pthread_attr_setstacksize(&thread_attr, 8192);
+
+    param.sched_priority = APM_CAN_PRIORITY;
+    (void) pthread_attr_setschedparam(&thread_attr, &param);
+    pthread_attr_setschedpolicy(&thread_attr, SCHED_FIFO);
+
+    pthread_create(&_uavcan_thread_ctx, &thread_attr, &PX4Scheduler::_uavcan_thread, this);
+
+    printf("UAVCAN thread started\n\r");
+#endif
 }
 
 /**
@@ -126,7 +151,7 @@ static void set_normal_priority(void *sem)
   a variant of delay_microseconds that boosts priority to
   APM_MAIN_PRIORITY_BOOST for APM_MAIN_PRIORITY_BOOST_USEC
   microseconds when the time completes. This significantly improves
-  the regularity of timing of the main loop as it takes 
+  the regularity of timing of the main loop as it takes
  */
 void VRBRAINScheduler::delay_microseconds_boost(uint16_t usec) 
 {
@@ -145,9 +170,9 @@ void VRBRAINScheduler::delay(uint16_t ms)
         return;
     }
     perf_begin(_perf_delay);
-	uint64_t start = AP_HAL::micros64();
-    
-    while ((AP_HAL::micros64() - start)/1000 < ms && 
+    uint64_t start = AP_HAL::micros64();
+
+    while ((AP_HAL::micros64() - start)/1000 < ms &&
            !_vrbrain_thread_should_exit) {
         delay_microseconds_semaphore(1000);
         if (_min_delay_cb_ms <= ms) {
@@ -163,7 +188,7 @@ void VRBRAINScheduler::delay(uint16_t ms)
 }
 
 void VRBRAINScheduler::register_delay_callback(AP_HAL::Proc proc,
-                                            uint16_t min_time_ms) 
+                                            uint16_t min_time_ms)
 {
     _delay_cb = proc;
     _min_delay_cb_ms = min_time_ms;
@@ -229,7 +254,7 @@ void VRBRAINScheduler::reboot(bool hold_in_bootloader)
     // delay to ensure the async force_saftey operation completes
     delay(500);
 
-	px4_systemreset(hold_in_bootloader);
+    px4_systemreset(hold_in_bootloader);
 }
 
 void VRBRAINScheduler::_run_timers(bool called_from_timer_thread)
@@ -268,6 +293,8 @@ void *VRBRAINScheduler::_timer_thread(void *arg)
     VRBRAINScheduler *sched = (VRBRAINScheduler *)arg;
     uint32_t last_ran_overtime = 0;
 
+    pthread_setname_np(pthread_self(), "apm_timer");
+
     while (!sched->_hal_initialized) {
         poll(nullptr, 0, 1);
     }
@@ -280,7 +307,7 @@ void *VRBRAINScheduler::_timer_thread(void *arg)
         perf_end(sched->_perf_timers);
 
         // process any pending RC output requests
-        ((VRBRAINRCOutput *)hal.rcout)->_timer_tick();
+        hal.rcout->timer_tick();
 
         // process any pending RC input requests
         ((VRBRAINRCInput *)hal.rcin)->_timer_tick();
@@ -319,6 +346,8 @@ void *VRBRAINScheduler::_uart_thread(void *arg)
 {
     VRBRAINScheduler *sched = (VRBRAINScheduler *)arg;
 
+    pthread_setname_np(pthread_self(), "apm_uart");
+
     while (!sched->_hal_initialized) {
         poll(nullptr, 0, 1);
     }
@@ -340,11 +369,13 @@ void *VRBRAINScheduler::_io_thread(void *arg)
 {
     VRBRAINScheduler *sched = (VRBRAINScheduler *)arg;
 
+    pthread_setname_np(pthread_self(), "apm_io");
+
     while (!sched->_hal_initialized) {
         poll(nullptr, 0, 1);
     }
     while (!_vrbrain_thread_should_exit) {
-        poll(nullptr, 0, 1);
+        sched->delay_microseconds_semaphore(1000);
 
         // run registered IO processes
         perf_begin(sched->_perf_io_timers);
@@ -358,11 +389,13 @@ void *VRBRAINScheduler::_storage_thread(void *arg)
 {
     VRBRAINScheduler *sched = (VRBRAINScheduler *)arg;
 
+    pthread_setname_np(pthread_self(), "apm_storage");
+
     while (!sched->_hal_initialized) {
         poll(nullptr, 0, 1);
     }
     while (!_vrbrain_thread_should_exit) {
-        poll(nullptr, 0, 10);
+        sched->delay_microseconds_semaphore(10000);
 
         // process any pending storage writes
         perf_begin(sched->_perf_storage_timer);
@@ -372,20 +405,42 @@ void *VRBRAINScheduler::_storage_thread(void *arg)
     return nullptr;
 }
 
+#if HAL_WITH_UAVCAN
+void *VRBRAINScheduler::_uavcan_thread(void *arg)
+{
+    PX4Scheduler *sched = (PX4Scheduler *) arg;
+
+    pthread_setname_np(pthread_self(), "apm_uavcan");
+
+    while (!sched->_hal_initialized) {
+        poll(nullptr, 0, 1);
+    }
+
+    while (!_px4_thread_should_exit) {
+        if (((PX4CANManager *)hal.can_mgr)->is_initialized()) {
+            if (((PX4CANManager *)hal.can_mgr)->get_UAVCAN() != nullptr) {
+                (((PX4CANManager *)hal.can_mgr)->get_UAVCAN())->do_cyclic();
+            } else {
+                sched->delay_microseconds_semaphore(10000);
+            }
+        } else {
+            sched->delay_microseconds_semaphore(10000);
+        }
+    }
+    return nullptr;
+}
+#endif
+
 bool VRBRAINScheduler::in_timerprocess()
 {
     return getpid() != _main_task_pid;
 }
 
-bool VRBRAINScheduler::in_main_thread() const
+void VRBRAINScheduler::system_initialized()
 {
-    return getpid() == _main_task_pid;
-}
-
-void VRBRAINScheduler::system_initialized() {
     if (_initialized) {
         AP_HAL::panic("PANIC: scheduler::system_initialized called"
-                   "more than once");
+                      "more than once");
     }
     _initialized = true;
 }

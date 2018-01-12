@@ -1,5 +1,3 @@
-/// -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
-
 #include <AP_HAL/AP_HAL.h>
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
@@ -31,6 +29,7 @@ VRBRAINGPIO::VRBRAINGPIO()
 
 void VRBRAINGPIO::init()
 {
+
     _led_fd = open(LED0_DEVICE_PATH, O_RDWR);
     if (_led_fd == -1) {
         AP_HAL::panic("Unable to open " LED0_DEVICE_PATH);
@@ -39,11 +38,14 @@ void VRBRAINGPIO::init()
         hal.console->printf("GPIO: Unable to setup GPIO LED BLUE\n");
     }
     if (ioctl(_led_fd, LED_OFF, LED_RED) != 0) {
-         hal.console->printf("GPIO: Unable to setup GPIO LED RED\n");
+        hal.console->printf("GPIO: Unable to setup GPIO LED RED\n");
     }
+
     if (ioctl(_led_fd, LED_OFF, LED_GREEN) != 0) {
-         hal.console->printf("GPIO: Unable to setup GPIO LED GREEN\n");
+        hal.console->printf("GPIO: Unable to setup GPIO LED GREEN\n");
     }
+
+
 
     _tone_alarm_fd = open(TONEALARM0_DEVICE_PATH, O_WRONLY);
     if (_tone_alarm_fd == -1) {

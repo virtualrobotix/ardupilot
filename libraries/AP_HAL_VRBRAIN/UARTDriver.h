@@ -1,9 +1,9 @@
 #pragma once
 
 #include <AP_HAL/utility/RingBuffer.h>
-#include <systemlib/perf_counter.h>
 
 #include "AP_HAL_VRBRAIN.h"
+#include <systemlib/perf_counter.h>
 
 class VRBRAIN::VRBRAINUARTDriver : public AP_HAL::UARTDriver {
 public:
@@ -50,9 +50,8 @@ private:
 
     // we use in-task ring buffers to reduce the system call cost
     // of ::read() and ::write() in the main loop
-    ByteBuffer _readbuf;
-    ByteBuffer _writebuf;
-
+    ByteBuffer _readbuf{0};
+    ByteBuffer _writebuf{0};
     perf_counter_t  _perf_uart;
 
     int _write_fd(const uint8_t *buf, uint16_t n);
