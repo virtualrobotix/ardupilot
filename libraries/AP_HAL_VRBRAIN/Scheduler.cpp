@@ -104,7 +104,7 @@ void VRBRAINScheduler::create_uavcan_thread()
     (void) pthread_attr_setschedparam(&thread_attr, &param);
     pthread_attr_setschedpolicy(&thread_attr, SCHED_FIFO);
 
-    pthread_create(&_uavcan_thread_ctx, &thread_attr, &PX4Scheduler::_uavcan_thread, this);
+    pthread_create(&_uavcan_thread_ctx, &thread_attr, &VRBRAINScheduler::_uavcan_thread, this);
 
     printf("UAVCAN thread started\n\r");
 #endif
@@ -408,7 +408,7 @@ void *VRBRAINScheduler::_storage_thread(void *arg)
 #if HAL_WITH_UAVCAN
 void *VRBRAINScheduler::_uavcan_thread(void *arg)
 {
-    PX4Scheduler *sched = (PX4Scheduler *) arg;
+    VRBRAINScheduler *sched = (VRBRAINScheduler *) arg;
 
     pthread_setname_np(pthread_self(), "apm_uavcan");
 
@@ -417,9 +417,9 @@ void *VRBRAINScheduler::_uavcan_thread(void *arg)
     }
 
     while (!_px4_thread_should_exit) {
-        if (((PX4CANManager *)hal.can_mgr)->is_initialized()) {
-            if (((PX4CANManager *)hal.can_mgr)->get_UAVCAN() != nullptr) {
-                (((PX4CANManager *)hal.can_mgr)->get_UAVCAN())->do_cyclic();
+        if (((VRBRAINCANManager *)hal.can_mgr)->is_initialized()) {
+            if (((VRBRAINCANManager *)hal.can_mgr)->get_UAVCAN() != nullptr) {
+                (((VRBRAINCANManager *)hal.can_mgr)->get_UAVCAN())->do_cyclic();
             } else {
                 sched->delay_microseconds_semaphore(10000);
             }
