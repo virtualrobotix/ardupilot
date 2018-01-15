@@ -65,4 +65,7 @@ else
     sh /etc/init.d/rc.error
 fi
 
+echo "Exiting from nsh shell"
+exit
+
 echo "rc.APM finished"
