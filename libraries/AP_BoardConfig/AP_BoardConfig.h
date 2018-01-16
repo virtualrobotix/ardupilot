@@ -36,7 +36,6 @@ public:
     // valid types for BRD_TYPE: these values need to be in sync with the
     // values from the param description
     enum px4_board_type {
-#if CONFIG_HAL_BOARD == HAL_BOARD_PX4
         PX4_BOARD_AUTO     = 0,
         PX4_BOARD_PX4V1    = 1,
         PX4_BOARD_PIXHAWK  = 2,
@@ -44,19 +43,16 @@ public:
         PX4_BOARD_PIXRACER = 4,
         PX4_BOARD_PHMINI   = 5,
         PX4_BOARD_PH2SLIM  = 6,
-        PX4_BOARD_AEROFC   = 13,
-        PX4_BOARD_PIXHAWK_PRO = 14,
-        PX4_BOARD_AUAV21   = 20,
-        PX4_BOARD_OLDDRIVERS = 100,
-#endif
-#if CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
         VRX_BOARD_BRAIN51  = 7,
         VRX_BOARD_BRAIN52  = 8,
         VRX_BOARD_UBRAIN51 = 9,
         VRX_BOARD_UBRAIN52 = 10,
         VRX_BOARD_CORE10   = 11,
         VRX_BOARD_BRAIN54  = 12,
-#endif
+        PX4_BOARD_AEROFC   = 13,
+        PX4_BOARD_PIXHAWK_PRO = 14,
+        PX4_BOARD_AUAV21   = 20,
+        PX4_BOARD_OLDDRIVERS = 100,
     };
 #endif
 
@@ -102,7 +98,7 @@ private:
     bool spi_check_register(const char *devname, uint8_t regnum, uint8_t value, uint8_t read_flag = 0x80);
     void validate_board_type(void);
 
-#if CONFIG_HAL_BOARD == HAL_BOARD_PX4
+#if CONFIG_HAL_BOARD == HAL_BOARD_PX4 || CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
     void px4_autodetect(void);
 #endif
 
