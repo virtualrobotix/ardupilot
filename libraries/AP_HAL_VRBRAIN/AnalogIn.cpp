@@ -52,6 +52,7 @@ static const struct {
 #else
 #error "Unknown board type for AnalogIn scaling"
 #endif
+    { 0, 0.f          },
 };
 
 using namespace VRBRAIN;
@@ -79,7 +80,7 @@ void VRBRAINAnalogSource::set_stop_pin(uint8_t p)
     _stop_pin = p; 
 }
 
-float VRBRAINAnalogSource::read_average()
+float VRBRAINAnalogSource::read_average() 
 {
     if (_sum_count == 0) {
         return _value;
@@ -94,7 +95,7 @@ float VRBRAINAnalogSource::read_average()
     return _value;
 }
 
-float VRBRAINAnalogSource::read_latest()
+float VRBRAINAnalogSource::read_latest() 
 {
     return _latest_value;
 }
@@ -105,7 +106,7 @@ float VRBRAINAnalogSource::read_latest()
 float VRBRAINAnalogSource::_pin_scaler(void)
 {
     float scaling = VRBRAIN_VOLTAGE_SCALING;
-    uint8_t num_scalings = ARRAY_SIZE(pin_scaling);
+    uint8_t num_scalings = ARRAY_SIZE(pin_scaling) - 1;
     for (uint8_t i=0; i<num_scalings; i++) {
         if (pin_scaling[i].pin == _pin) {
             scaling = pin_scaling[i].scaling;
@@ -237,6 +238,11 @@ void VRBRAINAnalogIn::next_stop_pin(void)
  */
 void VRBRAINAnalogIn::_timer_tick(void)
 {
+    if (_adc_fd == -1) {
+        // not initialised yet
+        return;
+    }
+
     // read adc at 100Hz
     uint32_t now = AP_HAL::micros();
     uint32_t delta_t = now - _last_run;
@@ -281,7 +287,7 @@ void VRBRAINAnalogIn::_timer_tick(void)
 
 }
 
-AP_HAL::AnalogSource* VRBRAINAnalogIn::channel(int16_t pin)
+AP_HAL::AnalogSource* VRBRAINAnalogIn::channel(int16_t pin) 
 {
     for (uint8_t j=0; j<VRBRAIN_ANALOG_MAX_CHANNELS; j++) {
         if (_channels[j] == nullptr) {
