@@ -1,13 +1,13 @@
 #pragma once
 
 #include <AP_HAL/utility/RingBuffer.h>
-#include <systemlib/perf_counter.h>
 
 #include "AP_HAL_VRBRAIN.h"
+#include <systemlib/perf_counter.h>
 
 class VRBRAIN::VRBRAINUARTDriver : public AP_HAL::UARTDriver {
 public:
-	VRBRAINUARTDriver(const char *devpath, const char *perf_name);
+    VRBRAINUARTDriver(const char *devpath, const char *perf_name);
     /* VRBRAIN implementations of UARTDriver virtual methods */
     void begin(uint32_t b);
     void begin(uint32_t b, uint16_t rxS, uint16_t txS);
@@ -39,6 +39,10 @@ public:
     void set_flow_control(enum flow_control flow_control);
     enum flow_control get_flow_control(void) { return _flow_control; }
 
+    void configure_parity(uint8_t v);
+    void set_stop_bits(int n);
+    bool set_unbuffered_writes(bool on);
+
 private:
     const char *_devpath;
     int _fd;
@@ -47,12 +51,12 @@ private:
     volatile bool _in_timer;
 
     bool _nonblocking_writes;
+    bool _unbuffered_writes;
 
     // we use in-task ring buffers to reduce the system call cost
     // of ::read() and ::write() in the main loop
-    ByteBuffer _readbuf;
-    ByteBuffer _writebuf;
-
+    ByteBuffer _readbuf{0};
+    ByteBuffer _writebuf{0};
     perf_counter_t  _perf_uart;
 
     int _write_fd(const uint8_t *buf, uint16_t n);

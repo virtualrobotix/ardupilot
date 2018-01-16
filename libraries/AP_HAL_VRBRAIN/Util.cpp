@@ -36,7 +36,7 @@ VRBRAINUtil::VRBRAINUtil(void) : Util()
  */
 bool VRBRAINUtil::run_debug_shell(AP_HAL::BetterStream *stream)
 {
-	VRBRAINUARTDriver *uart = (VRBRAINUARTDriver *)stream;
+    VRBRAINUARTDriver *uart = (VRBRAINUARTDriver *)stream;
     int fd;
 
     // trigger exit in the other threads. This stops use of the
@@ -73,6 +73,10 @@ bool VRBRAINUtil::run_debug_shell(AP_HAL::BetterStream *stream)
  */
 enum VRBRAINUtil::safety_state VRBRAINUtil::safety_switch_state(void)
 {
+#if !HAL_HAVE_SAFETY_SWITCH
+    return AP_HAL::Util::SAFETY_NONE;
+#endif
+
     if (_safety_handle == -1) {
         _safety_handle = orb_subscribe(ORB_ID(safety));
     }
@@ -96,7 +100,7 @@ void VRBRAINUtil::set_system_clock(uint64_t time_utc_usec)
 {
     timespec ts;
     ts.tv_sec = time_utc_usec/1000000ULL;
-    ts.tv_nsec = (time_utc_usec % 1000000ULL) * 1000UL;
+    ts.tv_nsec = (time_utc_usec % 1000000ULL) * 1000ULL;
     clock_settime(CLOCK_REALTIME, &ts);    
 }
 
@@ -136,13 +140,13 @@ bool VRBRAINUtil::get_system_id(char buf[40])
 /**
    how much free memory do we have in bytes.
 */
-uint32_t VRBRAINUtil::available_memory(void)
+uint32_t VRBRAINUtil::available_memory(void) 
 {
     return mallinfo().fordblks;
 }
 
 /*
-  AP_HAL wrapper around PX4 perf counters
+  AP_HAL wrapper around VRBRAIN perf counters
  */
 VRBRAINUtil::perf_counter_t VRBRAINUtil::perf_alloc(VRBRAINUtil::perf_counter_type t, const char *name)
 {
@@ -202,8 +206,12 @@ void VRBRAINUtil::set_imu_temp(float current)
     // experimentally tweaked for Pixhawk2
     const float kI = 0.3f;
     const float kP = 200.0f;
+    float target = (float)(*_heater.target);
+
+    // limit to 65 degrees to prevent damage
+    target = constrain_float(target, 0, 65);
     
-    float err = ((float)*_heater.target) - current;
+    float err = target - current;
 
     _heater.integrator += kI * err;
     _heater.integrator = constrain_float(_heater.integrator, 0, 70);
@@ -224,6 +232,33 @@ void VRBRAINUtil::set_imu_temp(float current)
 void VRBRAINUtil::set_imu_target_temp(int8_t *target)
 {
     _heater.target = target;
+}
+
+
+extern "C" {
+    extern void *fat_dma_alloc(size_t);
+    extern void fat_dma_free(void *, size_t);
+}
+
+/*
+  allocate DMA-capable memory if possible. Otherwise return normal
+  memory.
+*/
+void *VRBRAINUtil::dma_allocate(size_t size)
+{
+
+
+
+    return malloc(size);
+
+}
+void VRBRAINUtil::dma_free(void *ptr, size_t size)
+{
+
+
+
+    return free(ptr);
+
 }
 
 #endif // CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
