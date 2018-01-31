@@ -400,6 +400,7 @@ void VRBRAINRCOutput::write(uint8_t ch, uint16_t period_us)
         _output_mode == MODE_PWM_ONESHOT) {
         _period[ch] = period_us;
         _need_update = true;
+//        up_pwm_servo_set(ch, period_us);
     }
 }
 
