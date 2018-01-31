@@ -112,7 +112,7 @@ qurt: all
 FRAMES = heli
 BOARDS = apm1 apm2 apm2beta apm1-1280 px4-v1 px4-v2 px4-v3 px4-v4 px4-v4pro sitl flymaple linux erle pxf navio navio2 raspilot bbbmini minlure erlebrain2 bhat qflight pxfmini
 BOARDS += vrbrain
-BOARDS += vrbrain-v51 vrbrain-v52 vrbrain-v54
+BOARDS += vrbrain-v51 vrbrain-v52 vrbrain-v52E vrbrain-v54
 BOARDS += vrcore-v10
 BOARDS += vrubrain-v51 vrubrain-v52
 

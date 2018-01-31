@@ -63,6 +63,7 @@ public:
         PX4_BOARD_AUAV21   = 20,
         VRX_BOARD_BRAIN51  = 30,
         VRX_BOARD_BRAIN52  = 32,
+        VRX_BOARD_BRAIN52E = 33,
         VRX_BOARD_UBRAIN51 = 34,
         VRX_BOARD_UBRAIN52 = 35,
         VRX_BOARD_CORE10   = 36,
