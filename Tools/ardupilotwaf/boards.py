@@ -579,3 +579,146 @@ class aerofc_v1(px4):
         self.romfs_exclude(['oreoled.bin'])
         self.board_rc = True
         self.param_defaults = '../../../Tools/Frame_params/intel-aero-rtf.param'
+
+class vrbrain(Board):
+    abstract = True
+    toolchain = 'arm-none-eabi'
+
+    def __init__(self):
+        # bootloader name: a file with that name will be used and installed
+        # on ROMFS
+        super(vrbrain, self).__init__()
+
+        self.bootloader_name = None
+
+        # board name: it's the name of this board that's also used as path
+        # in ROMFS: don't add spaces
+        self.board_name = None
+
+        # px4io binary name: this is the name of the IO binary to be installed
+        # in ROMFS
+        self.px4io_name = None
+
+        # board-specific init script: if True a file with `board_name` name will
+        # be searched for in sources and installed in ROMFS as rc.board. This
+        # init script is used to change the init behavior among different boards.
+        self.board_rc = False
+
+        # Path relative to the ROMFS directory where to find a file with default
+        # parameters. If set this file will be copied to /etc/defaults.parm
+        # inside the ROMFS
+        self.param_defaults = None
+
+        self.ROMFS_EXCLUDE = []
+
+    def configure(self, cfg):
+        if not self.bootloader_name:
+            cfg.fatal('configure: vrbrain: bootloader name is required')
+        if not self.board_name:
+            cfg.fatal('configure: vrbrain: board name is required')
+
+        super(vrbrain, self).configure(cfg)
+        cfg.load('vrbrain')
+
+    def configure_env(self, cfg, env):
+        super(vrbrain, self).configure_env(cfg, env)
+
+        env.DEFINES.update(
+            CONFIG_HAL_BOARD = 'HAL_BOARD_VRBRAIN',
+            HAVE_OCLOEXEC = 0,
+            HAVE_STD_NULLPTR_T = 0,
+        )
+        env.CXXFLAGS += [
+            '-Wlogical-op',
+            '-Wframe-larger-than=1300',
+            '-fsingle-precision-constant',
+            '-Wno-error=double-promotion',
+            '-Wno-error=missing-declarations',
+            '-Wno-error=float-equal',
+            '-Wno-error=undef',
+            '-Wno-error=cpp',
+        ]
+        env.AP_LIBRARIES += [
+            'AP_HAL_VRBRAIN',
+        ]
+        env.GIT_SUBMODULES += [
+            'PX4Firmware',
+            'PX4NuttX',
+            'uavcan',
+        ]
+
+        env.ROMFS_EXCLUDE = self.ROMFS_EXCLUDE
+
+        env.PX4_BOOTLOADER_NAME = self.bootloader_name
+        env.PX4_BOARD_NAME = self.board_name
+        env.PX4_BOARD_RC = self.board_rc
+        env.PX4_PX4IO_NAME = self.px4io_name
+        env.PX4_PARAM_DEFAULTS = self.param_defaults
+
+        env.AP_PROGRAM_AS_STLIB = True
+
+    def build(self, bld):
+        super(vrbrain, self).build(bld)
+        bld.ap_version_append_str('NUTTX_GIT_VERSION', bld.git_submodule_head_hash('PX4NuttX', short=True))
+        bld.ap_version_append_str('PX4_GIT_VERSION', bld.git_submodule_head_hash('PX4Firmware', short=True))
+        bld.load('vrbrain')
+
+    def romfs_exclude(self, exclude):
+        self.ROMFS_EXCLUDE += exclude
+
+class vrbrain_v51(vrbrain):
+    name = 'vrbrain-v51'
+    def __init__(self):
+        super(vrbrain_v51, self).__init__()
+        self.bootloader_name = 'vrbrainv51_bl.bin'
+        self.board_name = 'vrbrain-v51'
+        self.romfs_exclude(['oreoled.bin'])
+
+class vrbrain_v52(vrbrain):
+    name = 'vrbrain-v52'
+    def __init__(self):
+        super(vrbrain_v52, self).__init__()
+        self.bootloader_name = 'vrbrainv52_bl.bin'
+        self.board_name = 'vrbrain-v52'
+        self.romfs_exclude(['oreoled.bin'])
+
+class vrbrain_v52E(vrbrain):
+    name = 'vrbrain-v52E'
+    def __init__(self):
+        super(vrbrain_v52E, self).__init__()
+        self.bootloader_name = 'vrbrainv52_bl.bin'
+        self.board_name = 'vrbrain-v52E'
+        self.romfs_exclude(['oreoled.bin'])
+
+class vrbrain_v54(vrbrain):
+    name = 'vrbrain-v54'
+    def __init__(self):
+        super(vrbrain_v54, self).__init__()
+        self.bootloader_name = 'vrbrainv54_bl.bin'
+        self.board_name = 'vrbrain-v54'
+        self.romfs_exclude(['oreoled.bin'])
+
+class vrcore_v10(vrbrain):
+    name = 'vrcore-v10'
+    def __init__(self):
+        super(vrcore_v10, self).__init__()
+        self.bootloader_name = 'vrcorev10_bl.bin'
+        self.board_name = 'vrcore-v10'
+        self.romfs_exclude(['oreoled.bin'])
+ 
+class vrubrain_v51(vrbrain):
+    name = 'vrubrain-v51'
+    def __init__(self):
+        super(vrubrain_v51, self).__init__()
+        self.bootloader_name = 'vrubrainv51_bl.bin'
+        self.board_name = 'vrubrain-v51'
+        self.romfs_exclude(['oreoled.bin'])
+
+class vrubrain_v52(vrbrain):
+    name = 'vrubrain-v52'
+    def __init__(self):
+        super(vrubrain_v52, self).__init__()
+        self.bootloader_name = 'vrubrainv52_bl.bin'
+        self.board_name = 'vrubrain-v52'
+        self.romfs_exclude(['oreoled.bin'])
+
