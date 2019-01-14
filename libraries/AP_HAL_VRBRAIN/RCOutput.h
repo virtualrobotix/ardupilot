@@ -29,6 +29,11 @@ public:
         _esc_pwm_min = min_pwm;
         _esc_pwm_max = max_pwm;
     }
+    bool     get_esc_scaling(uint16_t &min_pwm, uint16_t &max_pwm) override {
+        min_pwm = _esc_pwm_min;
+        max_pwm = _esc_pwm_max;
+        return true;
+    }
     float    scale_esc_to_unity(uint16_t pwm) override {
         return 2.0 * ((float) pwm - _esc_pwm_min) / (_esc_pwm_max - _esc_pwm_min) - 1.0;
     }
@@ -63,6 +68,8 @@ private:
     uint32_t _rate_mask_alt;
     uint16_t _enabled_channels;
     uint32_t _period_max;
+    uint32_t _last_safety_options_check_ms;
+    uint16_t _last_safety_options = 0xFFFF;
     struct {
         int pwm_sub;
         actuator_outputs_s outputs;

@@ -47,11 +47,6 @@ void VRBRAINGPIO::init()
 
 
 
-    _tone_alarm_fd = open(TONEALARM0_DEVICE_PATH, O_WRONLY);
-    if (_tone_alarm_fd == -1) {
-        AP_HAL::panic("Unable to open " TONEALARM0_DEVICE_PATH);
-    }
-
     _gpio_fmu_fd = open(PX4FMU_DEVICE_PATH, 0);
     if (_gpio_fmu_fd == -1) {
         AP_HAL::panic("Unable to open GPIO");
