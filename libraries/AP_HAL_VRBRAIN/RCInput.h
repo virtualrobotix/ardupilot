@@ -6,8 +6,9 @@
 #include <pthread.h>
 
 
+
 #ifndef RC_INPUT_MAX_CHANNELS
-#define RC_INPUT_MAX_CHANNELS 18
+#define RC_INPUT_MAX_CHANNELS 18u
 #endif
 
 class VRBRAIN::VRBRAINRCInput : public AP_HAL::RCInput {
@@ -27,6 +28,7 @@ public:
     bool rc_bind(int dsmMode) override;
 
 private:
+    /* override state */
     struct rc_input_values _rcin;
     int _rc_sub;
     uint64_t _last_read;
@@ -36,4 +38,9 @@ private:
 
     uint8_t last_input_source = input_rc_s::RC_INPUT_SOURCE_UNKNOWN;
     const char *input_source_name(uint8_t id) const;
+
+
+
+
+
 };

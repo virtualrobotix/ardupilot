@@ -242,10 +242,8 @@ int VRBRAINCAN::computeTimings(const uint32_t target_bitrate, Timings& out_timin
             bs1(arg_bs1), bs2(uint8_t(bs1_bs2_sum - bs1)), sample_point_permill(
                 uint16_t(1000 * (1 + bs1) / (1 + bs1 + bs2)))
         {
-            if (bs1_bs2_sum <= arg_bs1) {
-                if (AP_BoardConfig_CAN::get_can_debug() >= 1) {
-                    AP_HAL::panic("VRBRAINCAN::computeTimings bs1_bs2_sum <= arg_bs1");
-                }
+            if (bs1_bs2_sum <= arg_bs1 && (AP_BoardConfig_CAN::get_can_debug() >= 1)) {
+                AP_HAL::panic("VRBRAINCAN::computeTimings bs1_bs2_sum <= arg_bs1");
             }
         }
 
@@ -568,23 +566,22 @@ int VRBRAINCAN::init(const uint32_t bitrate, const OperatingMode mode)
 
 void VRBRAINCAN::handleTxMailboxInterrupt(uint8_t mailbox_index, bool txok, const uint64_t utc_usec)
 {
-    if (mailbox_index >= NumTxMailboxes) {
-        return;
+    if (mailbox_index < NumTxMailboxes) {
+
+        had_activity_ = had_activity_ || txok;
+
+        TxItem& txi = pending_tx_[mailbox_index];
+
+        if (txi.loopback && txok && txi.pending) {
+            CanRxItem frm;
+            frm.frame = txi.frame;
+            frm.flags = uavcan::CanIOFlagLoopback;
+            frm.utc_usec = utc_usec;
+            rx_queue_.push(frm);
+        }
+
+        txi.pending = false;
     }
-
-    had_activity_ = had_activity_ || txok;
-
-    TxItem& txi = pending_tx_[mailbox_index];
-
-    if (txi.loopback && txok && txi.pending) {
-        CanRxItem frm;
-        frm.frame = txi.frame;
-        frm.flags = uavcan::CanIOFlagLoopback;
-        frm.utc_usec = utc_usec;
-        rx_queue_.push(frm);
-    }
-
-    txi.pending = false;
 }
 
 void VRBRAINCAN::handleTxInterrupt(const uint64_t utc_usec)
@@ -606,7 +603,7 @@ void VRBRAINCAN::handleTxInterrupt(const uint64_t utc_usec)
         handleTxMailboxInterrupt(2, txok, utc_usec);
     }
 
-    if(update_event_ != nullptr) {
+    if (update_event_ != nullptr) {
         update_event_->signalFromInterrupt();
     }
 
@@ -671,7 +668,7 @@ void VRBRAINCAN::handleRxInterrupt(uint8_t fifo_index, uint64_t utc_usec)
     rx_queue_.push(frm);
 
     had_activity_ = true;
-    if(update_event_ != nullptr) {
+    if (update_event_ != nullptr) {
         update_event_->signalFromInterrupt();
     }
 
@@ -811,15 +808,15 @@ int32_t VRBRAINCAN::tx_pending()
     }
 
     int32_t ret = 0;
-    {
-        CriticalSectionLocker lock;
 
-        for (int mbx = 0; mbx < NumTxMailboxes; mbx++) {
-            if (pending_tx_[mbx].pending) {
-                ret++;
-            }
+    CriticalSectionLocker lock;
+
+    for (int mbx = 0; mbx < NumTxMailboxes; mbx++) {
+        if (pending_tx_[mbx].pending) {
+            ret++;
         }
     }
+
     return ret;
 }
 
@@ -828,7 +825,7 @@ int32_t VRBRAINCAN::tx_pending()
  */
 
 VRBRAINCANManager::VRBRAINCANManager() :
-    update_event_(*this), if0_(bxcan::Can[0], nullptr, 0, CAN_STM32_RX_QUEUE_SIZE), if1_(
+    AP_HAL::CANManager(this), update_event_(*this), if0_(bxcan::Can[0], nullptr, 0, CAN_STM32_RX_QUEUE_SIZE), if1_(
     bxcan::Can[1], nullptr, 1, CAN_STM32_RX_QUEUE_SIZE), initialized_(false), p_uavcan(nullptr)
 {
     uavcan::StaticAssert<(CAN_STM32_RX_QUEUE_SIZE <= VRBRAINCAN::MaxRxQueueCapacity)>::check();
@@ -846,16 +843,15 @@ uavcan::CanSelectMasks VRBRAINCANManager::makeSelectMasks(const uavcan::CanFrame
         if (ifaces[i] == nullptr) {
             continue;
         }
+
         if (!ifaces[i]->isRxBufferEmpty()) {
             msk.read |= 1 << i;
         }
 
-        if (pending_tx[i] == nullptr) {
-            continue;
-        }
-
-        if (ifaces[i]->canAcceptNewTxFrame(*pending_tx[i])) {
-            msk.write |= 1 << i;
+        if (pending_tx[i] != nullptr) {
+            if (ifaces[i]->canAcceptNewTxFrame(*pending_tx[i])) {
+                msk.write |= 1 << i;
+            }
         }
     }
 
@@ -963,11 +959,10 @@ void VRBRAINCANManager::initOnce(uint8_t can_number)
 
 int VRBRAINCANManager::init(const uint32_t bitrate, const VRBRAINCAN::OperatingMode mode, uint8_t can_number)
 {
-    static bool initialized_once[CAN_STM32_NUM_IFACES];
-
     if (can_number >= CAN_STM32_NUM_IFACES) {
         return -ErrNotImplemented;
     }
+    static bool initialized_once[CAN_STM32_NUM_IFACES];
 
     int res = 0;
 
