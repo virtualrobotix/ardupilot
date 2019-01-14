@@ -820,7 +820,7 @@ int32_t VRBRAINCAN::tx_pending()
  */
 
 VRBRAINCANManager::VRBRAINCANManager() :
-    update_event_(*this), if0_(bxcan::Can[0], nullptr, 0, CAN_STM32_RX_QUEUE_SIZE), if1_(
+    AP_HAL::CANManager(this), update_event_(*this), if0_(bxcan::Can[0], nullptr, 0, CAN_STM32_RX_QUEUE_SIZE), if1_(
     bxcan::Can[1], nullptr, 1, CAN_STM32_RX_QUEUE_SIZE), initialized_(false), p_uavcan(nullptr)
 {
     uavcan::StaticAssert<(CAN_STM32_RX_QUEUE_SIZE <= VRBRAINCAN::MaxRxQueueCapacity)>::check();

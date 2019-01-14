@@ -3,19 +3,41 @@
 #include "AP_HAL_VRBRAIN.h"
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
- # define HAL_GPIO_A_LED_PIN        25
- # define HAL_GPIO_B_LED_PIN        26
- # define HAL_GPIO_C_LED_PIN        27
- # define EXTERNAL_LED_GPS          28
- # define EXTERNAL_LED_ARMED        29
- # define EXTERNAL_LED_MOTOR1       30
- # define EXTERNAL_LED_MOTOR2       31
+#ifndef HAL_GPIO_A_LED_PIN
+#define HAL_GPIO_A_LED_PIN        25
+#endif
+#ifndef HAL_GPIO_B_LED_PIN
+#define HAL_GPIO_B_LED_PIN        26
+#endif
+#ifndef HAL_GPIO_C_LED_PIN
+#define HAL_GPIO_C_LED_PIN        27
+#endif
+#ifndef HAL_GPIO_C_LED_PIN
+#define EXTERNAL_LED_GPS          28
+#endif
+#ifndef EXTERNAL_LED_ARMED
+#define EXTERNAL_LED_ARMED        29
+#endif
+#ifndef EXTERNAL_LED_MOTOR1
+#define EXTERNAL_LED_MOTOR1       30
+#endif
+#ifndef EXTERNAL_LED_MOTOR2
+#define EXTERNAL_LED_MOTOR2       31
+#endif
 
- # define EXTERNAL_RELAY1_PIN       34
- # define EXTERNAL_RELAY2_PIN       33
+#ifndef EXTERNAL_RELAY1_PIN
+#define EXTERNAL_RELAY1_PIN       34
+#endif
+#ifndef EXTERNAL_RELAY2_PIN
+#define EXTERNAL_RELAY2_PIN       33
+#endif
 
- # define HAL_GPIO_LED_ON           HIGH
- # define HAL_GPIO_LED_OFF          LOW
+#ifndef HAL_GPIO_LED_ON
+#define HAL_GPIO_LED_ON           HIGH
+#endif
+#ifndef HAL_GPIO_LED_OFF
+#define HAL_GPIO_LED_OFF          LOW
+#endif
 #endif
 
 class VRBRAIN::VRBRAINGPIO : public AP_HAL::GPIO {

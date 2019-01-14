@@ -23,6 +23,13 @@ void VRBRAINRCInput::init()
     }
     clear_overrides();
     pthread_mutex_init(&rcin_mutex, nullptr);
+
+
+
+
+
+
+
 }
 
 bool VRBRAINRCInput::new_input() 
@@ -72,6 +79,14 @@ uint16_t VRBRAINRCInput::read(uint8_t ch)
     }
     uint16_t v = _rcin.values[ch];
     pthread_mutex_unlock(&rcin_mutex);
+
+
+
+
+
+
+
+
     return v;
 }
 
@@ -145,6 +160,20 @@ void VRBRAINRCInput::_timer_tick(void)
         }
         pthread_mutex_unlock(&rcin_mutex);
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     // note, we rely on the vehicle code checking new_input()
     // and a timeout for the last valid input to handle failsafe
     perf_end(_perf_rcin);
@@ -152,6 +181,12 @@ void VRBRAINRCInput::_timer_tick(void)
 
 bool VRBRAINRCInput::rc_bind(int dsmMode)
 {
+
+
+
+
+
+
 
 
 

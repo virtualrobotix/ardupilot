@@ -255,7 +255,7 @@ public:
     bool is_initialized() override;
 };
 
-class VRBRAINCANManager: public AP_HAL::CANManager {
+class VRBRAINCANManager: public AP_HAL::CANManager, public uavcan::ICanDriver {
     BusEvent update_event_;
     VRBRAINCAN if0_;
     VRBRAINCAN if1_;

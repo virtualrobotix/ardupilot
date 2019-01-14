@@ -6,6 +6,7 @@
 #include <pthread.h>
 
 
+
 #ifndef RC_INPUT_MAX_CHANNELS
 #define RC_INPUT_MAX_CHANNELS 18
 #endif
@@ -43,4 +44,9 @@ private:
 
     uint8_t last_input_source = input_rc_s::RC_INPUT_SOURCE_UNKNOWN;
     const char *input_source_name(uint8_t id) const;
+
+
+
+
+
 };
