@@ -221,7 +221,7 @@ void AP_Notify::add_backends(void)
 #endif // CONFIG_HAL_BOARD == HAL_BOARD_LINUX
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
-                ADD_BACKEND(new AP_ExternalLED()); // despite the name this is a built in set of onboard LED's
+                ADD_BACKEND(new ExternalLED()); // despite the name this is a built in set of onboard LED's
 #endif // CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
 
 #if defined(HAL_HAVE_PIXRACER_LED)
