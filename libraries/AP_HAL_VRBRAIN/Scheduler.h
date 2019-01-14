@@ -10,6 +10,7 @@
 
 #define VRBRAIN_SCHEDULER_MAX_TIMER_PROCS 8
 
+#define APM_MAX_PRIORITY        243
 #define APM_MAIN_PRIORITY_BOOST 241
 #define APM_MAIN_PRIORITY       180
 #define APM_TIMER_PRIORITY      181
@@ -61,9 +62,28 @@ public:
 
     void create_uavcan_thread() override;
 
+    /*
+      disable interrupts and return a context that can be used to
+      restore the interrupt state. This can be used to protect
+      critical regions
+     */
+    void *disable_interrupts_save(void) override;
+
+    /*
+      restore interrupt state from disable_interrupts_save()
+     */
+    void restore_interrupts(void *) override;
+
+    /*
+      create a new thread
+     */
+    bool thread_create(AP_HAL::MemberProc, const char *name, uint32_t stack_size, priority_base base, int8_t priority) override;
+    
 private:
     bool _initialized;
     volatile bool _hal_initialized;
+    AP_HAL::Proc _delay_cb;
+    uint16_t _min_delay_cb_ms;
     AP_HAL::Proc _failsafe;
 
     AP_HAL::MemberProc _timer_proc[VRBRAIN_SCHEDULER_MAX_TIMER_PROCS];
@@ -101,5 +121,6 @@ private:
     perf_counter_t  _perf_io_timers;
     perf_counter_t  _perf_storage_timer;
     perf_counter_t  _perf_delay;
+    static void *thread_create_trampoline(void *ctx);    
 };
 #endif
