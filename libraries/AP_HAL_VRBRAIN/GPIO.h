@@ -12,7 +12,7 @@
 #ifndef HAL_GPIO_C_LED_PIN
 #define HAL_GPIO_C_LED_PIN        27
 #endif
-#ifndef HAL_GPIO_C_LED_PIN
+#ifndef EXTERNAL_LED_GPS
 #define EXTERNAL_LED_GPS          28
 #endif
 #ifndef EXTERNAL_LED_ARMED
