@@ -371,7 +371,7 @@ void AP_BoardConfig::board_autodetect(void)
 #elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V51) || defined(HAL_CHIBIOS_ARCH_UBRAINV51)
     state.board_type.set_and_notify(VRX_BOARD_UBRAIN51);
     hal.console->printf("Detected VR Micro Brain 5.1\n");
-#elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V52)
+#elif defined(CONFIG_ARCH_BOARD_VRUBRAIN_V52) || defined(HAL_CHIBIOS_ARCH_UBRAINV52)
     state.board_type.set_and_notify(VRX_BOARD_UBRAIN52);
     hal.console->printf("Detected VR Micro Brain 5.2\n");
 #elif defined(CONFIG_ARCH_BOARD_VRCORE_V10) || defined(HAL_CHIBIOS_ARCH_COREV10)
