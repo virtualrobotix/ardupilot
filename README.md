@@ -112,8 +112,8 @@ for reviewing patches on their specific area.
   - ***Vehicle***: Plane
 - [Bill Geyer](https://github.com/bnsgeyer):
   - ***Vehicle***: TradHeli
-- [Emile Castelnuovo](https://github.com/emilecastelnuovo):
-  - ***Board***: VRBrain
+- [Roberto Navoni](https://github.com/virtualrobotix):
+  - ***Board***: VRBrain 5 ,VRuBrain 5 ,VR GPS and VrBrain X.
 - [Georgii Staroselskii](https://github.com/staroselskii):
   - ***Board***: NavIO
 - [Gustavo José de Sousa](https://github.com/guludo):
