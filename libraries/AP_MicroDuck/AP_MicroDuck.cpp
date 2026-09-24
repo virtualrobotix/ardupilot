@@ -159,6 +159,9 @@ void AP_MicroDuck::init()
     _down_valid = false;
     _joint_count = 0;
     _joint_ms = 0;
+    _hil_state_ms = 0;
+    memset(_hil_gyro_flu, 0, sizeof(_hil_gyro_flu));
+    memset(_hil_gravity_flu, 0, sizeof(_hil_gravity_flu));
     _tick = 0;
     _fail_reason = 5;
     _forward_us = 0;
@@ -235,6 +238,16 @@ void AP_MicroDuck::set_joint_feedback(const float *pos, const float *vel, uint8_
     }
     _joint_count = n;
     _joint_ms = AP_HAL::millis();
+}
+
+void AP_MicroDuck::set_hil_state(const float *pos, const float *vel,
+                                 const float *gyro_flu, const float *gravity_flu)
+{
+    set_joint_feedback(pos, vel, MDK_N_JOINTS);
+    WITH_SEMAPHORE(_joint_sem);
+    memcpy(_hil_gyro_flu, gyro_flu, sizeof(_hil_gyro_flu));
+    memcpy(_hil_gravity_flu, gravity_flu, sizeof(_hil_gravity_flu));
+    _hil_state_ms = AP_HAL::millis();
 }
 
 bool AP_MicroDuck::read_joint_feedback()
@@ -338,13 +351,21 @@ void AP_MicroDuck::update()
     read_twist(twist);
 
     const bool joints_ok = read_joint_feedback();
+    const bool hil_state_ok = _hil_state_ms != 0 &&
+                              AP_HAL::millis() - _hil_state_ms <= uint32_t(MAX(_wd_ms.get(), 1));
     const AP_InertialSensor &ins = AP::ins();
     const Vector3f gyro = ins.get_gyro();
 
     // ---- observation, trunk FLU frame, SI units, training order
     float *o = _obs;
-    o[0] = gyro.x;  o[1] = -gyro.y;  o[2] = -gyro.z;
-    gravity_body_flu(&o[3]);
+    if (hil_state_ok) {
+        WITH_SEMAPHORE(_joint_sem);
+        memcpy(&o[0], _hil_gyro_flu, sizeof(_hil_gyro_flu));
+        memcpy(&o[3], _hil_gravity_flu, sizeof(_hil_gravity_flu));
+    } else {
+        o[0] = gyro.x;  o[1] = -gyro.y;  o[2] = -gyro.z;
+        gravity_body_flu(&o[3]);
+    }
     {
         WITH_SEMAPHORE(_joint_sem);
         for (uint8_t i = 0; i < MDK_N_JOINTS; i++) {
@@ -372,7 +393,7 @@ void AP_MicroDuck::update()
         cartan_W, cartan_b, cartan_beta, cartan_theta, cartan_head_W, cartan_head_b, 0.1f,
     };
 #endif
-    bool ok = joints_ok && _down_valid;
+    bool ok = joints_ok && (hil_state_ok || _down_valid);
     if (ok) {
         const uint32_t t0 = wall_micros();
 #if AP_MICRODUCK_CARTAN_ENABLED

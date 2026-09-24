@@ -1,0 +1,2 @@
+# Use the standard Pixhawk 6C bootloader and board identifier.
+include ../Pixhawk6C/hwdef-bl.dat

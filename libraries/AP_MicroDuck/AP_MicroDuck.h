@@ -50,6 +50,11 @@ public:
     // in the training joint order
     void set_joint_feedback(const float *pos, const float *vel, uint8_t count);
 
+    // Hardware-HIL sample transported in MAVLink DEBUG_FLOAT_ARRAY "MDK_HIL":
+    // joint state plus policy-frame IMU values (FLU).
+    void set_hil_state(const float *pos, const float *vel,
+                       const float *gyro_flu, const float *gravity_flu);
+
     bool enabled() const { return _enable != 0; }
 
     static const struct AP_Param::GroupInfo var_info[];
@@ -85,6 +90,9 @@ private:
     uint64_t _last_joint_time_us;
     uint8_t _joint_count;
     HAL_Semaphore _joint_sem;
+    float _hil_gyro_flu[3];
+    float _hil_gravity_flu[3];
+    uint32_t _hil_state_ms;
     float _obs[MDK_OBS_DIM];
     float _act[MDK_N_JOINTS];
     uint32_t _forward_us;

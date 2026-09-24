@@ -558,6 +558,22 @@ void GCS_MAVLINK_Rover::handle_message(const mavlink_message_t &msg)
         handle_set_position_target_global_int(msg);
         break;
 
+#if AP_MICRODUCK_ENABLED
+    case MAVLINK_MSG_ID_DEBUG_FLOAT_ARRAY: {
+        mavlink_debug_float_array_t packet;
+        mavlink_msg_debug_float_array_decode(&msg, &packet);
+        if (strncmp(packet.name, "MDK_HIL", 7) == 0) {
+            AP_MicroDuck *microduck = AP::microduck();
+            if (microduck != nullptr) {
+                // data: q[14], qd[14], gyro FLU[3], projected gravity FLU[3]
+                microduck->set_hil_state(&packet.data[0], &packet.data[14],
+                                         &packet.data[28], &packet.data[31]);
+            }
+        }
+        break;
+    }
+#endif
+
     default:
         GCS_MAVLINK::handle_message(msg);
         break;
