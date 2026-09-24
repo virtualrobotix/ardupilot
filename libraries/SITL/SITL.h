@@ -106,6 +106,14 @@ struct sitl_fdm {
     // AGL altitude, usually derived from the terrain database in simulation:
     float height_agl;
 
+    // articulated robot joints reported by the physics backend (SIM_JSON "joints"),
+    // consumed by AP_MicroDuck as its SITL joint-feedback source
+    #define SITL_NUM_JOINTS 16
+    float joint_pos[SITL_NUM_JOINTS];   // rad
+    float joint_vel[SITL_NUM_JOINTS];   // rad/s
+    uint8_t joint_count;
+    uint64_t joint_time_us;
+
 };
 
 // number of rc output channels

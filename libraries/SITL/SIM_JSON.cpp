@@ -290,6 +290,15 @@ uint64_t JSON::parse_sensors(const char *json)
                 //printf("%s/%s = %i\n", key.section, key.key, *((unit8_t *)key.ptr));
                 break;
             }
+
+            case DATA_FLOAT_ARRAY14: {
+                float *arr = (float *)key.ptr;
+                if (!parse_array(p, arr, 14)) {
+                    printf("Failed to parse float[14] for %s/%s\n", key.section, key.key);
+                    return received_bitmask;
+                }
+                break;
+            }
         }
     }
 
@@ -501,6 +510,17 @@ void JSON::recv_fdm(const struct sitl_input &input)
     }
     // (temperature is not part of the protocol, just set it explicitly here)
     battery_temperature_degC = 0.0f;
+
+    // articulated joints (MicroDuck): hand them to the shared fdm state for AP_MicroDuck
+    if ((received_bitmask & (JOINT_POS | JOINT_VEL)) == (JOINT_POS | JOINT_VEL) && sitl != nullptr) {
+        static_assert(ARRAY_SIZE(state.joint_pos) <= SITL_NUM_JOINTS, "joint array size");
+        for (uint8_t i = 0; i < ARRAY_SIZE(state.joint_pos); i++) {
+            sitl->state.joint_pos[i] = state.joint_pos[i];
+            sitl->state.joint_vel[i] = state.joint_vel[i];
+        }
+        sitl->state.joint_count = ARRAY_SIZE(state.joint_pos);
+        sitl->state.joint_time_us = time_now_us;
+    }
 
     double deltat;
     if (state.timestamp_s < last_timestamp_s) {
