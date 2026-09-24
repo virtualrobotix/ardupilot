@@ -1,7 +1,92 @@
 #include "microduck_infer.h"
 #include <math.h>
 
+#define CARTAN_EPS 1e-8f
+
 static inline float elu1(float x) { return x > 0.0f ? x : (expf(x) - 1.0f); }
+
+// y[n_out] = W[n_out x n_in] x[n_in] + b
+static void gemv(const float *W, const float *b, const float *x, float *y, uint16_t n_out, uint16_t n_in)
+{
+    for (uint16_t o = 0; o < n_out; o++) {
+        const float *w = W + (uint32_t)o * n_in;
+        float acc = b[o];
+        for (uint16_t i = 0; i < n_in; i++) {
+            acc += w[i] * x[i];
+        }
+        y[o] = acc;
+    }
+}
+
+int microduck_cartan_forward(const microduck_cartan_t *p, const float *obs, float *act)
+{
+    static float xn[MICRODUCK_MAX_WIDTH];
+    static float f[MICRODUCK_MAX_WIDTH];      // fiber (paint)
+    static float g[MICRODUCK_MAX_WIDTH];      // scratch fiber
+    const uint16_t q = p->paint;
+    if (p->obs_dim > MICRODUCK_MAX_WIDTH || q > MICRODUCK_MAX_WIDTH) {
+        return -1;
+    }
+    for (uint16_t i = 0; i < p->obs_dim; i++) {
+        xn[i] = (obs[i] - p->obs_mean[i]) / p->obs_std[i];
+    }
+    // embed: h = [0 ; W_in xn + b_in]
+    gemv(p->in_W, p->in_b, xn, f, q, p->obs_dim);
+    float c = 0.0f;
+    for (uint8_t l = 0; l < p->n_layers; l++) {
+        // paint GEMM on the fiber
+        gemv(p->W[l], p->b[l], f, g, q, q);
+        // left translation by beta: solvable_mul(beta, [c ; g])
+        //   c' = c + beta0 ; f' = g + exp(-c) * beta_rest
+        const float *beta = p->beta[l];
+        const float e_mc = expf(-c);
+        for (uint16_t i = 0; i < q; i++) {
+            f[i] = g[i] + e_mc * beta[1 + i];
+        }
+        c = c + beta[0];
+        // fiber rotation by unit theta = [phi0 ; phi_rest]
+        const float *th = p->theta[l];
+        const float phi0 = th[0];
+        float mod = 0.0f, dot = 0.0f;
+        for (uint16_t i = 0; i < q; i++) {
+            mod += f[i] * f[i];
+            dot += f[i] * th[1 + i];
+        }
+        const float c_exp = expf(c);
+        const float a = (mod + 1.0f) * c_exp;
+        const float bb = 1.0f / (c_exp > CARTAN_EPS ? c_exp : CARTAN_EPS);
+        float arg = 0.5f * (-phi0 * (a - bb) + (bb + a)) - dot;
+        if (arg < CARTAN_EPS) {
+            arg = CARTAN_EPS;
+        }
+        const float yc = -logf(arg);
+        if (fabsf(phi0 + 1.0f) < CARTAN_EPS) {
+            for (uint16_t i = 0; i < q; i++) {
+                f[i] = -f[i];
+            }
+        } else {
+            const float k = -dot / (phi0 + 1.0f + CARTAN_EPS) + 0.5f * (bb - a);
+            for (uint16_t i = 0; i < q; i++) {
+                f[i] = f[i] + th[1 + i] * k;
+            }
+        }
+        c = yc;
+        // DiLU on the fiber, except after the last layer
+        if (l + 1 < p->n_layers) {
+            const float al = p->dilu_alpha;
+            for (uint16_t i = 0; i < q; i++) {
+                f[i] = (elu1(f[i]) + al * f[i]) / (1.0f + al);
+            }
+        }
+    }
+    // Euclidean readout: fiber * exp(c), then head
+    const float ec = expf(c);
+    for (uint16_t i = 0; i < q; i++) {
+        g[i] = f[i] * ec;
+    }
+    gemv(p->head_W, p->head_b, g, act, p->act_dim, q);
+    return 0;
+}
 
 int microduck_forward(const microduck_policy_t *p, const float *obs, float *act)
 {

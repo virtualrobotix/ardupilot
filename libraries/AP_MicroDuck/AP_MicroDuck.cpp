@@ -5,6 +5,9 @@
 #include "AP_MicroDuck.h"
 #include "microduck_infer.h"
 #include "policy_mlp.h"
+#if AP_MICRODUCK_CARTAN_ENABLED
+#include "policy_cartan.h"
+#endif
 
 #include <AP_HAL/AP_HAL.h>
 #include <AP_InertialSensor/AP_InertialSensor.h>
@@ -163,7 +166,8 @@ void AP_MicroDuck::init()
     memset(_obs, 0, sizeof(_obs));
     memset(_act, 0, sizeof(_act));
     _initialised = true;
-    GCS_SEND_TEXT(MAV_SEVERITY_INFO, "MicroDuck: policy MLP %ux%u, %u joints", unsigned(MLP_OBS_DIM), unsigned(MLP_ACT_DIM), unsigned(MDK_N_JOINTS));
+    GCS_SEND_TEXT(MAV_SEVERITY_INFO, "MicroDuck: policy %s, obs %u -> %u joints",
+                  (_policy == 1) ? "Cartan" : "MLP", unsigned(MLP_OBS_DIM), unsigned(MDK_N_JOINTS));
 }
 
 // -----------------------------------------------------------------------------
@@ -356,15 +360,29 @@ void AP_MicroDuck::update()
         o[i] = 0.0f;
     }
 
-    // ---- policy
+    // ---- policy (both networks share the observation contract and default pose)
     static const microduck_policy_t mlp_policy = {
         MLP_OBS_DIM, MLP_ACT_DIM, MLP_N_LAYERS,
         mlp_dims, mlp_act, mlp_obs_mean, mlp_obs_std, mlp_W, mlp_b,
     };
+#if AP_MICRODUCK_CARTAN_ENABLED
+    static const microduck_cartan_t cartan_policy = {
+        CARTAN_OBS_DIM, CARTAN_ACT_DIM, CARTAN_PAINT, CARTAN_N_LAYERS,
+        cartan_obs_mean, cartan_obs_std, cartan_in_W, cartan_in_b,
+        cartan_W, cartan_b, cartan_beta, cartan_theta, cartan_head_W, cartan_head_b, 0.1f,
+    };
+#endif
     bool ok = joints_ok && _down_valid;
     if (ok) {
         const uint32_t t0 = wall_micros();
-        ok = microduck_forward(&mlp_policy, _obs, _act) == 0;
+#if AP_MICRODUCK_CARTAN_ENABLED
+        if (_policy == 1) {
+            ok = microduck_cartan_forward(&cartan_policy, _obs, _act) == 0;
+        } else
+#endif
+        {
+            ok = microduck_forward(&mlp_policy, _obs, _act) == 0;
+        }
         _forward_us = wall_micros() - t0;
         if (!ok) {
             _fail_reason = 4;
