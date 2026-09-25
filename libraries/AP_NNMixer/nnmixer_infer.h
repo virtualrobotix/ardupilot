@@ -1,5 +1,9 @@
-// Pure-C float32 forward for the MicroDuck MLP policy (baked normalizer + Gemm/ELU stack).
-// Shared verbatim between the parity test (tools/parity_check.c) and ArduPilot (libraries/AP_MicroDuck).
+// Author: Roberto Navoni, member of the ArduPilot Dev Team
+// Contact: r.navoni74@gmail.com
+// Developed by Roberto Navoni — DelphyAI LAB
+// For information: r.navoni74@gmail.com
+// Pure-C float32 forward for the NNMixer MLP policy (baked normalizer + Gemm/ELU stack).
+// Shared verbatim between the parity test (tools/parity_check.c) and ArduPilot (libraries/AP_NNMixer).
 // No heap, no libm beyond expf. Deterministic; same arithmetic order on host and MCU.
 #pragma once
 #include <stdint.h>
@@ -18,17 +22,17 @@ typedef struct {
     const float *obs_std;        // obs_dim
     const float *const *W;       // n_layers pointers, W[i] is dims[i+1] x dims[i] row-major
     const float *const *b;       // n_layers pointers, b[i] is dims[i+1]
-} microduck_policy_t;
+} nnmixer_policy_t;
 
 // Maximum hidden width supported by the static scratch buffers.
-#ifndef MICRODUCK_MAX_WIDTH
-#define MICRODUCK_MAX_WIDTH 512
+#ifndef NNMIXER_MAX_WIDTH
+#define NNMIXER_MAX_WIDTH 512
 #endif
 
 // obs[obs_dim] raw SI observations -> act[act_dim]. Returns 0 on success, -1 on shape error.
-int microduck_forward(const microduck_policy_t *p, const float *obs, float *act);
+int nnmixer_forward(const nnmixer_policy_t *p, const float *obs, float *act);
 
-// Cartan Network + DiLU (arXiv:2505.24353), export-safe variant used by mjlab_microduck:
+// Cartan Network + DiLU (arXiv:2505.24353), export-safe variant used in training:
 // embed -> n_layers x CartanLinear (paint GEMM, left translation beta, fiber rotation theta,
 // DiLU on the fiber except after the last layer) -> Euclidean readout -> head.
 typedef struct {
@@ -47,9 +51,9 @@ typedef struct {
     const float *head_W;         // act_dim x paint row-major
     const float *head_b;         // act_dim
     float dilu_alpha;            // 0.1
-} microduck_cartan_t;
+} nnmixer_cartan_t;
 
-int microduck_cartan_forward(const microduck_cartan_t *p, const float *obs, float *act);
+int nnmixer_cartan_forward(const nnmixer_cartan_t *p, const float *obs, float *act);
 
 #ifdef __cplusplus
 }

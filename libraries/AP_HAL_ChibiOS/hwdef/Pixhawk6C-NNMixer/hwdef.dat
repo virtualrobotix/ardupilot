@@ -1,8 +1,14 @@
+# Pixhawk 6C Mini target for AP_NNMixer (NNMixer plant).
+# Author: Roberto Navoni, member of the ArduPilot Dev Team
+# Contact: r.navoni74@gmail.com
+# Developed by Roberto Navoni — DelphyAI LAB
+# For information: r.navoni74@gmail.com
+
 include ../Pixhawk6C/hwdef.dat
 
-define AP_MICRODUCK_ENABLED 1
-define AP_MICRODUCK_CARTAN_ENABLED 0
-define AP_MICRODUCK_JOINT_FEEDBACK_SITL_ENABLED 0
+define AP_NNMIXER_ENABLED 1
+define AP_NNMIXER_CARTAN_ENABLED 0
+define AP_NNMIXER_JOINT_FEEDBACK_SITL_ENABLED 0
 define AP_BOOTLOADER_FLASHING_ENABLED 0
 
 define AP_SCRIPTING_ENABLED 0

@@ -671,10 +671,10 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
     // @User: Advanced
     AP_GROUPINFO("GUID_TIMEOUT", 62, ParametersG2, guided_timeout, 3.0),
 
-#if AP_MICRODUCK_ENABLED
-    // @Group: MDK_
-    // @Path: ../libraries/AP_MicroDuck/AP_MicroDuck.cpp
-    AP_SUBGROUPINFO(microduck, "MDK_", 63, ParametersG2, AP_MicroDuck),
+#if AP_NNMIXER_ENABLED
+    // @Group: NNM_
+    // @Path: ../libraries/AP_NNMixer/AP_NNMixer.cpp
+    AP_SUBGROUPINFO(nnmixer, "NNM_", 63, ParametersG2, AP_NNMixer),
 #endif
 
     AP_GROUPEND

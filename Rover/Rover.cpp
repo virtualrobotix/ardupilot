@@ -132,10 +132,10 @@ const AP_Scheduler::Task Rover::scheduler_tasks[] = {
 #if AP_ROVER_ADVANCED_FAILSAFE_ENABLED
     SCHED_TASK(afs_fs_check,           10,    200, 129),
 #endif
-#if AP_MICRODUCK_ENABLED
-    // MicroDuck: IMU-only gravity filter at loop rate, policy at 50 Hz
-    SCHED_TASK_CLASS(AP_MicroDuck,        &rover.g2.microduck,     update_attitude, 400, 100, 132),
-    SCHED_TASK_CLASS(AP_MicroDuck,        &rover.g2.microduck,     update,          50, 1500, 135),
+#if AP_NNMIXER_ENABLED
+    // NNMixer: IMU-only gravity filter at loop rate, policy at 50 Hz
+    SCHED_TASK_CLASS(AP_NNMixer,        &rover.g2.nnmixer,     update_attitude, 400, 100, 132),
+    SCHED_TASK_CLASS(AP_NNMixer,        &rover.g2.nnmixer,     update,          50, 1500, 135),
 #endif
 };
 

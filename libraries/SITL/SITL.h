@@ -107,7 +107,7 @@ struct sitl_fdm {
     float height_agl;
 
     // articulated robot joints reported by the physics backend (SIM_JSON "joints"),
-    // consumed by AP_MicroDuck as its SITL joint-feedback source
+    // consumed by AP_NNMixer as its SITL joint-feedback source
     #define SITL_NUM_JOINTS 16
     float joint_pos[SITL_NUM_JOINTS];   // rad
     float joint_vel[SITL_NUM_JOINTS];   // rad/s

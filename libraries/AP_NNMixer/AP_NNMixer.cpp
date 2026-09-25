@@ -1,11 +1,17 @@
-#include "AP_MicroDuck_config.h"
+/*
+  Author: Roberto Navoni, member of the ArduPilot Dev Team
+  Contact: r.navoni74@gmail.com
+  Developed by Roberto Navoni — DelphyAI LAB
+  For information: r.navoni74@gmail.com
+ */
+#include "AP_NNMixer_config.h"
 
-#if AP_MICRODUCK_ENABLED
+#if AP_NNMIXER_ENABLED
 
-#include "AP_MicroDuck.h"
-#include "microduck_infer.h"
+#include "AP_NNMixer.h"
+#include "nnmixer_infer.h"
 #include "policy_mlp.h"
-#if AP_MICRODUCK_CARTAN_ENABLED
+#if AP_NNMIXER_CARTAN_ENABLED
 #include "policy_cartan.h"
 #endif
 
@@ -18,7 +24,7 @@
 #include <RC_Channel/RC_Channel.h>
 #include <SRV_Channel/SRV_Channel.h>
 
-#if AP_MICRODUCK_JOINT_FEEDBACK_SITL_ENABLED
+#if AP_NNMIXER_JOINT_FEEDBACK_SITL_ENABLED
 #include <SITL/SITL.h>
 #endif
 #if CONFIG_HAL_BOARD == HAL_BOARD_SITL
@@ -28,107 +34,114 @@
 extern const AP_HAL::HAL& hal;
 
 // servo wire encoding, shared with plant/mujoco_json_plant.py: 1 us = 3 mrad around 1500
-#define MDK_PWM_CENTER 1500
-#define MDK_RAD_PER_US 0.003f
-#define MDK_PWM_MIN 800
-#define MDK_PWM_MAX 2200
+#define NNM_PWM_CENTER 1500
+#define NNM_RAD_PER_US 0.003f
+#define NNM_PWM_MIN 800
+#define NNM_PWM_MAX 2200
 
-const AP_Param::GroupInfo AP_MicroDuck::var_info[] = {
+const AP_Param::GroupInfo AP_NNMixer::var_info[] = {
     // @Param: ENABLE
-    // @DisplayName: MicroDuck policy enable
-    // @Description: Run the MicroDuck PPO locomotion policy and drive the 14 joint servos
+    // @DisplayName: NNMixer policy enable
+    // @Description: Run the NNMixer PPO locomotion policy and drive the 14 joint servos
     // @Values: 0:Disabled,1:Enabled
     // @User: Advanced
-    AP_GROUPINFO_FLAGS("ENABLE", 1, AP_MicroDuck, _enable, 0, AP_PARAM_FLAG_ENABLE),
+    AP_GROUPINFO_FLAGS("ENABLE", 1, AP_NNMixer, _enable, 0, AP_PARAM_FLAG_ENABLE),
 
     // @Param: POLICY
     // @DisplayName: Policy network
     // @Description: 0 = MLP (512-256-128 ELU). 1 = Cartan (reserved)
     // @Values: 0:MLP,1:Cartan
     // @User: Advanced
-    AP_GROUPINFO("POLICY", 2, AP_MicroDuck, _policy, 0),
+    AP_GROUPINFO("POLICY", 2, AP_NNMixer, _policy, 0),
 
     // @Param: VX_MAX
     // @DisplayName: Forward speed at full stick
     // @Units: m/s
     // @User: Advanced
-    AP_GROUPINFO("VX_MAX", 3, AP_MicroDuck, _vx_max, 0.4f),
+    AP_GROUPINFO("VX_MAX", 3, AP_NNMixer, _vx_max, 0.4f),
 
     // @Param: VY_MAX
     // @DisplayName: Lateral speed at full stick
     // @Units: m/s
     // @User: Advanced
-    AP_GROUPINFO("VY_MAX", 4, AP_MicroDuck, _vy_max, 0.3f),
+    AP_GROUPINFO("VY_MAX", 4, AP_NNMixer, _vy_max, 0.3f),
 
     // @Param: WZ_MAX
     // @DisplayName: Yaw rate at full stick
     // @Units: rad/s
     // @User: Advanced
-    AP_GROUPINFO("WZ_MAX", 5, AP_MicroDuck, _wz_max, 1.0f),
+    AP_GROUPINFO("WZ_MAX", 5, AP_NNMixer, _wz_max, 1.0f),
 
     // @Param: WD_MS
     // @DisplayName: Joint feedback watchdog
     // @Description: If joint feedback is older than this the action is forced to the stand pose
     // @Units: ms
     // @User: Advanced
-    AP_GROUPINFO("WD_MS", 6, AP_MicroDuck, _wd_ms, 40),
+    AP_GROUPINFO("WD_MS", 6, AP_NNMixer, _wd_ms, 40),
 
     // @Param: ATT_SRC
     // @DisplayName: Gravity direction source
     // @Description: 0 = internal IMU-only complementary filter (as trained), 1 = AHRS quaternion (debug)
     // @Values: 0:IMU filter,1:AHRS
     // @User: Advanced
-    AP_GROUPINFO("ATT_SRC", 7, AP_MicroDuck, _att_src, 0),
+    AP_GROUPINFO("ATT_SRC", 7, AP_NNMixer, _att_src, 0),
 
     // @Param: ATT_TAU
     // @DisplayName: Gravity filter time constant
     // @Units: s
     // @User: Advanced
-    AP_GROUPINFO("ATT_TAU", 8, AP_MicroDuck, _att_tau, 0.5f),
+    AP_GROUPINFO("ATT_TAU", 8, AP_NNMixer, _att_tau, 0.5f),
 
     // @Param: RC_VX
     // @DisplayName: RC channel for forward speed
     // @User: Advanced
-    AP_GROUPINFO("RC_VX", 9, AP_MicroDuck, _rc_vx, 2),
+    AP_GROUPINFO("RC_VX", 9, AP_NNMixer, _rc_vx, 2),
 
     // @Param: RC_VY
     // @DisplayName: RC channel for lateral speed
     // @User: Advanced
-    AP_GROUPINFO("RC_VY", 10, AP_MicroDuck, _rc_vy, 1),
+    AP_GROUPINFO("RC_VY", 10, AP_NNMixer, _rc_vy, 1),
 
     // @Param: RC_WZ
     // @DisplayName: RC channel for yaw rate
     // @User: Advanced
-    AP_GROUPINFO("RC_WZ", 11, AP_MicroDuck, _rc_wz, 4),
+    AP_GROUPINFO("RC_WZ", 11, AP_NNMixer, _rc_wz, 4),
 
     // @Param: ACT_MAX
     // @DisplayName: Action clip
     // @Units: rad
     // @User: Advanced
-    AP_GROUPINFO("ACT_MAX", 12, AP_MicroDuck, _act_max, 2.0f),
+    AP_GROUPINFO("ACT_MAX", 12, AP_NNMixer, _act_max, 2.0f),
 
     // @Param: LOG
     // @DisplayName: Log observations and actions every tick
     // @Values: 0:Off,1:On
     // @User: Advanced
-    AP_GROUPINFO("LOG", 13, AP_MicroDuck, _log, 1),
+    AP_GROUPINFO("LOG", 13, AP_NNMixer, _log, 1),
 
     // @Param: HOLD_MODE
     // @DisplayName: Vehicle mode that forces zero twist (stand)
     // @Description: Rover HOLD is 4. Set -1 to disable
     // @User: Advanced
-    AP_GROUPINFO("HOLD_MODE", 14, AP_MicroDuck, _hold_mode, 4),
+    AP_GROUPINFO("HOLD_MODE", 14, AP_NNMixer, _hold_mode, 4),
 
     // @Param: SRV_FN0
     // @DisplayName: Servo function of joint 1
     // @Description: Joints 1..14 use this function and the 13 following ones (default Scripting1..14 = 94..107)
     // @User: Advanced
-    AP_GROUPINFO("SRV_FN0", 15, AP_MicroDuck, _servo_fn0, 94),
+    AP_GROUPINFO("SRV_FN0", 15, AP_NNMixer, _servo_fn0, 94),
+
+    // @Param: HIL_ATT
+    // @DisplayName: Attitude source while a HIL state is being received
+    // @Description: 0 = simulated body only (the board IMU is ignored). 1 = the board's own IMU, so physically moving the autopilot tilts the robot. 2 = simulated body plus the board's motion as a disturbance
+    // @Values: 0:Simulated body,1:Board IMU,2:Both
+    // @User: Advanced
+    AP_GROUPINFO("HIL_ATT", 16, AP_NNMixer, _hil_att, 0),
 
     AP_GROUPEND
 };
 
-AP_MicroDuck *AP_MicroDuck::_singleton;
+AP_NNMixer *AP_NNMixer::_singleton;
 
 // wall-clock microseconds for profiling the forward pass. In SITL lock-step the
 // HAL clock is frozen while the loop runs, so read the host clock there.
@@ -143,16 +156,16 @@ static uint32_t wall_micros()
 #endif
 }
 
-AP_MicroDuck::AP_MicroDuck()
+AP_NNMixer::AP_NNMixer()
 {
     if (_singleton != nullptr) {
-        AP_HAL::panic("AP_MicroDuck must be singleton");
+        AP_HAL::panic("AP_NNMixer must be singleton");
     }
     _singleton = this;
     AP_Param::setup_object_defaults(this, var_info);
 }
 
-void AP_MicroDuck::init()
+void AP_NNMixer::init()
 {
     memset(_last_action, 0, sizeof(_last_action));
     _down_body = Vector3f(0, 0, 1);
@@ -169,15 +182,15 @@ void AP_MicroDuck::init()
     memset(_obs, 0, sizeof(_obs));
     memset(_act, 0, sizeof(_act));
     _initialised = true;
-    GCS_SEND_TEXT(MAV_SEVERITY_INFO, "MicroDuck: policy %s, obs %u -> %u joints",
-                  (_policy == 1) ? "Cartan" : "MLP", unsigned(MLP_OBS_DIM), unsigned(MDK_N_JOINTS));
+    GCS_SEND_TEXT(MAV_SEVERITY_INFO, "NNMixer: policy %s, obs %u -> %u joints",
+                  (_policy == 1) ? "Cartan" : "MLP", unsigned(MLP_OBS_DIM), unsigned(NNM_N_JOINTS));
 }
 
 // -----------------------------------------------------------------------------
 // gravity direction, IMU only. Body FRD. Level and static: accel = (0,0,-g) so
 // down = -accel/|accel|. Propagation of a world-fixed vector seen from the
 // body: d(down)/dt = -gyro x down.
-void AP_MicroDuck::update_attitude()
+void AP_NNMixer::update_attitude()
 {
     if (!enabled()) {
         return;
@@ -211,7 +224,7 @@ void AP_MicroDuck::update_attitude()
 }
 
 // gravity direction in the trunk FLU frame (training convention): FRD -> FLU is (x, -y, -z)
-void AP_MicroDuck::gravity_body_flu(float g[3])
+void AP_NNMixer::gravity_body_flu(float g[3])
 {
     Vector3f down = _down_body;
     if (_att_src == 1) {
@@ -228,10 +241,10 @@ void AP_MicroDuck::gravity_body_flu(float g[3])
 }
 
 // -----------------------------------------------------------------------------
-void AP_MicroDuck::set_joint_feedback(const float *pos, const float *vel, uint8_t count)
+void AP_NNMixer::set_joint_feedback(const float *pos, const float *vel, uint8_t count)
 {
     WITH_SEMAPHORE(_joint_sem);
-    const uint8_t n = MIN(count, uint8_t(MDK_N_JOINTS));
+    const uint8_t n = MIN(count, uint8_t(NNM_N_JOINTS));
     for (uint8_t i = 0; i < n; i++) {
         _joint_pos[i] = pos[i];
         _joint_vel[i] = vel[i];
@@ -240,30 +253,30 @@ void AP_MicroDuck::set_joint_feedback(const float *pos, const float *vel, uint8_
     _joint_ms = AP_HAL::millis();
 }
 
-void AP_MicroDuck::set_hil_state(const float *pos, const float *vel,
+void AP_NNMixer::set_hil_state(const float *pos, const float *vel,
                                  const float *gyro_flu, const float *gravity_flu)
 {
-    set_joint_feedback(pos, vel, MDK_N_JOINTS);
+    set_joint_feedback(pos, vel, NNM_N_JOINTS);
     WITH_SEMAPHORE(_joint_sem);
     memcpy(_hil_gyro_flu, gyro_flu, sizeof(_hil_gyro_flu));
     memcpy(_hil_gravity_flu, gravity_flu, sizeof(_hil_gravity_flu));
     _hil_state_ms = AP_HAL::millis();
 }
 
-bool AP_MicroDuck::read_joint_feedback()
+bool AP_NNMixer::read_joint_feedback()
 {
-#if AP_MICRODUCK_JOINT_FEEDBACK_SITL_ENABLED
+#if AP_NNMIXER_JOINT_FEEDBACK_SITL_ENABLED
     // SITL backend: the physics plant reports the joints through SIM_JSON into sitl->state
     const SITL::SIM *sitl = AP::sitl();
-    if (sitl != nullptr && sitl->state.joint_count >= MDK_N_JOINTS &&
+    if (sitl != nullptr && sitl->state.joint_count >= NNM_N_JOINTS &&
         sitl->state.joint_time_us != _last_joint_time_us) {
         // only a NEW sample counts as feedback, so the watchdog sees a frozen plant
         _last_joint_time_us = sitl->state.joint_time_us;
-        set_joint_feedback(sitl->state.joint_pos, sitl->state.joint_vel, MDK_N_JOINTS);
+        set_joint_feedback(sitl->state.joint_pos, sitl->state.joint_vel, NNM_N_JOINTS);
     }
 #endif
     WITH_SEMAPHORE(_joint_sem);
-    if (_joint_count < MDK_N_JOINTS) {
+    if (_joint_count < NNM_N_JOINTS) {
         _fail_reason = 2;
         return false;
     }
@@ -275,7 +288,7 @@ bool AP_MicroDuck::read_joint_feedback()
 }
 
 // -----------------------------------------------------------------------------
-void AP_MicroDuck::read_twist(float twist[3])
+void AP_NNMixer::read_twist(float twist[3])
 {
     twist[0] = twist[1] = twist[2] = 0.0f;
     const AP_Vehicle *veh = AP::vehicle();
@@ -310,25 +323,25 @@ void AP_MicroDuck::read_twist(float twist[3])
 }
 
 // -----------------------------------------------------------------------------
-void AP_MicroDuck::write_servos(const float *q_target)
+void AP_NNMixer::write_servos(const float *q_target)
 {
-    for (uint8_t i = 0; i < MDK_N_JOINTS; i++) {
-        const int32_t pwm = MDK_PWM_CENTER + int32_t(roundf(q_target[i] / MDK_RAD_PER_US));
-        const uint16_t p = uint16_t(constrain_int32(pwm, MDK_PWM_MIN, MDK_PWM_MAX));
+    for (uint8_t i = 0; i < NNM_N_JOINTS; i++) {
+        const int32_t pwm = NNM_PWM_CENTER + int32_t(roundf(q_target[i] / NNM_RAD_PER_US));
+        const uint16_t p = uint16_t(constrain_int32(pwm, NNM_PWM_MIN, NNM_PWM_MAX));
         SRV_Channels::set_output_pwm(SRV_Channel::Function(_servo_fn0 + i), p);
     }
 }
 
-void AP_MicroDuck::write_idle_servos()
+void AP_NNMixer::write_idle_servos()
 {
     // 0 us = "not driving" for the plant (keeps the duck pinned); a real bus would torque-off
-    for (uint8_t i = 0; i < MDK_N_JOINTS; i++) {
+    for (uint8_t i = 0; i < NNM_N_JOINTS; i++) {
         SRV_Channels::set_output_pwm(SRV_Channel::Function(_servo_fn0 + i), 0);
     }
 }
 
 // -----------------------------------------------------------------------------
-void AP_MicroDuck::update()
+void AP_NNMixer::update()
 {
     if (!enabled()) {
         return;
@@ -358,7 +371,8 @@ void AP_MicroDuck::update()
 
     // ---- observation, trunk FLU frame, SI units, training order
     float *o = _obs;
-    if (hil_state_ok) {
+    const bool use_hil_att = hil_state_ok && _hil_att != 1;
+    if (use_hil_att) {
         WITH_SEMAPHORE(_joint_sem);
         memcpy(&o[0], _hil_gyro_flu, sizeof(_hil_gyro_flu));
         memcpy(&o[3], _hil_gravity_flu, sizeof(_hil_gravity_flu));
@@ -366,43 +380,57 @@ void AP_MicroDuck::update()
         o[0] = gyro.x;  o[1] = -gyro.y;  o[2] = -gyro.z;
         gravity_body_flu(&o[3]);
     }
+    if (use_hil_att && _hil_att == 2) {
+        // the board's own motion rides on top of the simulated body; a level,
+        // still board adds nothing because its gravity is already (0, 0, -1)
+        float board_g[3];
+        gravity_body_flu(board_g);
+        o[0] += gyro.x;  o[1] += -gyro.y;  o[2] += -gyro.z;
+        o[3] += board_g[0];
+        o[4] += board_g[1];
+        o[5] += board_g[2] + 1.0f;
+        const float n = sqrtf(o[3] * o[3] + o[4] * o[4] + o[5] * o[5]);
+        if (n > 1e-6f) {
+            o[3] /= n;  o[4] /= n;  o[5] /= n;
+        }
+    }
     {
         WITH_SEMAPHORE(_joint_sem);
-        for (uint8_t i = 0; i < MDK_N_JOINTS; i++) {
+        for (uint8_t i = 0; i < NNM_N_JOINTS; i++) {
             o[6 + i]  = _joint_pos[i] - mlp_default_pose[i];
             o[20 + i] = _joint_vel[i];
         }
     }
-    for (uint8_t i = 0; i < MDK_N_JOINTS; i++) {
+    for (uint8_t i = 0; i < NNM_N_JOINTS; i++) {
         o[34 + i] = _last_action[i];
     }
     o[48] = twist[0]; o[49] = twist[1]; o[50] = twist[2];
-    for (uint8_t i = 51; i < MDK_OBS_DIM; i++) {
+    for (uint8_t i = 51; i < NNM_OBS_DIM; i++) {
         o[i] = 0.0f;
     }
 
     // ---- policy (both networks share the observation contract and default pose)
-    static const microduck_policy_t mlp_policy = {
+    static const nnmixer_policy_t mlp_policy = {
         MLP_OBS_DIM, MLP_ACT_DIM, MLP_N_LAYERS,
         mlp_dims, mlp_act, mlp_obs_mean, mlp_obs_std, mlp_W, mlp_b,
     };
-#if AP_MICRODUCK_CARTAN_ENABLED
-    static const microduck_cartan_t cartan_policy = {
+#if AP_NNMIXER_CARTAN_ENABLED
+    static const nnmixer_cartan_t cartan_policy = {
         CARTAN_OBS_DIM, CARTAN_ACT_DIM, CARTAN_PAINT, CARTAN_N_LAYERS,
         cartan_obs_mean, cartan_obs_std, cartan_in_W, cartan_in_b,
         cartan_W, cartan_b, cartan_beta, cartan_theta, cartan_head_W, cartan_head_b, 0.1f,
     };
 #endif
-    bool ok = joints_ok && (hil_state_ok || _down_valid);
+    bool ok = joints_ok && (use_hil_att || _down_valid);
     if (ok) {
         const uint32_t t0 = wall_micros();
-#if AP_MICRODUCK_CARTAN_ENABLED
+#if AP_NNMIXER_CARTAN_ENABLED
         if (_policy == 1) {
-            ok = microduck_cartan_forward(&cartan_policy, _obs, _act) == 0;
+            ok = nnmixer_cartan_forward(&cartan_policy, _obs, _act) == 0;
         } else
 #endif
         {
-            ok = microduck_forward(&mlp_policy, _obs, _act) == 0;
+            ok = nnmixer_forward(&mlp_policy, _obs, _act) == 0;
         }
         _forward_us = wall_micros() - t0;
         if (!ok) {
@@ -411,7 +439,7 @@ void AP_MicroDuck::update()
     }
     if (ok) {
         _fail_reason = 0;
-        for (uint8_t i = 0; i < MDK_N_JOINTS; i++) {
+        for (uint8_t i = 0; i < NNM_N_JOINTS; i++) {
             _act[i] = constrain_float(_act[i], -_act_max, _act_max);
         }
     } else {
@@ -419,19 +447,30 @@ void AP_MicroDuck::update()
         memset(_act, 0, sizeof(_act));
     }
 
-    float q_target[MDK_N_JOINTS];
-    for (uint8_t i = 0; i < MDK_N_JOINTS; i++) {
+    float q_target[NNM_N_JOINTS];
+    for (uint8_t i = 0; i < NNM_N_JOINTS; i++) {
         q_target[i] = mlp_default_pose[i] + _act[i];
         _last_action[i] = _act[i];
     }
     write_servos(q_target);
+
+    // Hardware-in-the-loop transport: publish every 50 Hz policy target
+    // directly. SERVO_OUTPUT_RAW is limited to about 40 Hz on this target,
+    // which drops policy actions and changes the closed-loop dynamics.
+    if (hil_state_ok) {
+        static float hil_action[58] {};
+        static char hil_name[10] = "NNM_ACT";
+        memcpy(hil_action, q_target, sizeof(q_target));
+        mavlink_msg_debug_float_array_send(MAVLINK_COMM_0, AP_HAL::micros64(),
+                                           hil_name, uint16_t(_tick), hil_action);
+    }
 
     log_tick(twist);
     send_telemetry();
 }
 
 // -----------------------------------------------------------------------------
-void AP_MicroDuck::log_tick(const float twist[3])
+void AP_NNMixer::log_tick(const float twist[3])
 {
 #if HAL_LOGGING_ENABLED
     if (_log == 0) {
@@ -439,8 +478,8 @@ void AP_MicroDuck::log_tick(const float twist[3])
     }
     const uint64_t now = AP_HAL::micros64();
     const float *o = _obs;
-// @LoggerMessage: MDK
-// @Description: MicroDuck policy tick summary
+// @LoggerMessage: NNM
+// @Description: NNMixer policy tick summary
 // @Field: TimeUS: Time since system startup
 // @Field: Tick: policy tick counter
 // @Field: Fail: 0 ok,1 disarmed,2 no joints,3 stale joints,4 forward error
@@ -454,29 +493,29 @@ void AP_MicroDuck::log_tick(const float twist[3])
 // @Field: VX: twist vx command
 // @Field: VY: twist vy command
 // @Field: WZ: twist wz command
-    AP::logger().WriteStreaming("MDK", "TimeUS,Tick,Fail,FwdUS,GX,GY,GZ,PGX,PGY,PGZ,VX,VY,WZ",
+    AP::logger().WriteStreaming("NNM", "TimeUS,Tick,Fail,FwdUS,GX,GY,GZ,PGX,PGY,PGZ,VX,VY,WZ",
                                 "QIBIfffffffff",
                                 now, _tick, _fail_reason, _forward_us,
                                 o[0], o[1], o[2], o[3], o[4], o[5], twist[0], twist[1], twist[2]);
-// @LoggerMessage: MDKQ
-// @Description: MicroDuck joint positions relative to default pose (obs[6:20])
-    AP::logger().WriteStreaming("MDKQ", "TimeUS,Q0,Q1,Q2,Q3,Q4,Q5,Q6,Q7,Q8,Q9,Q10,Q11,Q12,Q13",
+// @LoggerMessage: NNMQ
+// @Description: NNMixer joint positions relative to default pose (obs[6:20])
+    AP::logger().WriteStreaming("NNMQ", "TimeUS,Q0,Q1,Q2,Q3,Q4,Q5,Q6,Q7,Q8,Q9,Q10,Q11,Q12,Q13",
                                 "Qffffffffffffff",
                                 now, o[6], o[7], o[8], o[9], o[10], o[11], o[12], o[13], o[14], o[15], o[16], o[17], o[18], o[19]);
-// @LoggerMessage: MDKV
-// @Description: MicroDuck joint velocities (obs[20:34])
-    AP::logger().WriteStreaming("MDKV", "TimeUS,V0,V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12,V13",
+// @LoggerMessage: NNMV
+// @Description: NNMixer joint velocities (obs[20:34])
+    AP::logger().WriteStreaming("NNMV", "TimeUS,V0,V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12,V13",
                                 "Qffffffffffffff",
                                 now, o[20], o[21], o[22], o[23], o[24], o[25], o[26], o[27], o[28], o[29], o[30], o[31], o[32], o[33]);
-// @LoggerMessage: MDKA
-// @Description: MicroDuck actions (rad offsets from default pose)
-    AP::logger().WriteStreaming("MDKA", "TimeUS,A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11,A12,A13",
+// @LoggerMessage: NNMA
+// @Description: NNMixer actions (rad offsets from default pose)
+    AP::logger().WriteStreaming("NNMA", "TimeUS,A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11,A12,A13",
                                 "Qffffffffffffff",
                                 now, _act[0], _act[1], _act[2], _act[3], _act[4], _act[5], _act[6], _act[7], _act[8], _act[9], _act[10], _act[11], _act[12], _act[13]);
 #endif
 }
 
-void AP_MicroDuck::send_telemetry()
+void AP_NNMixer::send_telemetry()
 {
     const uint32_t now = AP_HAL::millis();
     if (now - _last_telem_ms < 500) {
@@ -490,10 +529,10 @@ void AP_MicroDuck::send_telemetry()
 }
 
 namespace AP {
-    AP_MicroDuck *microduck()
+    AP_NNMixer *nnmixer()
     {
-        return AP_MicroDuck::get_singleton();
+        return AP_NNMixer::get_singleton();
     }
 };
 
-#endif // AP_MICRODUCK_ENABLED
+#endif // AP_NNMIXER_ENABLED

@@ -13,7 +13,7 @@
 #include <AP_Stats/AP_Stats.h>
 #include "AP_Torqeedo/AP_Torqeedo.h"
 #include <AP_WindVane/AP_WindVane.h>
-#include <AP_MicroDuck/AP_MicroDuck.h>
+#include <AP_NNMixer/AP_NNMixer.h>
 
 #define AP_PARAM_VEHICLE_NAME rover
 
@@ -377,9 +377,9 @@ public:
     // windvane
     AP_WindVane windvane;
 
-#if AP_MICRODUCK_ENABLED
-    // MicroDuck PPO locomotion policy (14 joint servos)
-    AP_MicroDuck microduck;
+#if AP_NNMIXER_ENABLED
+    // NNMixer PPO locomotion policy (14 joint servos)
+    AP_NNMixer nnmixer;
 #endif
 
 #if AP_MISSION_ENABLED

@@ -89,7 +89,7 @@ private:
         DATA_VECTOR3D,
         QUATERNION,
         BOOLEAN,
-        DATA_FLOAT_ARRAY14,   // 14 floats (MicroDuck joints)
+        DATA_FLOAT_ARRAY14,   // 14 floats (NNMixer joints)
     };
 
     struct {
@@ -117,7 +117,7 @@ private:
         float airspeed;
         bool no_time_sync;
         bool no_lockstep;
-        // MicroDuck extension: 14 actuated joints, training order
+        // NNMixer extension: 14 actuated joints, training order
         float joint_pos[14];
         float joint_vel[14];
     } state;
@@ -166,7 +166,7 @@ private:
         { "rc", "rc_12", &state.rc[11], DATA_FLOAT, false },
         { "battery", "voltage", &state.bat_volt, DATA_FLOAT, false },
         { "battery", "current", &state.bat_amp, DATA_FLOAT, false },
-        // MicroDuck: {"joints":{"jpos":[14],"jvel":[14]}} — keys chosen so the naive
+        // NNMixer: {"joints":{"jpos":[14],"jvel":[14]}} — keys chosen so the naive
         // parser cannot confuse them with "position"/"velocity"
         { "joints", "jpos", &state.joint_pos, DATA_FLOAT_ARRAY14, false },
         { "joints", "jvel", &state.joint_vel, DATA_FLOAT_ARRAY14, false },

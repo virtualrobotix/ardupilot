@@ -511,7 +511,7 @@ void JSON::recv_fdm(const struct sitl_input &input)
     // (temperature is not part of the protocol, just set it explicitly here)
     battery_temperature_degC = 0.0f;
 
-    // articulated joints (MicroDuck): hand them to the shared fdm state for AP_MicroDuck
+    // articulated joints (NNMixer): hand them to the shared fdm state for AP_NNMixer
     if ((received_bitmask & (JOINT_POS | JOINT_VEL)) == (JOINT_POS | JOINT_VEL) && sitl != nullptr) {
         static_assert(ARRAY_SIZE(state.joint_pos) <= SITL_NUM_JOINTS, "joint array size");
         for (uint8_t i = 0; i < ARRAY_SIZE(state.joint_pos); i++) {

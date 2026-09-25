@@ -1,9 +1,14 @@
 /*
-   AP_MicroDuck: run the MicroDuck PPO locomotion policy (61 obs -> 14 joint
-   position offsets, 50 Hz) as an ArduPilot task.
+  AP_NNMixer: neural-network mixer that runs a PPO locomotion policy
+  (61 obs -> 14 joint position offsets, 50 Hz) as an ArduPilot task.
 
-   The policy contract is fixed by training (mjlab / rsl_rl, pollen-robotics
-   microduck_rl):
+  Author: Roberto Navoni, member of the ArduPilot Dev Team
+  Contact: r.navoni74@gmail.com
+  Developed by Roberto Navoni — DelphyAI LAB
+  For information: r.navoni74@gmail.com
+
+   The policy contract is fixed by training (mjlab / rsl_rl, Pollen Robotics
+   locomotion stack):
      obs[0:3]   trunk angular velocity, rad/s, trunk FLU frame
      obs[3:6]   gravity direction in trunk frame (unit vector, stand ~ [0,0,-1])
      obs[6:20]  joint position - default pose, rad
@@ -17,28 +22,28 @@
    Everything ArduPilot-specific is an adapter: IMU frame (FRD -> FLU), an
    IMU-only gravity estimate (no EKF in the observation), joint feedback,
    sticks -> twist in SI units, and the action history. The network itself is
-   pure C (microduck_infer.c) with the training normalizer baked in, so the same
+   pure C (nnmixer_infer.c) with the training normalizer baked in, so the same
    code runs in SITL and on a microcontroller.
 */
 #pragma once
 
-#include "AP_MicroDuck_config.h"
+#include "AP_NNMixer_config.h"
 
-#if AP_MICRODUCK_ENABLED
+#if AP_NNMIXER_ENABLED
 
 #include <AP_Param/AP_Param.h>
 #include <AP_Math/AP_Math.h>
 
-#define MDK_N_JOINTS 14
-#define MDK_OBS_DIM 61
+#define NNM_N_JOINTS 14
+#define NNM_OBS_DIM 61
 
-class AP_MicroDuck {
+class AP_NNMixer {
 public:
-    AP_MicroDuck();
+    AP_NNMixer();
 
-    CLASS_NO_COPY(AP_MicroDuck);
+    CLASS_NO_COPY(AP_NNMixer);
 
-    static AP_MicroDuck *get_singleton() { return _singleton; }
+    static AP_NNMixer *get_singleton() { return _singleton; }
 
     // 50 Hz: build observation, run the policy, write the 14 servo outputs
     void update();
@@ -50,7 +55,7 @@ public:
     // in the training joint order
     void set_joint_feedback(const float *pos, const float *vel, uint8_t count);
 
-    // Hardware-HIL sample transported in MAVLink DEBUG_FLOAT_ARRAY "MDK_HIL":
+    // Hardware-HIL sample transported in MAVLink DEBUG_FLOAT_ARRAY "NNM_HIL":
     // joint state plus policy-frame IMU values (FLU).
     void set_hil_state(const float *pos, const float *vel,
                        const float *gyro_flu, const float *gravity_flu);
@@ -60,7 +65,7 @@ public:
     static const struct AP_Param::GroupInfo var_info[];
 
 private:
-    static AP_MicroDuck *_singleton;
+    static AP_NNMixer *_singleton;
 
     // parameters
     AP_Int8  _enable;
@@ -78,14 +83,15 @@ private:
     AP_Int8  _log;           // 1 = log obs/actions every tick
     AP_Int8  _hold_mode;     // vehicle mode number that forces twist = 0 (Rover HOLD = 4)
     AP_Int8  _servo_fn0;     // SRV function number of joint 1 (default k_scripting1 = 94)
+    AP_Int8  _hil_att;       // HIL attitude source: 0 = simulated body, 1 = board IMU, 2 = both
 
     // state
     bool _initialised;
     Vector3f _down_body;     // gravity (down) direction estimate, body FRD, unit
     bool _down_valid;
-    float _last_action[MDK_N_JOINTS];
-    float _joint_pos[MDK_N_JOINTS];
-    float _joint_vel[MDK_N_JOINTS];
+    float _last_action[NNM_N_JOINTS];
+    float _joint_pos[NNM_N_JOINTS];
+    float _joint_vel[NNM_N_JOINTS];
     uint32_t _joint_ms;
     uint64_t _last_joint_time_us;
     uint8_t _joint_count;
@@ -93,8 +99,8 @@ private:
     float _hil_gyro_flu[3];
     float _hil_gravity_flu[3];
     uint32_t _hil_state_ms;
-    float _obs[MDK_OBS_DIM];
-    float _act[MDK_N_JOINTS];
+    float _obs[NNM_OBS_DIM];
+    float _act[NNM_N_JOINTS];
     uint32_t _forward_us;
     uint32_t _last_telem_ms;
     uint32_t _tick;
@@ -111,7 +117,7 @@ private:
 };
 
 namespace AP {
-    AP_MicroDuck *microduck();
+    AP_NNMixer *nnmixer();
 };
 
-#endif // AP_MICRODUCK_ENABLED
+#endif // AP_NNMIXER_ENABLED

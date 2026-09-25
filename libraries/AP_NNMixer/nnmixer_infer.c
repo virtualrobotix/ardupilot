@@ -1,4 +1,8 @@
-#include "microduck_infer.h"
+// Author: Roberto Navoni, member of the ArduPilot Dev Team
+// Contact: r.navoni74@gmail.com
+// Developed by Roberto Navoni — DelphyAI LAB
+// For information: r.navoni74@gmail.com
+#include "nnmixer_infer.h"
 #include <math.h>
 
 #define CARTAN_EPS 1e-8f
@@ -18,13 +22,13 @@ static void gemv(const float *W, const float *b, const float *x, float *y, uint1
     }
 }
 
-int microduck_cartan_forward(const microduck_cartan_t *p, const float *obs, float *act)
+int nnmixer_cartan_forward(const nnmixer_cartan_t *p, const float *obs, float *act)
 {
-    static float xn[MICRODUCK_MAX_WIDTH];
-    static float f[MICRODUCK_MAX_WIDTH];      // fiber (paint)
-    static float g[MICRODUCK_MAX_WIDTH];      // scratch fiber
+    static float xn[NNMIXER_MAX_WIDTH];
+    static float f[NNMIXER_MAX_WIDTH];      // fiber (paint)
+    static float g[NNMIXER_MAX_WIDTH];      // scratch fiber
     const uint16_t q = p->paint;
-    if (p->obs_dim > MICRODUCK_MAX_WIDTH || q > MICRODUCK_MAX_WIDTH) {
+    if (p->obs_dim > NNMIXER_MAX_WIDTH || q > NNMIXER_MAX_WIDTH) {
         return -1;
     }
     for (uint16_t i = 0; i < p->obs_dim; i++) {
@@ -88,15 +92,15 @@ int microduck_cartan_forward(const microduck_cartan_t *p, const float *obs, floa
     return 0;
 }
 
-int microduck_forward(const microduck_policy_t *p, const float *obs, float *act)
+int nnmixer_forward(const nnmixer_policy_t *p, const float *obs, float *act)
 {
-    static float bufA[MICRODUCK_MAX_WIDTH];
-    static float bufB[MICRODUCK_MAX_WIDTH];
-    if (p->obs_dim > MICRODUCK_MAX_WIDTH || p->dims[0] != p->obs_dim || p->dims[p->n_layers] != p->act_dim) {
+    static float bufA[NNMIXER_MAX_WIDTH];
+    static float bufB[NNMIXER_MAX_WIDTH];
+    if (p->obs_dim > NNMIXER_MAX_WIDTH || p->dims[0] != p->obs_dim || p->dims[p->n_layers] != p->act_dim) {
         return -1;
     }
     for (uint8_t i = 1; i < p->n_layers; i++) {
-        if (p->dims[i] > MICRODUCK_MAX_WIDTH) {
+        if (p->dims[i] > NNMIXER_MAX_WIDTH) {
             return -1;
         }
     }
