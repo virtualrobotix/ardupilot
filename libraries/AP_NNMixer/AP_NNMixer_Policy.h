@@ -39,7 +39,8 @@ enum class NNM_RobotId : uint8_t {
     UPKIE = 5,
     REX = 6,
     YERTLE = 7,
-    COUNT = 8
+    ALBERT = 8,
+    COUNT = 9
 };
 
 const char *nnm_robot_name(NNM_RobotId id);

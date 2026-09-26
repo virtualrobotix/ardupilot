@@ -58,8 +58,8 @@ const AP_Param::GroupInfo AP_NNMixer::var_info[] = {
 
     // @Param: ROBOT
     // @DisplayName: Robot topology (boot)
-    // @Description: Selects /APM/nnm/<name>/robot.bin. Requires reboot. 0 MicroDuck, 1 Microban, 2 Zeroth, 3 Bimo, 4 Legolas, 5 Upkie, 6 Rex, 7 Yertle
-    // @Values: 0:MicroDuck,1:Microban,2:Zeroth,3:Bimo,4:Legolas,5:Upkie,6:Rex,7:Yertle
+    // @Description: Selects /APM/nnm/<name>/robot.bin. Requires reboot. 0 MicroDuck, 1 Microban, 2 Zeroth, 3 Bimo, 4 Legolas, 5 Upkie, 6 Rex, 7 Yertle, 8 AlbertPro
+    // @Values: 0:MicroDuck,1:Microban,2:Zeroth,3:Bimo,4:Legolas,5:Upkie,6:Rex,7:Yertle,8:AlbertPro
     // @User: Advanced
     // @RebootRequired: True
     AP_GROUPINFO("ROBOT", 17, AP_NNMixer, _robot, 0),
