@@ -24,6 +24,7 @@ const char *nnm_robot_name(NNM_RobotId id)
     case NNM_RobotId::YERTLE:    return "yertle";
     case NNM_RobotId::ALBERT:    return "albert";
     case NNM_RobotId::OPENDUCK:  return "openduck";
+    case NNM_RobotId::FREENOVE:  return "freenove";
     default:                     return nullptr;
     }
 }
