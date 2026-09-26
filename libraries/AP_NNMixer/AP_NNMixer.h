@@ -1,29 +1,12 @@
 /*
   AP_NNMixer: neural-network mixer that runs a PPO locomotion policy
-  (61 obs -> 14 joint position offsets, 50 Hz) as an ArduPilot task.
+  as an ArduPilot task. Robot topology is fixed at boot; policies for
+  that robot are loaded from SD into dual int8 RAM slots.
 
   Author: Roberto Navoni, member of the ArduPilot Dev Team
   Contact: r.navoni74@gmail.com
   Developed by Roberto Navoni — DelphyAI LAB
   For information: r.navoni74@gmail.com
-
-   The policy contract is fixed by training (mjlab / rsl_rl, Pollen Robotics
-   locomotion stack):
-     obs[0:3]   trunk angular velocity, rad/s, trunk FLU frame
-     obs[3:6]   gravity direction in trunk frame (unit vector, stand ~ [0,0,-1])
-     obs[6:20]  joint position - default pose, rad
-     obs[20:34] joint velocity, rad/s
-     obs[34:48] previous action (as applied), rad
-     obs[48:51] twist command vx, vy (m/s), wz (rad/s)
-     obs[51:55] head pose command (rad)      -> 0 here
-     obs[55:61] body pose command (m, rad)   -> 0 here
-     act[14]    q_target = default_pose + act, rad
-
-   Everything ArduPilot-specific is an adapter: IMU frame (FRD -> FLU), an
-   IMU-only gravity estimate (no EKF in the observation), joint feedback,
-   sticks -> twist in SI units, and the action history. The network itself is
-   pure C (nnmixer_infer.c) with the training normalizer baked in, so the same
-   code runs in SITL and on a microcontroller.
 */
 #pragma once
 
@@ -31,11 +14,9 @@
 
 #if AP_NNMIXER_ENABLED
 
+#include "AP_NNMixer_Policy.h"
 #include <AP_Param/AP_Param.h>
 #include <AP_Math/AP_Math.h>
-
-#define NNM_N_JOINTS 14
-#define NNM_OBS_DIM 61
 
 class AP_NNMixer {
 public:
@@ -45,53 +26,55 @@ public:
 
     static AP_NNMixer *get_singleton() { return _singleton; }
 
-    // 50 Hz: build observation, run the policy, write the 14 servo outputs
+    // policy rate (typically 50 Hz): observation, forward, servos
     void update();
 
-    // 400 Hz: IMU-only gravity direction filter (gyro propagation + accel correction)
+    // IMU-only gravity filter at loop rate
     void update_attitude();
 
-    // joint feedback from the actuator bus (or the SITL plant), rad / rad/s,
-    // in the training joint order
     void set_joint_feedback(const float *pos, const float *vel, uint8_t count);
 
-    // Hardware-HIL sample transported in MAVLink DEBUG_FLOAT_ARRAY "NNM_HIL":
-    // joint state plus policy-frame IMU values (FLU).
     void set_hil_state(const float *pos, const float *vel,
                        const float *gyro_flu, const float *gravity_flu);
 
+    // Called by Rover for GUIDED/AUTO/RTL/SMART_RTL desired body twist (SI).
+    void set_nav_twist(float vx, float vy, float wz);
+
     bool enabled() const { return _enable != 0; }
+
+    uint16_t n_joints() const { return _topo.valid ? _topo.n_joints : 0; }
+    uint16_t obs_dim() const { return _topo.valid ? _topo.obs_dim : 0; }
 
     static const struct AP_Param::GroupInfo var_info[];
 
 private:
     static AP_NNMixer *_singleton;
 
-    // parameters
     AP_Int8  _enable;
-    AP_Int8  _policy;        // 0 = MLP (Cartan reserved for 1)
-    AP_Float _vx_max;        // m/s at full stick
-    AP_Float _vy_max;        // m/s at full stick
-    AP_Float _wz_max;        // rad/s at full stick
-    AP_Int16 _wd_ms;         // joint feedback watchdog
-    AP_Int8  _att_src;       // 0 = internal gravity filter, 1 = AHRS quaternion
-    AP_Float _att_tau;       // s, accel correction time constant
-    AP_Int8  _rc_vx;         // RC channel (1-based) for vx
+    AP_Int8  _robot;         // NNM_RobotId, reboot to apply
+    AP_Int8  _policy;        // index into /APM/nnm/<id>/policies/*.nnm (0 = default)
+    AP_Float _vx_max;
+    AP_Float _vy_max;
+    AP_Float _wz_max;
+    AP_Int16 _wd_ms;
+    AP_Int8  _att_src;
+    AP_Float _att_tau;
+    AP_Int8  _rc_vx;
     AP_Int8  _rc_vy;
     AP_Int8  _rc_wz;
-    AP_Float _act_max;       // clip |action| (rad)
-    AP_Int8  _log;           // 1 = log obs/actions every tick
-    AP_Int8  _hold_mode;     // vehicle mode number that forces twist = 0 (Rover HOLD = 4)
-    AP_Int8  _servo_fn0;     // SRV function number of joint 1 (default k_scripting1 = 94)
-    AP_Int8  _hil_att;       // HIL attitude source: 0 = simulated body, 1 = board IMU, 2 = both
+    AP_Float _act_max;
+    AP_Int8  _log;
+    AP_Int8  _hold_mode;
+    AP_Int8  _servo_fn0;
+    AP_Int8  _hil_att;
+    AP_Int16 _blend_ms;      // cross-fade duration on policy switch
 
-    // state
     bool _initialised;
-    Vector3f _down_body;     // gravity (down) direction estimate, body FRD, unit
+    Vector3f _down_body;
     bool _down_valid;
-    float _last_action[NNM_N_JOINTS];
-    float _joint_pos[NNM_N_JOINTS];
-    float _joint_vel[NNM_N_JOINTS];
+    float _last_action[NNM_MAX_JOINTS];
+    float _joint_pos[NNM_MAX_JOINTS];
+    float _joint_vel[NNM_MAX_JOINTS];
     uint32_t _joint_ms;
     uint64_t _last_joint_time_us;
     uint8_t _joint_count;
@@ -99,14 +82,32 @@ private:
     float _hil_gyro_flu[3];
     float _hil_gravity_flu[3];
     uint32_t _hil_state_ms;
-    float _obs[NNM_OBS_DIM];
-    float _act[NNM_N_JOINTS];
+    float _obs[NNM_MAX_OBS];
+    float _act[NNM_MAX_JOINTS];
+    float _act_blend_from[NNM_MAX_JOINTS];
+    uint32_t _blend_start_ms;
+    bool _blending;
+    float _nav_twist[3];
+    uint32_t _nav_twist_ms;
     uint32_t _forward_us;
     uint32_t _last_telem_ms;
     uint32_t _tick;
-    uint8_t _fail_reason;    // 0 ok, 1 disarmed, 2 no joints, 3 stale joints, 4 forward err, 5 disabled
+    uint8_t _fail_reason;
+    int8_t _loaded_policy_idx;
+    int8_t _pending_policy_idx;
+
+    NNM_RobotTopology _topo;
+    NNM_PolicySlot _slot[2];
+    uint8_t _active_slot;   // 0 or 1
+    bool _use_sd_policy;    // true when int8 slot is active
+    bool _use_baked_mlp;    // float32 fallback (MicroDuck)
 
     void init();
+    bool load_robot_topology();
+    bool ensure_slots_allocated();
+    bool load_policy_index(int8_t index, uint8_t into_slot);
+    void request_policy_switch(int8_t index);
+    void service_policy_switch();
     bool read_joint_feedback();
     void read_twist(float twist[3]);
     void gravity_body_flu(float g[3]);
@@ -114,10 +115,11 @@ private:
     void write_idle_servos();
     void log_tick(const float twist[3]);
     void send_telemetry();
+    const float *default_pose() const;
 };
 
 namespace AP {
     AP_NNMixer *nnmixer();
-};
+}
 
 #endif // AP_NNMIXER_ENABLED

@@ -8,16 +8,19 @@
 
 #include <AP_HAL/AP_HAL_Boards.h>
 
-// NNMixer PPO policy task. Enabled on SITL by default; boards must opt in
-// (the MLP weights are ~770 KB of flash as float32).
+// NNMixer PPO policy task. Enabled on SITL by default; boards must opt in.
 #ifndef AP_NNMIXER_ENABLED
 #define AP_NNMIXER_ENABLED (CONFIG_HAL_BOARD == HAL_BOARD_SITL)
 #endif
 
-// Second network (Cartan + DiLU, ~500 KB float32) selectable with NNM_POLICY 1.
-// Boards short on flash compile only the MLP.
+// Second network (Cartan + DiLU). Boards short on flash compile only the MLP.
 #ifndef AP_NNMIXER_CARTAN_ENABLED
-#define AP_NNMIXER_CARTAN_ENABLED AP_NNMIXER_ENABLED
+#define AP_NNMIXER_CARTAN_ENABLED 0
+#endif
+
+// Float32 MLP baked in flash as fallback when SD has no policy (MicroDuck).
+#ifndef AP_NNMIXER_BAKED_MLP_ENABLED
+#define AP_NNMIXER_BAKED_MLP_ENABLED AP_NNMIXER_ENABLED
 #endif
 
 // Joint feedback source: SITL reads the plant's joints from the SIM_JSON backend

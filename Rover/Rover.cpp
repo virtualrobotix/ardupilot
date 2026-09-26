@@ -523,6 +523,16 @@ void Rover::update_current_mode(void)
     }
 
     control_mode->update();
+
+#if AP_NNMIXER_ENABLED
+    // Feed desired body twist to NNMixer for GUIDED/AUTO/RTL/SMART_RTL.
+    // MANUAL/HOLD are handled inside AP_NNMixer::read_twist().
+    if (g2.nnmixer.enabled()) {
+        const float vx = g2.attitude_control.get_desired_speed();
+        const float wz = g2.attitude_control.get_desired_turn_rate();
+        g2.nnmixer.set_nav_twist(vx, 0.0f, wz);
+    }
+#endif
 }
 
 // vehicle specific waypoint info helpers

@@ -32,6 +32,29 @@ typedef struct {
 // obs[obs_dim] raw SI observations -> act[act_dim]. Returns 0 on success, -1 on shape error.
 int nnmixer_forward(const nnmixer_policy_t *p, const float *obs, float *act);
 
+// Int8 weights with per-row W scales and float32 bias (matches tools/robots/export_nnm.py).
+// W[l] is dims[l+1] x dims[l] row-major int8; w_scale[l] has dims[l+1] floats.
+#ifndef NNMIXER_MAX_LAYERS
+#define NNMIXER_MAX_LAYERS 8
+#endif
+
+typedef struct {
+    uint16_t obs_dim;
+    uint16_t act_dim;
+    uint8_t n_layers;
+    uint8_t flags;               // bit0=int8, bit1=per-row scale
+    const uint16_t *dims;        // n_layers+1
+    const uint8_t *act;          // n_layers: 1 = ELU
+    const float *obs_mean;
+    const float *obs_std;
+    const float *default_pose;   // act_dim (may be null)
+    const int8_t *const *W;      // n_layers
+    const float *const *w_scale; // n_layers, each dims[l+1]
+    const float *const *b;       // n_layers, each dims[l+1] float32
+} nnmixer_policy_int8_t;
+
+int nnmixer_forward_int8(const nnmixer_policy_int8_t *p, const float *obs, float *act);
+
 // Cartan Network + DiLU (arXiv:2505.24353), export-safe variant used in training:
 // embed -> n_layers x CartanLinear (paint GEMM, left translation beta, fiber rotation theta,
 // DiLU on the fiber except after the last layer) -> Euclidean readout -> head.

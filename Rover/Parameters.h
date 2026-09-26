@@ -378,7 +378,7 @@ public:
     AP_WindVane windvane;
 
 #if AP_NNMIXER_ENABLED
-    // NNMixer PPO locomotion policy (14 joint servos)
+    // NNMixer PPO locomotion policy (topology + dual int8 SD policy slots)
     AP_NNMixer nnmixer;
 #endif
 

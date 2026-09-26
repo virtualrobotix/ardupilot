@@ -4,6 +4,7 @@
 // For information: r.navoni74@gmail.com
 #include "nnmixer_infer.h"
 #include <math.h>
+#include <stddef.h>
 
 #define CARTAN_EPS 1e-8f
 
@@ -121,6 +122,49 @@ int nnmixer_forward(const nnmixer_policy_t *p, const float *obs, float *act)
             float acc = b[o];
             for (uint16_t i = 0; i < n_in; i++) {
                 acc += w[i] * x[i];
+            }
+            dst[o] = p->act[l] ? elu1(acc) : acc;
+        }
+        if (dst != act) {
+            float *t = x; x = y; y = t;
+        }
+    }
+    return 0;
+}
+
+int nnmixer_forward_int8(const nnmixer_policy_int8_t *p, const float *obs, float *act)
+{
+    static float bufA[NNMIXER_MAX_WIDTH];
+    static float bufB[NNMIXER_MAX_WIDTH];
+    if (p == NULL || p->n_layers == 0 || p->n_layers > NNMIXER_MAX_LAYERS) {
+        return -1;
+    }
+    if (p->obs_dim > NNMIXER_MAX_WIDTH || p->dims[0] != p->obs_dim || p->dims[p->n_layers] != p->act_dim) {
+        return -1;
+    }
+    for (uint8_t i = 1; i < p->n_layers; i++) {
+        if (p->dims[i] > NNMIXER_MAX_WIDTH) {
+            return -1;
+        }
+    }
+    float *x = bufA;
+    float *y = bufB;
+    for (uint16_t i = 0; i < p->obs_dim; i++) {
+        x[i] = (obs[i] - p->obs_mean[i]) / p->obs_std[i];
+    }
+    for (uint8_t l = 0; l < p->n_layers; l++) {
+        const uint16_t n_in = p->dims[l];
+        const uint16_t n_out = p->dims[l + 1];
+        const int8_t *W = p->W[l];
+        const float *scale = p->w_scale[l];
+        const float *b = p->b[l];
+        float *dst = (l == p->n_layers - 1) ? act : y;
+        for (uint16_t o = 0; o < n_out; o++) {
+            const int8_t *w = W + (uint32_t)o * n_in;
+            float acc = b[o];
+            const float s = scale[o];
+            for (uint16_t i = 0; i < n_in; i++) {
+                acc += (float)w[i] * s * x[i];
             }
             dst[o] = p->act[l] ? elu1(acc) : acc;
         }
