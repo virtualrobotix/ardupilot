@@ -120,7 +120,10 @@ AP_NNMixer::AP_NNMixer()
     _use_sd_policy = false;
     _use_baked_mlp = false;
     _loaded_policy_idx = -1;
-    _pending_policy_idx = -1;
+    _load_state = LoadState::IDLE;
+    _rejected_idx = -1;
+    _last_want = -1;
+    _io_registered = false;
     _blending = false;
 }
 
@@ -193,6 +196,12 @@ bool AP_NNMixer::load_robot_topology()
         GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "NNMixer: bad robot.bin for %s", name);
         return false;
     }
+    // the policy task runs at 50 Hz; the robot rate must be an integer divisor of it
+    if (_topo.rate_hz == 0 || 50 % _topo.rate_hz != 0) {
+        GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "NNMixer: rate %u Hz does not divide 50", unsigned(_topo.rate_hz));
+        _topo.valid = false;
+        return false;
+    }
     // Param servo offset may override the file
     if (_servo_fn0.get() > 0) {
         _topo.servo_fn0 = uint16_t(_servo_fn0.get());
@@ -202,12 +211,11 @@ bool AP_NNMixer::load_robot_topology()
     return true;
 }
 
+// Reads /APM/nnm/<robot>/policies/<index-th .nnm> into a slot. Touches only that slot, so it
+// runs on the IO thread while the policy task keeps using the other slot.
 bool AP_NNMixer::load_policy_index(int8_t index, uint8_t into_slot)
 {
-    if (!_topo.valid || into_slot > 1) {
-        return false;
-    }
-    if (!ensure_slots_allocated()) {
+    if (!_topo.valid || into_slot > 1 || _slot[into_slot].blob == nullptr) {
         return false;
     }
     const char *name = _topo.robot_id;
@@ -220,16 +228,7 @@ bool AP_NNMixer::load_policy_index(int8_t index, uint8_t into_slot)
         dir = AP::FS().opendir(dirpath);
     }
     if (dir == nullptr) {
-#if AP_NNMIXER_BAKED_MLP_ENABLED
-        if (_robot == 0 && index == 0) {
-            _use_baked_mlp = true;
-            _use_sd_policy = false;
-            _loaded_policy_idx = 0;
-            GCS_SEND_TEXT(MAV_SEVERITY_INFO, "NNMixer: using baked MLP (no SD policies)");
-            return true;
-        }
-#endif
-        GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "NNMixer: no policies dir %s", dirpath);
+        GCS_SEND_TEXT(MAV_SEVERITY_WARNING, "NNMixer: no %s/policies", name);
         return false;
     }
 
@@ -257,19 +256,11 @@ bool AP_NNMixer::load_policy_index(int8_t index, uint8_t into_slot)
     AP::FS().closedir(dir);
 
     if (nfiles == 0) {
-#if AP_NNMIXER_BAKED_MLP_ENABLED
-        if (_robot == 0 && index == 0) {
-            _use_baked_mlp = true;
-            _use_sd_policy = false;
-            _loaded_policy_idx = 0;
-            return true;
-        }
-#endif
+        GCS_SEND_TEXT(MAV_SEVERITY_WARNING, "NNMixer: no .nnm for %s", name);
         return false;
     }
     if (index < 0 || index >= int8_t(nfiles)) {
-        GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "NNMixer: policy index %d out of range 0..%u",
-                      int(index), unsigned(nfiles - 1));
+        GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "NNMixer: policy %d not in 0..%u", int(index), unsigned(nfiles - 1));
         return false;
     }
 
@@ -277,56 +268,84 @@ bool AP_NNMixer::load_policy_index(int8_t index, uint8_t into_slot)
     hal.util->snprintf(path, sizeof(path), "%s/%s", dirpath, names[index]);
     auto *fd = AP::FS().load_file(path);
     if (fd == nullptr) {
-        GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "NNMixer: cannot read %s", path);
+        GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "NNMixer: cannot read %s", names[index]);
         return false;
     }
     const bool ok = nnm_parse_policy_nnm(fd->data, fd->length, _topo, _slot[into_slot]);
     delete fd;
     if (!ok) {
-        GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "NNMixer: rejected %s (robot/dims mismatch)", path);
+        GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "NNMixer: rejected %s", names[index]);
         return false;
     }
-    _use_sd_policy = true;
-    _use_baked_mlp = false;
-    GCS_SEND_TEXT(MAV_SEVERITY_INFO, "NNMixer: loaded %s into slot %u", path, unsigned(into_slot));
+    GCS_SEND_TEXT(MAV_SEVERITY_INFO, "NNMixer: slot %u <- %s", unsigned(into_slot), names[index]);
     return true;
 }
 
-void AP_NNMixer::request_policy_switch(int8_t index)
+// IO thread: fill the free slot on request; never touches the active slot
+void AP_NNMixer::io_update()
 {
-    if (index == _loaded_policy_idx && _use_sd_policy) {
-        return;
+    int8_t idx;
+    uint8_t slot;
+    {
+        WITH_SEMAPHORE(_load_sem);
+        if (_load_state != LoadState::REQUESTED) {
+            return;
+        }
+        idx = _load_idx;
+        slot = _load_slot;
+        _load_state = LoadState::LOADING;
     }
-    _pending_policy_idx = index;
+    const bool ok = load_policy_index(idx, slot);
+    WITH_SEMAPHORE(_load_sem);
+    _load_state = ok ? LoadState::DONE_OK : LoadState::DONE_FAIL;
 }
 
+// policy task: request loads and flip slots only while standing still (disarmed or HOLD)
 void AP_NNMixer::service_policy_switch()
 {
-    if (_pending_policy_idx < 0) {
-        return;
-    }
-    // Only switch while disarmed, HOLD, or near-zero twist (safe)
     const AP_Vehicle *veh = AP::vehicle();
     const uint8_t mode = (veh != nullptr) ? veh->get_mode() : kModeHold;
     const bool disarmed = !hal.util->get_soft_armed();
     const bool hold = (_hold_mode >= 0 && mode == uint8_t(_hold_mode)) || mode == kModeHold;
-    if (!disarmed && !hold) {
-        // defer
+    const bool allowed = disarmed || hold;
+
+    const int8_t want = int8_t(_policy.get());
+    if (want != _last_want) {
+        _last_want = want;
+        _rejected_idx = -1;
+    }
+
+    WITH_SEMAPHORE(_load_sem);
+    switch (_load_state) {
+    case LoadState::REQUESTED:
+    case LoadState::LOADING:
+        return;
+    case LoadState::DONE_FAIL:
+        _rejected_idx = _load_idx;
+        _load_state = LoadState::IDLE;
+        return;
+    case LoadState::DONE_OK:
+        if (!allowed) {
+            return;
+        }
+        memcpy(_act_blend_from, _last_action, sizeof(_act_blend_from));
+        _blend_start_ms = AP_HAL::millis();
+        _blending = !disarmed;
+        _active_slot = _load_slot;
+        _loaded_policy_idx = _load_idx;
+        _use_sd_policy = true;
+        _use_baked_mlp = false;
+        _load_state = LoadState::IDLE;
+        return;
+    case LoadState::IDLE:
+        break;
+    }
+    if (want == _loaded_policy_idx || want == _rejected_idx || !allowed) {
         return;
     }
-    const uint8_t free_slot = _active_slot ^ 1;
-    const int8_t idx = _pending_policy_idx;
-    if (!load_policy_index(idx, free_slot)) {
-        _pending_policy_idx = -1;
-        return;
-    }
-    // Start blend from current action toward new policy
-    memcpy(_act_blend_from, _last_action, sizeof(_act_blend_from));
-    _blend_start_ms = AP_HAL::millis();
-    _blending = true;
-    _active_slot = free_slot;
-    _loaded_policy_idx = idx;
-    _pending_policy_idx = -1;
+    _load_idx = want;
+    _load_slot = _active_slot ^ 1;
+    _load_state = LoadState::REQUESTED;
 }
 
 void AP_NNMixer::init()
@@ -347,29 +366,38 @@ void AP_NNMixer::init()
     memset(_act, 0, sizeof(_act));
     _blending = false;
 
+    _load_state = LoadState::IDLE;
+    _last_want = int8_t(_policy.get());
+    _rejected_idx = -1;
     if (!load_robot_topology()) {
         _initialised = true;
         GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "NNMixer: init failed (no topology)");
         return;
     }
-    if (_use_baked_mlp) {
-        _loaded_policy_idx = 0;
-    } else if (load_policy_index(_policy.get(), 0)) {
+    // boot load runs here, disarmed, before the task drives anything; later loads use the IO thread
+    if (!_use_baked_mlp && ensure_slots_allocated() && load_policy_index(_policy.get(), 0)) {
         _active_slot = 0;
         _loaded_policy_idx = _policy.get();
+        _use_sd_policy = true;
     } else {
 #if AP_NNMIXER_BAKED_MLP_ENABLED
         if (_robot == 0) {
             _use_baked_mlp = true;
-            _loaded_policy_idx = 0;
-            GCS_SEND_TEXT(MAV_SEVERITY_WARNING, "NNMixer: falling back to baked MLP");
+            _use_sd_policy = false;
+            _loaded_policy_idx = _policy.get() == 0 ? 0 : -1;
         }
 #endif
+        if (!_use_baked_mlp && !_use_sd_policy) {
+            _rejected_idx = _last_want;
+        }
+    }
+    if (!_io_registered) {
+        hal.scheduler->register_io_process(FUNCTOR_BIND_MEMBER(&AP_NNMixer::io_update, void));
+        _io_registered = true;
     }
     _initialised = true;
-    GCS_SEND_TEXT(MAV_SEVERITY_INFO, "NNMixer: ready robot=%s policy=%d sd=%d baked=%d",
-                  _topo.robot_id, int(_loaded_policy_idx),
-                  int(_use_sd_policy), int(_use_baked_mlp));
+    GCS_SEND_TEXT(MAV_SEVERITY_INFO, "NNMixer: %s policy %d %s", _topo.robot_id, int(_loaded_policy_idx),
+                  _use_sd_policy ? "int8 SD" : (_use_baked_mlp ? "float32 flash" : "none"));
 }
 
 const float *AP_NNMixer::default_pose() const
@@ -559,14 +587,15 @@ void AP_NNMixer::update()
     }
     _tick++;
 
-    // Hot policy index change
-    if (_policy.get() != _loaded_policy_idx && _pending_policy_idx < 0) {
-        request_policy_switch(_policy.get());
-    }
     service_policy_switch();
 
     if (!_topo.valid) {
         _fail_reason = 5;
+        return;
+    }
+    // robots trained below 50 Hz tick every rate_div task runs; servo outputs hold in between
+    const uint8_t rate_div = uint8_t(50 / _topo.rate_hz);
+    if (rate_div > 1 && (_tick % rate_div) != 0) {
         return;
     }
 

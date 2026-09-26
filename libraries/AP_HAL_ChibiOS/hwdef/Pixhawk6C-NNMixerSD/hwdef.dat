@@ -1,0 +1,11 @@
+# Pixhawk 6C / 6C Mini, AP_NNMixer with policies from the microSD only.
+# Same as Pixhawk6C-NNMixer without the float32 MicroDuck MLP in flash (~790 KB freed).
+# Author: Roberto Navoni, member of the ArduPilot Dev Team
+# Contact: r.navoni74@gmail.com
+# Developed by Roberto Navoni — DelphyAI LAB
+# For information: r.navoni74@gmail.com
+
+include ../Pixhawk6C-NNMixer/hwdef.dat
+
+undef AP_NNMIXER_BAKED_MLP_ENABLED
+define AP_NNMIXER_BAKED_MLP_ENABLED 0

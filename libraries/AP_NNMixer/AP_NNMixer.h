@@ -94,7 +94,16 @@ private:
     uint32_t _tick;
     uint8_t _fail_reason;
     int8_t _loaded_policy_idx;
-    int8_t _pending_policy_idx;
+
+    // SD -> RAM load of the free slot, done on the IO thread
+    enum class LoadState : uint8_t { IDLE, REQUESTED, LOADING, DONE_OK, DONE_FAIL };
+    HAL_Semaphore _load_sem;
+    LoadState _load_state;
+    int8_t _load_idx;
+    uint8_t _load_slot;
+    int8_t _rejected_idx;    // file refused for this NNM_POLICY value; not retried until it changes
+    int8_t _last_want;
+    bool _io_registered;
 
     NNM_RobotTopology _topo;
     NNM_PolicySlot _slot[2];
@@ -106,8 +115,8 @@ private:
     bool load_robot_topology();
     bool ensure_slots_allocated();
     bool load_policy_index(int8_t index, uint8_t into_slot);
-    void request_policy_switch(int8_t index);
     void service_policy_switch();
+    void io_update();
     bool read_joint_feedback();
     void read_twist(float twist[3]);
     void gravity_body_flu(float g[3]);
