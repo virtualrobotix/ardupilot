@@ -100,6 +100,22 @@ const AP_Param::GroupInfo AP_NNMixer::var_info[] = {
     // @User: Advanced
     AP_GROUPINFO("CLOCK_HZ", 19, AP_NNMixer, _clock_hz, 0.0f),
 
+    // @Param: POSE_WD
+    // @DisplayName: Pose-command watchdog
+    // @Description: Age limit for a MAVLink NNM_POSE stream (DEBUG_FLOAT_ARRAY). While fresh, the eight channels after the clock are low-pass filtered into the observation. When stale, they ease to zero (rest pose) with the same filter — never a hard cut.
+    // @Units: ms
+    // @Range: 50 5000
+    // @User: Advanced
+    AP_GROUPINFO("POSE_WD", 20, AP_NNMixer, _pose_wd_ms, 500),
+
+    // @Param: POSE_TAU
+    // @DisplayName: Pose-command low-pass time constant
+    // @Description: First-order filter on the NNM_POSE channels before they enter the observation. Matches the pose_cmd training domain.
+    // @Units: s
+    // @Range: 0.02 1.0
+    // @User: Advanced
+    AP_GROUPINFO("POSE_TAU", 21, AP_NNMixer, _pose_tau, 0.15f),
+
     AP_GROUPEND
 };
 
@@ -134,6 +150,10 @@ AP_NNMixer::AP_NNMixer()
     _io_registered = false;
     _blending = false;
     _clock_phase = 0.0f;
+    _pose_n = 0;
+    _pose_ms = 0;
+    memset(_pose_cmd, 0, sizeof(_pose_cmd));
+    memset(_pose_filt, 0, sizeof(_pose_filt));
 }
 
 void AP_NNMixer::set_nav_twist(float vx, float vy, float wz)
@@ -142,6 +162,25 @@ void AP_NNMixer::set_nav_twist(float vx, float vy, float wz)
     _nav_twist[1] = vy;
     _nav_twist[2] = wz;
     _nav_twist_ms = AP_HAL::millis();
+}
+
+void AP_NNMixer::set_pose_cmd(const float *values, uint8_t n)
+{
+    if (values == nullptr || n == 0) {
+        return;
+    }
+    // contract ranges: arms offsets, knee_bend 0..0.55, sway ±0.15
+    static const float lo[8] = {-1.55f, -1.15f, -1.35f, -1.55f, -0.05f, -1.35f, 0.0f, -0.15f};
+    static const float hi[8] = { 0.15f,  0.05f, -0.05f,  0.15f,  1.15f, -0.05f, 0.55f,  0.15f};
+    WITH_SEMAPHORE(_pose_sem);
+    _pose_n = MIN(n, (uint8_t)8);
+    for (uint8_t i = 0; i < _pose_n; i++) {
+        _pose_cmd[i] = constrain_float(values[i], lo[i], hi[i]);
+    }
+    for (uint8_t i = _pose_n; i < 8; i++) {
+        _pose_cmd[i] = 0.0f;
+    }
+    _pose_ms = AP_HAL::millis();
 }
 
 bool AP_NNMixer::ensure_slots_allocated()
@@ -675,6 +714,29 @@ void AP_NNMixer::update()
     } else {
         _clock_phase = 0.0f;
     }
+    // pose teleop: channels after the clock (twist_off+5 ..). Fresh NNM_POSE is filtered in;
+    // when the watchdog expires the same filter eases to zero (rest), never a hard jump.
+    if (twist_off + 6 <= od) {
+        const uint16_t n_pose = MIN((uint16_t)(od - (twist_off + 5)), (uint16_t)8);
+        const float dt = float(rate_div) / 50.0f;
+        const float tau = MAX(_pose_tau, 0.02f);
+        const float alpha = MIN(1.0f, dt / tau);
+        float target[8] {};
+        {
+            WITH_SEMAPHORE(_pose_sem);
+            const bool fresh = (_pose_ms != 0) &&
+                               (AP_HAL::millis() - _pose_ms <= (uint32_t)MAX(int16_t(_pose_wd_ms), 50));
+            if (fresh) {
+                for (uint16_t i = 0; i < n_pose; i++) {
+                    target[i] = _pose_cmd[i];
+                }
+            }
+        }
+        for (uint16_t i = 0; i < n_pose; i++) {
+            _pose_filt[i] += alpha * (target[i] - _pose_filt[i]);
+            o[twist_off + 5 + i] = _pose_filt[i];
+        }
+    }
 
     bool ok = joints_ok && (use_hil_att || _down_valid) && (_use_sd_policy || _use_baked_mlp);
     if (ok) {
@@ -775,6 +837,9 @@ void AP_NNMixer::send_telemetry()
     gcs().send_named_float("PPO_VX", (twist_off < NNM_MAX_OBS) ? _obs[twist_off] : 0.0f);
     gcs().send_named_float("PPO_FAIL", float(_fail_reason));
     gcs().send_named_float("PPO_SLOT", float(_active_slot));
+    // first filtered pose-command channel (right shoulder pitch): shows the NNM_POSE stream and
+    // the watchdog decay from the GCS
+    gcs().send_named_float("PPO_POSE0", _pose_filt[0]);
 }
 
 namespace AP {

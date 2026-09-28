@@ -16,7 +16,8 @@
 #include <stdint.h>
 
 #ifndef NNM_MAX_JOINTS
-#define NNM_MAX_JOINTS 16
+// Microban has 18 DOF; leave headroom for similar bipeds
+#define NNM_MAX_JOINTS 20
 #endif
 #ifndef NNM_MAX_OBS
 #define NNM_MAX_OBS 96

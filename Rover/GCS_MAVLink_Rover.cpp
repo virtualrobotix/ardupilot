@@ -562,12 +562,26 @@ void GCS_MAVLINK_Rover::handle_message(const mavlink_message_t &msg)
     case MAVLINK_MSG_ID_DEBUG_FLOAT_ARRAY: {
         mavlink_debug_float_array_t packet;
         mavlink_msg_debug_float_array_decode(&msg, &packet);
+        AP_NNMixer *nnmixer = AP::nnmixer();
+        if (nnmixer == nullptr) {
+            break;
+        }
         if (strncmp(packet.name, "NNM_HIL", 7) == 0) {
-            AP_NNMixer *nnmixer = AP::nnmixer();
-            if (nnmixer != nullptr) {
-                // data: q[14], qd[14], gyro FLU[3], projected gravity FLU[3]
-                nnmixer->set_hil_state(&packet.data[0], &packet.data[14],
-                                         &packet.data[28], &packet.data[31]);
+            // data: q[14], qd[14], gyro FLU[3], projected gravity FLU[3]
+            nnmixer->set_hil_state(&packet.data[0], &packet.data[14],
+                                     &packet.data[28], &packet.data[31]);
+        } else if (strncmp(packet.name, "NNM_POSE", 8) == 0) {
+            // pose teleop: up to 8 channels after twist+clock (obs_dim - twist_off - 5)
+            const uint16_t od = nnmixer->obs_dim();
+            const uint16_t nj = nnmixer->n_joints();
+            const uint16_t twist_off = uint16_t(6u + 3u * nj);
+            uint8_t n = 0;
+            if (od > twist_off + 5) {
+                const uint16_t avail = uint16_t(od - (twist_off + 5));
+                n = uint8_t(avail < 8u ? avail : 8u);
+            }
+            if (n > 0) {
+                nnmixer->set_pose_cmd(packet.data, n);
             }
         }
         break;

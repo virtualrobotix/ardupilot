@@ -37,6 +37,9 @@ public:
     void set_hil_state(const float *pos, const float *vel,
                        const float *gyro_flu, const float *gravity_flu);
 
+    // Pose teleop from GCS (DEBUG_FLOAT_ARRAY name NNM_POSE): up to 8 channels after the clock.
+    void set_pose_cmd(const float *values, uint8_t n);
+
     // Called by Rover for GUIDED/AUTO/RTL/SMART_RTL desired body twist (SI).
     void set_nav_twist(float vx, float vy, float wz);
 
@@ -69,9 +72,16 @@ private:
     AP_Int8  _hil_att;
     AP_Int16 _blend_ms;      // cross-fade duration on policy switch
     AP_Float _clock_hz;      // gesture clock into the extra observation channels (0 = off)
+    AP_Int16 _pose_wd_ms;    // pose-command watchdog (ms); stale -> ease to rest
+    AP_Float _pose_tau;      // pose-command low-pass time constant (s)
 
     bool _initialised;
     float _clock_phase;
+    float _pose_cmd[8];
+    float _pose_filt[8];
+    uint8_t _pose_n;
+    uint32_t _pose_ms;
+    HAL_Semaphore _pose_sem;
     Vector3f _down_body;
     bool _down_valid;
     float _last_action[NNM_MAX_JOINTS];
