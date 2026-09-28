@@ -92,6 +92,14 @@ const AP_Param::GroupInfo AP_NNMixer::var_info[] = {
     // @User: Advanced
     AP_GROUPINFO("BLEND_MS", 18, AP_NNMixer, _blend_ms, 500),
 
+    // @Param: CLOCK_HZ
+    // @DisplayName: Gesture clock frequency
+    // @Description: Fills the two observation channels after the twist with sin and cos of a phase advancing at this rate, for policies trained on a timed motion (a wave). 0 leaves the channels at zero. Only used when the robot observation has extra channels.
+    // @Units: Hz
+    // @Range: 0 2
+    // @User: Advanced
+    AP_GROUPINFO("CLOCK_HZ", 19, AP_NNMixer, _clock_hz, 0.0f),
+
     AP_GROUPEND
 };
 
@@ -125,6 +133,7 @@ AP_NNMixer::AP_NNMixer()
     _last_want = -1;
     _io_registered = false;
     _blending = false;
+    _clock_phase = 0.0f;
 }
 
 void AP_NNMixer::set_nav_twist(float vx, float vy, float wz)
@@ -657,6 +666,14 @@ void AP_NNMixer::update()
         o[twist_off] = twist[0];
         o[twist_off + 1] = twist[1];
         o[twist_off + 2] = twist[2];
+    }
+    // gesture clock: sin/cos of a phase advancing at NNM_CLOCK_HZ, one step per policy tick
+    if (twist_off + 5 <= od && is_positive(_clock_hz)) {
+        _clock_phase = wrap_2PI(_clock_phase + M_2PI * _clock_hz * float(rate_div) / 50.0f);
+        o[twist_off + 3] = sinf(_clock_phase);
+        o[twist_off + 4] = cosf(_clock_phase);
+    } else {
+        _clock_phase = 0.0f;
     }
 
     bool ok = joints_ok && (use_hil_att || _down_valid) && (_use_sd_policy || _use_baked_mlp);

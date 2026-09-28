@@ -68,8 +68,10 @@ private:
     AP_Int8  _servo_fn0;
     AP_Int8  _hil_att;
     AP_Int16 _blend_ms;      // cross-fade duration on policy switch
+    AP_Float _clock_hz;      // gesture clock into the extra observation channels (0 = off)
 
     bool _initialised;
+    float _clock_phase;
     Vector3f _down_body;
     bool _down_valid;
     float _last_action[NNM_MAX_JOINTS];
