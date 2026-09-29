@@ -74,6 +74,7 @@ private:
     AP_Float _clock_hz;      // gesture clock into the extra observation channels (0 = off)
     AP_Int16 _pose_wd_ms;    // pose-command watchdog (ms); stale -> ease to rest
     AP_Float _pose_tau;      // pose-command low-pass time constant (s)
+    AP_Int8  _clock_auto;    // 1: gait clock runs only while a twist is commanded
 
     bool _initialised;
     float _clock_phase;

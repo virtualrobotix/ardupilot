@@ -116,6 +116,13 @@ const AP_Param::GroupInfo AP_NNMixer::var_info[] = {
     // @User: Advanced
     AP_GROUPINFO("POSE_TAU", 21, AP_NNMixer, _pose_tau, 0.15f),
 
+    // @Param: CLOCK_AUTO
+    // @DisplayName: Gait clock only while commanded
+    // @Description: 1: the NNM_CLOCK_HZ phase runs only while the commanded twist is non-zero and the clock channels are zero when standing (Booster Gym convention, locomotion policies trained with env.gait_clock). 0: the clock always runs (clip-imitation gestures).
+    // @Values: 0:Always,1:WhileCommanded
+    // @User: Advanced
+    AP_GROUPINFO("CLOCK_AUTO", 22, AP_NNMixer, _clock_auto, 0),
+
     AP_GROUPEND
 };
 
@@ -706,13 +713,19 @@ void AP_NNMixer::update()
         o[twist_off + 1] = twist[1];
         o[twist_off + 2] = twist[2];
     }
-    // gesture clock: sin/cos of a phase advancing at NNM_CLOCK_HZ, one step per policy tick
-    if (twist_off + 5 <= od && is_positive(_clock_hz)) {
+    // gesture / gait clock: sin/cos of a phase advancing at NNM_CLOCK_HZ, one step per policy tick.
+    // With CLOCK_AUTO the clock stops (channels zero) while the twist is zero: stand still.
+    const bool commanded = fabsf(twist[0]) + fabsf(twist[1]) + fabsf(twist[2]) > 1.0e-3f;
+    if (twist_off + 5 <= od && is_positive(_clock_hz) && (_clock_auto == 0 || commanded)) {
         _clock_phase = wrap_2PI(_clock_phase + M_2PI * _clock_hz * float(rate_div) / 50.0f);
         o[twist_off + 3] = sinf(_clock_phase);
         o[twist_off + 4] = cosf(_clock_phase);
     } else {
         _clock_phase = 0.0f;
+        if (twist_off + 5 <= od) {
+            o[twist_off + 3] = 0.0f;
+            o[twist_off + 4] = 0.0f;
+        }
     }
     // pose teleop: channels after the clock (twist_off+5 ..). Fresh NNM_POSE is filtered in;
     // when the watchdog expires the same filter eases to zero (rest), never a hard jump.
