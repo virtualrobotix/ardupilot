@@ -44,7 +44,8 @@ enum class NNM_RobotId : uint8_t {
     OPENDUCK = 9,
     FREENOVE = 10,
     BITTLE = 11,
-    COUNT = 12
+    BOOSTER_T1 = 12,
+    COUNT = 13
 };
 
 const char *nnm_robot_name(NNM_RobotId id);
