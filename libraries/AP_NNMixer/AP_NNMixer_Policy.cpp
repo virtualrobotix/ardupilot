@@ -27,6 +27,7 @@ const char *nnm_robot_name(NNM_RobotId id)
     case NNM_RobotId::FREENOVE:  return "freenove";
     case NNM_RobotId::BITTLE:    return "bittle";
     case NNM_RobotId::BOOSTER_T1: return "booster_t1";
+    case NNM_RobotId::FLYBODY:   return "flybody";
     default:                     return nullptr;
     }
 }

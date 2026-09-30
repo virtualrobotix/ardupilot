@@ -58,8 +58,8 @@ const AP_Param::GroupInfo AP_NNMixer::var_info[] = {
 
     // @Param: ROBOT
     // @DisplayName: Robot topology (boot)
-    // @Description: Selects /APM/nnm/<name>/robot.bin. Requires reboot. 0 MicroDuck, 1 Microban, 2 Zeroth, 3 Bimo, 4 Legolas, 5 Upkie, 6 Rex, 7 Yertle, 8 AlbertPro, 9 Open Duck Mini v2, 10 Freenove Robot Dog, 11 Petoi Bittle, 12 Booster T1
-    // @Values: 0:MicroDuck,1:Microban,2:Zeroth,3:Bimo,4:Legolas,5:Upkie,6:Rex,7:Yertle,8:AlbertPro,9:OpenDuckMini,10:FreenoveDog,11:Bittle,12:BoosterT1
+    // @Description: Selects /APM/nnm/<name>/robot.bin. Requires reboot. 0 MicroDuck, 1 Microban, 2 Zeroth, 3 Bimo, 4 Legolas, 5 Upkie, 6 Rex, 7 Yertle, 8 AlbertPro, 9 Open Duck Mini v2, 10 Freenove Robot Dog, 11 Petoi Bittle, 12 Booster T1, 13 flybody (Drosophila, simulation only)
+    // @Values: 0:MicroDuck,1:Microban,2:Zeroth,3:Bimo,4:Legolas,5:Upkie,6:Rex,7:Yertle,8:AlbertPro,9:OpenDuckMini,10:FreenoveDog,11:Bittle,12:BoosterT1,13:Flybody
     // @User: Advanced
     // @RebootRequired: True
     AP_GROUPINFO("ROBOT", 17, AP_NNMixer, _robot, 0),
@@ -123,6 +123,45 @@ const AP_Param::GroupInfo AP_NNMixer::var_info[] = {
     // @User: Advanced
     AP_GROUPINFO("CLOCK_AUTO", 22, AP_NNMixer, _clock_auto, 0),
 
+    // @Param: GETUP_IDX
+    // @DisplayName: Auto get-up policy index
+    // @Description: Alphabetical index of the get-up .nnm under /APM/nnm/<robot>/policies/. When the trunk tilt exceeds NNM_GETUP_TILT the mixer switches to this policy (even while armed in MANUAL), runs a one-shot clock of NNM_GETUP_S seconds, then returns to the previous policy after NNM_GETUP_HOLD of upright. -1 disables.
+    // @Range: -1 15
+    // @User: Advanced
+    AP_GROUPINFO("GETUP_IDX", 23, AP_NNMixer, _getup_idx, -1),
+
+    // @Param: GETUP_TILT
+    // @DisplayName: Get-up entry tilt
+    // @Description: Trunk tilt (deg from upright) that must be held for 0.3 s to trigger auto get-up.
+    // @Units: deg
+    // @Range: 30 90
+    // @User: Advanced
+    AP_GROUPINFO("GETUP_TILT", 24, AP_NNMixer, _getup_tilt, 60.0f),
+
+    // @Param: GETUP_OK
+    // @DisplayName: Get-up exit tilt
+    // @Description: Trunk tilt (deg) below which the robot is considered upright after get-up.
+    // @Units: deg
+    // @Range: 5 30
+    // @User: Advanced
+    AP_GROUPINFO("GETUP_OK", 25, AP_NNMixer, _getup_ok, 12.0f),
+
+    // @Param: GETUP_S
+    // @DisplayName: Get-up clip duration
+    // @Description: One-shot clock length matching the trained get-up clip (phase 0→π). Microban getup.nnm: 14.2 s (Stage-I motion slowed 2x plus the blend to q0). The previous policy is restored only after the whole clip has played.
+    // @Units: s
+    // @Range: 1 30
+    // @User: Advanced
+    AP_GROUPINFO("GETUP_S", 26, AP_NNMixer, _getup_s, 14.2f),
+
+    // @Param: GETUP_HOLD
+    // @DisplayName: Get-up upright hold
+    // @Description: Time the trunk must stay under NNM_GETUP_OK before returning to the previous policy.
+    // @Units: s
+    // @Range: 0.2 5
+    // @User: Advanced
+    AP_GROUPINFO("GETUP_HOLD", 27, AP_NNMixer, _getup_hold, 1.5f),
+
     AP_GROUPEND
 };
 
@@ -157,10 +196,18 @@ AP_NNMixer::AP_NNMixer()
     _io_registered = false;
     _blending = false;
     _clock_phase = 0.0f;
+    _clock_oneshot = false;
     _pose_n = 0;
     _pose_ms = 0;
     memset(_pose_cmd, 0, sizeof(_pose_cmd));
     memset(_pose_filt, 0, sizeof(_pose_filt));
+    _getup_state = GetupState::IDLE;
+    _getup_prev_idx = -1;
+    _getup_tilt_ms = 0;
+    _getup_ok_ms = 0;
+    _getup_start_ms = 0;
+    _getup_preload_pending = false;
+    _force_switch = false;
 }
 
 void AP_NNMixer::set_nav_twist(float vx, float vy, float wz)
@@ -355,16 +402,23 @@ void AP_NNMixer::io_update()
     _load_state = ok ? LoadState::DONE_OK : LoadState::DONE_FAIL;
 }
 
-// policy task: request loads and flip slots only while standing still (disarmed or HOLD)
+// policy task: request loads and flip slots only while standing still (disarmed or HOLD),
+// unless _force_switch is set by the automatic get-up state machine.
 void AP_NNMixer::service_policy_switch()
 {
     const AP_Vehicle *veh = AP::vehicle();
     const uint8_t mode = (veh != nullptr) ? veh->get_mode() : kModeHold;
     const bool disarmed = !hal.util->get_soft_armed();
     const bool hold = (_hold_mode >= 0 && mode == uint8_t(_hold_mode)) || mode == kModeHold;
-    const bool allowed = disarmed || hold;
+    const bool allowed = disarmed || hold || _force_switch;
 
-    const int8_t want = int8_t(_policy.get());
+    // preferred target: get-up override, else the user NNM_POLICY (unless recovering)
+    int8_t want = int8_t(_policy.get());
+    if (_getup_state == GetupState::ACTIVE && _getup_idx >= 0) {
+        want = int8_t(_getup_idx.get());
+    } else if (_getup_state == GetupState::RECOVERED && _getup_prev_idx >= 0) {
+        want = _getup_prev_idx;
+    }
     if (want != _last_want) {
         _last_want = want;
         _rejected_idx = -1;
@@ -378,6 +432,7 @@ void AP_NNMixer::service_policy_switch()
     case LoadState::DONE_FAIL:
         _rejected_idx = _load_idx;
         _load_state = LoadState::IDLE;
+        _force_switch = false;
         return;
     case LoadState::DONE_OK:
         if (!allowed) {
@@ -391,14 +446,166 @@ void AP_NNMixer::service_policy_switch()
         _use_sd_policy = true;
         _use_baked_mlp = false;
         _load_state = LoadState::IDLE;
+        _force_switch = false;
+        if (_getup_state == GetupState::ACTIVE && _loaded_policy_idx == int8_t(_getup_idx.get())) {
+            // oneshot clock restarts when get-up becomes the active policy
+            _clock_phase = 0.0f;
+            _clock_oneshot = true;
+            _getup_start_ms = AP_HAL::millis();
+            _getup_ok_ms = 0;
+            memset(_pose_cmd, 0, sizeof(_pose_cmd));
+            memset(_pose_filt, 0, sizeof(_pose_filt));
+            _pose_ms = 0;
+            GCS_SEND_TEXT(MAV_SEVERITY_INFO, "NNMixer: get-up active");
+        } else if (_getup_state == GetupState::RECOVERED) {
+            _clock_oneshot = false;
+            _clock_phase = 0.0f;
+            _getup_state = GetupState::IDLE;
+            _getup_preload_pending = (_getup_idx >= 0);
+            GCS_SEND_TEXT(MAV_SEVERITY_INFO, "NNMixer: get-up done, policy %d", (int)_loaded_policy_idx);
+        } else if (_getup_preload_pending && _getup_idx >= 0
+                   && _loaded_policy_idx != int8_t(_getup_idx.get())) {
+            // after a manual switch, refill the free slot with get-up for a fast fall response
+            _getup_preload_pending = false;
+            _load_idx = int8_t(_getup_idx.get());
+            _load_slot = _active_slot ^ 1;
+            _load_state = LoadState::REQUESTED;
+        }
         return;
     case LoadState::IDLE:
         break;
     }
     if (want == _loaded_policy_idx || want == _rejected_idx || !allowed) {
+        // keep get-up preloaded in the free slot while idle
+        if (_getup_idx >= 0 && !_getup_preload_pending
+            && _loaded_policy_idx != int8_t(_getup_idx.get())
+            && !_slot[_active_slot ^ 1].ready) {
+            _load_idx = int8_t(_getup_idx.get());
+            _load_slot = _active_slot ^ 1;
+            _load_state = LoadState::REQUESTED;
+        }
         return;
     }
     _load_idx = want;
+    _load_slot = _active_slot ^ 1;
+    _load_state = LoadState::REQUESTED;
+}
+
+float AP_NNMixer::trunk_tilt_deg() const
+{
+    // gravity_flu ≈ (0,0,−1) when upright → tilt = acos(|g_z|)
+    float g[3];
+    Vector3f down = _down_body;
+    if (_att_src == 1) {
+        Quaternion q;
+        AP::ahrs().get_quat_body_to_ned(q);
+        Matrix3f m;
+        q.rotation_matrix(m);
+        down = m.mul_transpose(Vector3f(0, 0, 1));
+    }
+    g[0] = -down.x;
+    g[1] = -down.y;
+    g[2] = -down.z;
+    const float n = safe_sqrt(g[0]*g[0] + g[1]*g[1] + g[2]*g[2]);
+    if (n < 1e-6f) {
+        return 0.0f;
+    }
+    const float gz = constrain_float(g[2] / n, -1.0f, 1.0f);
+    return degrees(acosf(fabsf(gz)));
+}
+
+void AP_NNMixer::service_getup()
+{
+    if (_getup_idx < 0) {
+        return;
+    }
+    const uint32_t now = AP_HAL::millis();
+    const float tilt = trunk_tilt_deg();
+
+    switch (_getup_state) {
+    case GetupState::IDLE:
+        if (tilt > _getup_tilt) {
+            if (_getup_tilt_ms == 0) {
+                _getup_tilt_ms = now;
+            } else if (now - _getup_tilt_ms >= 300) {
+                _getup_prev_idx = _loaded_policy_idx;
+                if (_getup_prev_idx == int8_t(_getup_idx.get())) {
+                    _getup_prev_idx = int8_t(_policy.get());
+                }
+                _getup_state = GetupState::ACTIVE;
+                _force_switch = true;
+                _getup_tilt_ms = 0;
+                _getup_ok_ms = 0;
+                // if get-up is already in the free slot, flip immediately on next DONE_OK path
+                WITH_SEMAPHORE(_load_sem);
+                if (_load_state == LoadState::IDLE) {
+                    const uint8_t other = _active_slot ^ 1;
+                    if (_slot[other].ready && _loaded_policy_idx != int8_t(_getup_idx.get())) {
+                        // request load of getup index (may already be there from preload)
+                        _load_idx = int8_t(_getup_idx.get());
+                        _load_slot = other;
+                        // if the free slot already holds getup, treat as DONE_OK without IO
+                        // (load_policy_index is idempotent; REQUESTED still works)
+                        _load_state = LoadState::REQUESTED;
+                    } else {
+                        _load_idx = int8_t(_getup_idx.get());
+                        _load_slot = other;
+                        _load_state = LoadState::REQUESTED;
+                    }
+                }
+            }
+        } else {
+            _getup_tilt_ms = 0;
+        }
+        break;
+    case GetupState::FALLING:
+        // unused — kept for clarity; IDLE goes straight to ACTIVE
+        _getup_state = GetupState::ACTIVE;
+        break;
+    case GetupState::ACTIVE:
+        if (_loaded_policy_idx != int8_t(_getup_idx.get())) {
+            // still waiting for the slot flip
+            _force_switch = true;
+            break;
+        }
+        if (tilt < _getup_ok) {
+            if (_getup_ok_ms == 0) {
+                _getup_ok_ms = now;
+            } else if (now - _getup_ok_ms >= (uint32_t)(_getup_hold * 1000.0f)
+                       && now - _getup_start_ms >= (uint32_t)(_getup_s * 1000.0f)) {
+                // held upright long enough and the whole clip has played (its tail blends the
+                // discovered stand into q0, which is what the walk policy can take over):
+                // restore previous policy
+                _getup_state = GetupState::RECOVERED;
+                _force_switch = true;
+                _clock_oneshot = false;
+                WITH_SEMAPHORE(_load_sem);
+                if (_load_state == LoadState::IDLE && _getup_prev_idx >= 0
+                    && _getup_prev_idx != _loaded_policy_idx) {
+                    _load_idx = _getup_prev_idx;
+                    _load_slot = _active_slot ^ 1;
+                    _load_state = LoadState::REQUESTED;
+                }
+            }
+        } else {
+            _getup_ok_ms = 0;
+        }
+        break;
+    case GetupState::RECOVERED:
+        // waiting for service_policy_switch to finish the restore
+        _force_switch = true;
+        break;
+    }
+}
+
+void AP_NNMixer::request_policy_load(int8_t idx, bool force)
+{
+    WITH_SEMAPHORE(_load_sem);
+    if (_load_state != LoadState::IDLE) {
+        return;
+    }
+    _force_switch = force;
+    _load_idx = idx;
     _load_slot = _active_slot ^ 1;
     _load_state = LoadState::REQUESTED;
 }
@@ -642,6 +849,7 @@ void AP_NNMixer::update()
     }
     _tick++;
 
+    service_getup();
     service_policy_switch();
 
     if (!_topo.valid) {
@@ -715,8 +923,15 @@ void AP_NNMixer::update()
     }
     // gesture / gait clock: sin/cos of a phase advancing at NNM_CLOCK_HZ, one step per policy tick.
     // With CLOCK_AUTO the clock stops (channels zero) while the twist is zero: stand still.
+    // Get-up oneshot: θ = π · min(t/NNM_GETUP_S, 1) → ends at (sin, cos) = (0, −1), matching training.
     const bool commanded = fabsf(twist[0]) + fabsf(twist[1]) + fabsf(twist[2]) > 1.0e-3f;
-    if (twist_off + 5 <= od && is_positive(_clock_hz) && (_clock_auto == 0 || commanded)) {
+    if (twist_off + 5 <= od && _clock_oneshot) {
+        const float dt = float(rate_div) / 50.0f;
+        const float T = MAX(_getup_s.get(), 0.5f);
+        _clock_phase = MIN(_clock_phase + (float)M_PI * dt / T, (float)M_PI);
+        o[twist_off + 3] = sinf(_clock_phase);
+        o[twist_off + 4] = cosf(_clock_phase);
+    } else if (twist_off + 5 <= od && is_positive(_clock_hz) && (_clock_auto == 0 || commanded)) {
         _clock_phase = wrap_2PI(_clock_phase + M_2PI * _clock_hz * float(rate_div) / 50.0f);
         o[twist_off + 3] = sinf(_clock_phase);
         o[twist_off + 4] = cosf(_clock_phase);

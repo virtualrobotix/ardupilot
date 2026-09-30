@@ -75,9 +75,15 @@ private:
     AP_Int16 _pose_wd_ms;    // pose-command watchdog (ms); stale -> ease to rest
     AP_Float _pose_tau;      // pose-command low-pass time constant (s)
     AP_Int8  _clock_auto;    // 1: gait clock runs only while a twist is commanded
+    AP_Int8  _getup_idx;     // policy index for auto get-up (-1 = disabled)
+    AP_Float _getup_tilt;    // enter get-up when tilt exceeds this (deg)
+    AP_Float _getup_ok;      // leave get-up when tilt is below this (deg)
+    AP_Float _getup_s;       // oneshot clip duration (s)
+    AP_Float _getup_hold;    // upright hold before returning to previous policy (s)
 
     bool _initialised;
     float _clock_phase;
+    bool _clock_oneshot;     // get-up: phase advances 0→π once, then holds
     float _pose_cmd[8];
     float _pose_filt[8];
     uint8_t _pose_n;
@@ -108,6 +114,15 @@ private:
     uint8_t _fail_reason;
     int8_t _loaded_policy_idx;
 
+    // automatic get-up recovery
+    enum class GetupState : uint8_t { IDLE, FALLING, ACTIVE, RECOVERED };
+    GetupState _getup_state;
+    int8_t _getup_prev_idx;       // policy to restore after get-up
+    uint32_t _getup_tilt_ms;      // first time tilt exceeded threshold
+    uint32_t _getup_ok_ms;        // first time upright after get-up
+    uint32_t _getup_start_ms;     // when get-up policy became active
+    bool _getup_preload_pending;  // reload getup into the free slot after a manual switch
+
     // SD -> RAM load of the free slot, done on the IO thread
     enum class LoadState : uint8_t { IDLE, REQUESTED, LOADING, DONE_OK, DONE_FAIL };
     HAL_Semaphore _load_sem;
@@ -117,6 +132,7 @@ private:
     int8_t _rejected_idx;    // file refused for this NNM_POLICY value; not retried until it changes
     int8_t _last_want;
     bool _io_registered;
+    bool _force_switch;      // get-up may switch while armed in MANUAL
 
     NNM_RobotTopology _topo;
     NNM_PolicySlot _slot[2];
@@ -129,6 +145,9 @@ private:
     bool ensure_slots_allocated();
     bool load_policy_index(int8_t index, uint8_t into_slot);
     void service_policy_switch();
+    void service_getup();
+    void request_policy_load(int8_t idx, bool force);
+    float trunk_tilt_deg() const;
     void io_update();
     bool read_joint_feedback();
     void read_twist(float twist[3]);
