@@ -58,8 +58,8 @@ const AP_Param::GroupInfo AP_NNMixer::var_info[] = {
 
     // @Param: ROBOT
     // @DisplayName: Robot topology (boot)
-    // @Description: Selects /APM/nnm/<name>/robot.bin. Requires reboot. 0 MicroDuck, 1 Microban, 2 Zeroth, 3 Bimo, 4 Legolas, 5 Upkie, 6 Rex, 7 Yertle, 8 AlbertPro, 9 Open Duck Mini v2, 10 Freenove Robot Dog, 11 Petoi Bittle, 12 Booster T1, 13 flybody (Drosophila, simulation only), 14 UBTECH Yanshee, 15 UBTECH TienKung (Walker), 16 ToddlerBot
-    // @Values: 0:MicroDuck,1:Microban,2:Zeroth,3:Bimo,4:Legolas,5:Upkie,6:Rex,7:Yertle,8:AlbertPro,9:OpenDuckMini,10:FreenoveDog,11:Bittle,12:BoosterT1,13:Flybody,14:Yanshee,15:TienKung,16:ToddlerBot
+    // @Description: Selects /APM/nnm/<name>/robot.bin. Requires reboot. 0 MicroDuck, 1 Microban, 2 Zeroth, 3 Bimo, 4 Legolas, 5 Upkie, 6 Rex, 7 Yertle, 8 AlbertPro, 9 Open Duck Mini v2, 10 Freenove Robot Dog, 11 Petoi Bittle, 12 Booster T1, 13 flybody (Drosophila, simulation only), 14 UBTECH Yanshee, 15 UBTECH TienKung (Walker), 16 ToddlerBot, 17 Jumper
+    // @Values: 0:MicroDuck,1:Microban,2:Zeroth,3:Bimo,4:Legolas,5:Upkie,6:Rex,7:Yertle,8:AlbertPro,9:OpenDuckMini,10:FreenoveDog,11:Bittle,12:BoosterT1,13:Flybody,14:Yanshee,15:TienKung,16:ToddlerBot,17:Jumper
     // @User: Advanced
     // @RebootRequired: True
     AP_GROUPINFO("ROBOT", 17, AP_NNMixer, _robot, 0),

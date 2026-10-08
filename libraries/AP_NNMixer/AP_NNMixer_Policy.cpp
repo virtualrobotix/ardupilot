@@ -31,6 +31,7 @@ const char *nnm_robot_name(NNM_RobotId id)
     case NNM_RobotId::YANSHEE:   return "yanshee";
     case NNM_RobotId::TIENKUNG:  return "tienkung";
     case NNM_RobotId::TODDLERBOT: return "toddlerbot";
+    case NNM_RobotId::JUMPER:    return "jumper";
     default:                     return nullptr;
     }
 }
