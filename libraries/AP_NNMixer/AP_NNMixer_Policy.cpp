@@ -34,6 +34,7 @@ const char *nnm_robot_name(NNM_RobotId id)
     case NNM_RobotId::JUMPER:    return "jumper";
     case NNM_RobotId::PHONEBOT:  return "phonebot";
     case NNM_RobotId::PHONEBOT_REV: return "phonebot_rev";
+    case NNM_RobotId::OPEN_SPRITE: return "open_sprite";
     default:                     return nullptr;
     }
 }
