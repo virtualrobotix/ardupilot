@@ -36,6 +36,7 @@
 #include "AP_InertialSensor_Invensensev2.h"
 #include "AP_InertialSensor_ADIS1647x.h"
 #include "AP_InertialSensor_ExternalAHRS.h"
+#include "AP_InertialSensor_JointBus.h"
 #include "AP_InertialSensor_Invensensev3.h"
 #include "AP_InertialSensor_NONE.h"
 #include "AP_InertialSensor_SCHA63T.h"
@@ -1211,6 +1212,10 @@ AP_InertialSensor::detect_backends(void)
         ADD_BACKEND(NEW_NOTHROW AP_InertialSensor_ExternalAHRS(*this, serial_port));
         _first_onboard_imu_instance = _backend_count - count_before;   // Sets to 1 only if it actually registered.
     }
+#endif
+
+#if AP_INERTIALSENSOR_JOINTBUS_ENABLED
+    ADD_BACKEND(AP_InertialSensor_JointBus::probe(*this));
 #endif
 
 #if AP_SIM_INS_ENABLED

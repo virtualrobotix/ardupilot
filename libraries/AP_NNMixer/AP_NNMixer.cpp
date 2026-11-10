@@ -19,6 +19,7 @@
 
 #include <AP_HAL/AP_HAL.h>
 #include <AP_InertialSensor/AP_InertialSensor.h>
+#include <AP_InertialSensor/AP_InertialSensor_JointBus.h>
 #include <AP_AHRS/AP_AHRS.h>
 #include <AP_Logger/AP_Logger.h>
 #include <AP_Vehicle/AP_Vehicle.h>
@@ -58,8 +59,8 @@ const AP_Param::GroupInfo AP_NNMixer::var_info[] = {
 
     // @Param: ROBOT
     // @DisplayName: Robot topology (boot)
-    // @Description: Selects /APM/nnm/<name>/robot.bin. Requires reboot. 0 MicroDuck, 1 Microban, 2 Zeroth, 3 Bimo, 4 Legolas, 5 Upkie, 6 Rex, 7 Yertle, 8 AlbertPro, 9 Open Duck Mini v2, 10 Freenove Robot Dog, 11 Petoi Bittle, 12 Booster T1, 13 flybody (Drosophila, simulation only), 14 UBTECH Yanshee, 15 UBTECH TienKung (Walker), 16 ToddlerBot, 17 Jumper, 18 PhoneBot, 19 PhoneBot reversed (pelvis and legs turned 180 deg), 20 Sprite (31 joints, over NNM_MAX_JOINTS)
-    // @Values: 0:MicroDuck,1:Microban,2:Zeroth,3:Bimo,4:Legolas,5:Upkie,6:Rex,7:Yertle,8:AlbertPro,9:OpenDuckMini,10:FreenoveDog,11:Bittle,12:BoosterT1,13:Flybody,14:Yanshee,15:TienKung,16:ToddlerBot,17:Jumper,18:PhoneBot,19:PhoneBotReversed,20:Sprite
+    // @Description: Selects /APM/nnm/<name>/robot.bin. Requires reboot. 0 MicroDuck, 1 Microban, 2 Zeroth, 3 Bimo, 4 Legolas, 5 Upkie, 6 Rex, 7 Yertle, 8 AlbertPro, 9 Open Duck Mini v2, 10 Freenove Robot Dog, 11 Petoi Bittle, 12 Booster T1, 13 flybody (Drosophila, simulation only), 14 UBTECH Yanshee, 15 UBTECH TienKung (Walker), 16 ToddlerBot, 17 Jumper, 18 PhoneBot, 19 PhoneBot reversed (pelvis and legs turned 180 deg), 20 Sprite (31 joints, over NNM_MAX_JOINTS), 21 XGO Duck (XDuck policies, servos on the Arduino Uno Q joint bus)
+    // @Values: 0:MicroDuck,1:Microban,2:Zeroth,3:Bimo,4:Legolas,5:Upkie,6:Rex,7:Yertle,8:AlbertPro,9:OpenDuckMini,10:FreenoveDog,11:Bittle,12:BoosterT1,13:Flybody,14:Yanshee,15:TienKung,16:ToddlerBot,17:Jumper,18:PhoneBot,19:PhoneBotReversed,20:Sprite,21:XGODuck
     // @User: Advanced
     // @RebootRequired: True
     AP_GROUPINFO("ROBOT", 17, AP_NNMixer, _robot, 0),
@@ -162,6 +163,36 @@ const AP_Param::GroupInfo AP_NNMixer::var_info[] = {
     // @User: Advanced
     AP_GROUPINFO("GETUP_HOLD", 27, AP_NNMixer, _getup_hold, 1.5f),
 
+    // @Param: OUT
+    // @DisplayName: Joint output
+    // @Description: Where the joint targets go. 0: the servo PWM functions only (simulator, PWM servos). 1: also the joint bus, an actuator link on the serial port with SERIALn_PROTOCOL 51 (robotic servos behind the Arduino Uno Q microcontroller). With the bus running, joint position and velocity come from it.
+    // @Values: 0:PWM,1:PWM and joint bus
+    // @User: Advanced
+    // @RebootRequired: True
+    AP_GROUPINFO("OUT", 28, AP_NNMixer, _out, 0),
+
+    // @Param: DIS_POSE
+    // @DisplayName: Hold the default pose while disarmed
+    // @Description: 0: the outputs are off while disarmed. 1: the joints hold the default pose of the selected policy while disarmed, reached with a one-second ramp from the measured angles, so the robot stands balanced and arming starts the policy from that pose. Torque can be released on request (NNM_SRV operation 1) until the pose is requested again (operation 2) or the vehicle is armed.
+    // @Values: 0:Outputs off,1:Hold default pose
+    // @User: Advanced
+    AP_GROUPINFO("DIS_POSE", 29, AP_NNMixer, _dis_pose, 0),
+
+    // @Param: DEPLOY
+    // @DisplayName: Deployment chain
+    // @Description: Signal chain around the policy. 0: standard NNMixer chain (complementary gravity filter with NNM_ATT_TAU, raw gyro and joint velocity, action applied as is, cross-fade on a policy switch, get-up after 0.3 s over NNM_GETUP_TILT). 1: XDuck chain, the processing of the original XGO Duck controller (gravity filter with accelerometer trust weighting, smoothed gyro and joint velocity, per-policy low-pass on the action, heading hold while translating, NNM_XD_ACCX trim, policy switch with a clean history and no cross-fade, get-up after 0.15 s followed by one second in the default pose). A change takes effect while disarmed.
+    // @Values: 0:Standard,1:XDuck
+    // @User: Advanced
+    AP_GROUPINFO("DEPLOY", 30, AP_NNMixer, _deploy, 0),
+
+    // @Param: XD_ACCX
+    // @DisplayName: XDuck chain accelerometer trim
+    // @Description: With NNM_DEPLOY 1, offset added to the forward accelerometer axis ahead of the gravity filter while walking: positive when moving forward, negative when moving backward or turning in place. It leans the estimated attitude against the commanded motion. 0 disables it.
+    // @Units: m/s/s
+    // @Range: 0 3
+    // @User: Advanced
+    AP_GROUPINFO("XD_ACCX", 31, AP_NNMixer, _xd_accx, 1.5f),
+
     AP_GROUPEND
 };
 
@@ -208,6 +239,24 @@ AP_NNMixer::AP_NNMixer()
     _getup_start_ms = 0;
     _getup_preload_pending = false;
     _force_switch = false;
+    _bus_ready = false;
+    _bus_fb_ms = 0;
+    _torque_off = false;
+    _out_active = false;
+    _out_armed = false;
+    _ramp_ms = 0;
+    _hold_idx = -1;
+    _aux_cmd = 0.0f;
+    _chain = 0;
+    _xd_valid = false;
+    _xd_accx_cmd = 0.0f;
+    _hh_walking = false;
+    _hh_valid = false;
+    _hh_has_target = false;
+    _skill_state = SkillState::IDLE;
+    _skill_idx = 0;
+    memset(&_deploy_cfg, 0, sizeof(_deploy_cfg));
+    memset(_act_filt, 0, sizeof(_act_filt));
 }
 
 void AP_NNMixer::set_nav_twist(float vx, float vy, float wz)
@@ -229,7 +278,13 @@ void AP_NNMixer::set_pose_cmd(const float *values, uint8_t n)
     WITH_SEMAPHORE(_pose_sem);
     _pose_n = MIN(n, (uint8_t)8);
     for (uint8_t i = 0; i < _pose_n; i++) {
-        _pose_cmd[i] = constrain_float(values[i], lo[i], hi[i]);
+        if (_deploy_cfg.valid) {
+            // the robot's own symmetric limits (skills.bin); 0 = channel not used
+            const float lim = _deploy_cfg.pose_limit[i];
+            _pose_cmd[i] = constrain_float(values[i], -lim, lim);
+        } else {
+            _pose_cmd[i] = constrain_float(values[i], lo[i], hi[i]);
+        }
     }
     for (uint8_t i = _pose_n; i < 8; i++) {
         _pose_cmd[i] = 0.0f;
@@ -410,11 +465,21 @@ void AP_NNMixer::service_policy_switch()
     const uint8_t mode = (veh != nullptr) ? veh->get_mode() : kModeHold;
     const bool disarmed = !hal.util->get_soft_armed();
     const bool hold = (_hold_mode >= 0 && mode == uint8_t(_hold_mode)) || mode == kModeHold;
-    const bool allowed = disarmed || hold || _force_switch;
+    // a skill switches while armed, on entry and on the way back
+    const bool skill_switch = _skill_state == SkillState::STARTING || _skill_state == SkillState::ENDING;
+    // the XDuck chain changes policy on the move (walk <-> roller), between skills
+    const bool live_switch = _chain == 1 && _skill_state == SkillState::IDLE && _getup_state == GetupState::IDLE;
+    const bool allowed = disarmed || hold || _force_switch || skill_switch || live_switch;
+    // XDuck chain and skills: no cross-fade, clean action history
+    const bool hard = (_chain == 1) || skill_switch;
+    const bool getting_up = _getup_state == GetupState::ACTIVE || _getup_state == GetupState::FALLING;
 
-    // preferred target: get-up override, else the user NNM_POLICY (unless recovering)
+    // preferred target: get-up override, then a running skill, else the user NNM_POLICY
     int8_t want = int8_t(_policy.get());
-    if (_getup_state == GetupState::ACTIVE && _getup_idx >= 0) {
+    if (_skill_state == SkillState::STARTING || _skill_state == SkillState::RUNNING) {
+        want = int8_t(_deploy_cfg.skill[_skill_idx].policy);
+    }
+    if (getting_up && _getup_idx >= 0) {
         want = int8_t(_getup_idx.get());
     } else if (_getup_state == GetupState::RECOVERED && _getup_prev_idx >= 0) {
         want = _getup_prev_idx;
@@ -433,6 +498,9 @@ void AP_NNMixer::service_policy_switch()
         _rejected_idx = _load_idx;
         _load_state = LoadState::IDLE;
         _force_switch = false;
+        if (skill_switch) {
+            _skill_state = SkillState::IDLE;
+        }
         return;
     case LoadState::DONE_OK:
         if (!allowed) {
@@ -440,14 +508,26 @@ void AP_NNMixer::service_policy_switch()
         }
         memcpy(_act_blend_from, _last_action, sizeof(_act_blend_from));
         _blend_start_ms = AP_HAL::millis();
-        _blending = !disarmed;
+        _blending = !disarmed && !hard;
+        if (hard) {
+            reset_history();
+        }
         _active_slot = _load_slot;
         _loaded_policy_idx = _load_idx;
         _use_sd_policy = true;
         _use_baked_mlp = false;
         _load_state = LoadState::IDLE;
         _force_switch = false;
-        if (_getup_state == GetupState::ACTIVE && _loaded_policy_idx == int8_t(_getup_idx.get())) {
+        if (_skill_state == SkillState::STARTING) {
+            if (_loaded_policy_idx == int8_t(_deploy_cfg.skill[_skill_idx].policy)) {
+                // the skill clock starts when its policy takes over
+                _skill_state = SkillState::RUNNING;
+                _skill_start_ms = AP_HAL::millis();
+            }
+        } else if (_skill_state == SkillState::ENDING) {
+            _skill_state = SkillState::IDLE;
+        }
+        if (getting_up && _loaded_policy_idx == int8_t(_getup_idx.get())) {
             // oneshot clock restarts when get-up becomes the active policy
             _clock_phase = 0.0f;
             _clock_oneshot = true;
@@ -493,6 +573,13 @@ void AP_NNMixer::service_policy_switch()
 
 float AP_NNMixer::trunk_tilt_deg() const
 {
+    if (_chain == 1) {
+        // XDuck chain: angle from upright over the whole 0..180 range, upside down included
+        if (!_xd_valid) {
+            return 0.0f;
+        }
+        return degrees(acosf(constrain_float(-_xd_grav.z, -1.0f, 1.0f)));
+    }
     // gravity_flu ≈ (0,0,−1) when upright → tilt = acos(|g_z|)
     float g[3];
     Vector3f down = _down_body;
@@ -521,49 +608,59 @@ void AP_NNMixer::service_getup()
     }
     const uint32_t now = AP_HAL::millis();
     const float tilt = trunk_tilt_deg();
+    const bool xd = (_chain == 1);
+    const int8_t getup = int8_t(_getup_idx.get());
 
     switch (_getup_state) {
-    case GetupState::IDLE:
-        if (tilt > _getup_tilt) {
+    case GetupState::IDLE: {
+        // a skill can suspend the recovery: a roll goes through every attitude on purpose
+        const bool suspended = _skill_state != SkillState::IDLE &&
+                               (_deploy_cfg.skill[_skill_idx].flags & NNM_SKILL_NO_GETUP) != 0;
+        if (tilt > _getup_tilt && !suspended) {
             if (_getup_tilt_ms == 0) {
                 _getup_tilt_ms = now;
-            } else if (now - _getup_tilt_ms >= 300) {
+            } else if (now - _getup_tilt_ms >= (xd ? 150U : 300U)) {
                 _getup_prev_idx = _loaded_policy_idx;
-                if (_getup_prev_idx == int8_t(_getup_idx.get())) {
+                if (_skill_state != SkillState::IDLE || _getup_prev_idx == getup) {
+                    // never come back into a skill or into get-up itself
                     _getup_prev_idx = int8_t(_policy.get());
                 }
-                _getup_state = GetupState::ACTIVE;
+                _skill_state = SkillState::IDLE;
+                // XDuck chain: one second in the default pose with a clean history comes first
+                _getup_state = xd ? GetupState::FALLING : GetupState::ACTIVE;
+                _xd_prehold_ms = now;
                 _force_switch = true;
                 _getup_tilt_ms = 0;
                 _getup_ok_ms = 0;
-                // if get-up is already in the free slot, flip immediately on next DONE_OK path
+                // load get-up into the free slot; the flip happens on the DONE_OK path
                 WITH_SEMAPHORE(_load_sem);
                 if (_load_state == LoadState::IDLE) {
-                    const uint8_t other = _active_slot ^ 1;
-                    if (_slot[other].ready && _loaded_policy_idx != int8_t(_getup_idx.get())) {
-                        // request load of getup index (may already be there from preload)
-                        _load_idx = int8_t(_getup_idx.get());
-                        _load_slot = other;
-                        // if the free slot already holds getup, treat as DONE_OK without IO
-                        // (load_policy_index is idempotent; REQUESTED still works)
-                        _load_state = LoadState::REQUESTED;
-                    } else {
-                        _load_idx = int8_t(_getup_idx.get());
-                        _load_slot = other;
-                        _load_state = LoadState::REQUESTED;
-                    }
+                    _load_idx = getup;
+                    _load_slot = _active_slot ^ 1;
+                    _load_state = LoadState::REQUESTED;
                 }
             }
         } else {
             _getup_tilt_ms = 0;
         }
         break;
+    }
     case GetupState::FALLING:
-        // unused — kept for clarity; IDLE goes straight to ACTIVE
-        _getup_state = GetupState::ACTIVE;
+        if (!xd) {
+            _getup_state = GetupState::ACTIVE;
+            break;
+        }
+        if (_loaded_policy_idx != getup) {
+            // still waiting for the slot flip
+            _force_switch = true;
+        }
+        if (now - _xd_prehold_ms >= 1000U) {
+            _getup_state = GetupState::ACTIVE;
+            _getup_ok_ms = 0;
+        }
         break;
     case GetupState::ACTIVE:
-        if (_loaded_policy_idx != int8_t(_getup_idx.get())) {
+        if (_loaded_policy_idx != getup) {
             // still waiting for the slot flip
             _force_switch = true;
             break;
@@ -572,10 +669,10 @@ void AP_NNMixer::service_getup()
             if (_getup_ok_ms == 0) {
                 _getup_ok_ms = now;
             } else if (now - _getup_ok_ms >= (uint32_t)(_getup_hold * 1000.0f)
-                       && now - _getup_start_ms >= (uint32_t)(_getup_s * 1000.0f)) {
-                // held upright long enough and the whole clip has played (its tail blends the
-                // discovered stand into q0, which is what the walk policy can take over):
-                // restore previous policy
+                       && (xd || now - _getup_start_ms >= (uint32_t)(_getup_s * 1000.0f))) {
+                // held upright long enough. Standard chain: the whole clip has played too (its
+                // tail blends the discovered stand into q0, which the walk policy can take over).
+                // Restore the previous policy.
                 _getup_state = GetupState::RECOVERED;
                 _force_switch = true;
                 _clock_oneshot = false;
@@ -636,6 +733,16 @@ void AP_NNMixer::init()
         GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "NNMixer: init failed (no topology)");
         return;
     }
+    load_deploy_table();
+    _chain = uint8_t(constrain_int16(_deploy.get(), 0, 1));
+#if AP_JOINTBUS_ENABLED
+    if (_out == 1) {
+        _bus_ready = _bus.init(uint8_t(_topo.n_joints));
+        if (!_bus_ready) {
+            GCS_SEND_TEXT(MAV_SEVERITY_WARNING, "NNMixer: NNM_OUT 1 but no joint bus (SERIALn_PROTOCOL 51)");
+        }
+    }
+#endif
     // boot load runs here, disarmed, before the task drives anything; later loads use the IO thread
     if (!_use_baked_mlp && ensure_slots_allocated() && load_policy_index(_policy.get(), 0)) {
         _active_slot = 0;
@@ -685,10 +792,43 @@ void AP_NNMixer::update_attitude()
     if (!_initialised) {
         init();
     }
+    {
+        const uint32_t now_us = AP_HAL::micros();
+        if (_loop_last_us != 0) {
+            _loop_gap_us = MAX(_loop_gap_us, now_us - _loop_last_us);
+        }
+        _loop_last_us = now_us;
+        _loop_count++;
+    }
     const AP_InertialSensor &ins = AP::ins();
     const Vector3f gyro = ins.get_gyro();
     const Vector3f accel = ins.get_accel();
     const float dt = ins.get_loop_delta_t();
+    if (_chain == 1) {
+        bool from_link = false;
+#if AP_INERTIALSENSOR_JOINTBUS_ENABLED
+        // the XDuck filters run once per IMU sample of the microcontroller (100 Hz) with the
+        // sampling interval of its clock, as in the original, whatever the main loop rate
+        AP_InertialSensor_JointBus::Sample smp[8];
+        const uint8_t n = AP_InertialSensor_JointBus::pop_samples(smp, ARRAY_SIZE(smp));
+        for (uint8_t i = 0; i < n; i++) {
+            const float sdt = _xd_src_valid ? float(uint32_t(smp[i].source_us - _xd_src_us)) * 1.0e-6f : 0.01f;
+            _xd_src_us = smp[i].source_us;
+            _xd_src_valid = true;
+            update_attitude_xduck(smp[i].gyro, smp[i].accel, sdt);
+        }
+        if (n > 0) {
+            _xd_src_ms = AP_HAL::millis();
+        }
+        from_link = AP_InertialSensor_JointBus::link_alive();
+        if (!from_link) {
+            _xd_src_valid = false;
+        }
+#endif
+        if (!from_link) {
+            update_attitude_xduck(gyro, accel, dt);
+        }
+    }
     const float an = accel.length();
     if (!_down_valid) {
         if (an > 1.0f) {
@@ -710,6 +850,12 @@ void AP_NNMixer::update_attitude()
 
 void AP_NNMixer::gravity_body_flu(float g[3])
 {
+    if (_chain == 1) {
+        g[0] = _xd_valid ? _xd_grav.x : 0.0f;
+        g[1] = _xd_valid ? _xd_grav.y : 0.0f;
+        g[2] = _xd_valid ? _xd_grav.z : -1.0f;
+        return;
+    }
     Vector3f down = _down_body;
     if (_att_src == 1) {
         Quaternion q;
@@ -750,14 +896,27 @@ void AP_NNMixer::set_hil_state(const float *pos, const float *vel,
 bool AP_NNMixer::read_joint_feedback()
 {
     const uint8_t need = _topo.valid ? uint8_t(_topo.n_joints) : 14;
+    bool from_bus = false;
+#if AP_JOINTBUS_ENABLED
+    if (_bus_ready) {
+        // the joint bus is the feedback source when it runs
+        from_bus = true;
+        AP_JointBus::Feedback fb;
+        if (_bus.get_feedback(fb) && fb.ms != _bus_fb_ms) {
+            _bus_fb_ms = fb.ms;
+            set_joint_feedback(fb.pos, fb.vel, MIN(fb.count, need));
+        }
+    }
+#endif
 #if AP_NNMIXER_JOINT_FEEDBACK_SITL_ENABLED
     const SITL::SIM *sitl = AP::sitl();
-    if (sitl != nullptr && sitl->state.joint_count >= need &&
+    if (!from_bus && sitl != nullptr && sitl->state.joint_count >= need &&
         sitl->state.joint_time_us != _last_joint_time_us) {
         _last_joint_time_us = sitl->state.joint_time_us;
         set_joint_feedback(sitl->state.joint_pos, sitl->state.joint_vel, need);
     }
 #endif
+    (void)from_bus;
     WITH_SEMAPHORE(_joint_sem);
     if (_joint_count < need) {
         _fail_reason = 2;
@@ -839,6 +998,388 @@ void AP_NNMixer::write_idle_servos()
     }
 }
 
+// ---------------------------------------------------------------------------
+// XDuck chain (NNM_DEPLOY 1): the receive-side processing of the original XGO Duck controller
+
+// Loop-rate attitude: gravity predicted with the raw gyro and corrected by the accelerometer with
+// a gain that fades as its magnitude leaves 1 g; smoothed gyro; yaw integration for heading hold.
+// Robot frame, x forward, y left, z up; the accelerometer is used as a gravity vector.
+void AP_NNMixer::update_attitude_xduck(const Vector3f &gyro_frd, const Vector3f &accel_frd, float dt_in)
+{
+    const float kGravityTau = 0.3f;         // s
+    const float kGyroKeep = 0.5f;           // per 10 ms sample
+    const Vector3f gyro(gyro_frd.x, -gyro_frd.y, -gyro_frd.z);
+    Vector3f acc(-accel_frd.x, accel_frd.y, accel_frd.z);
+    acc.x += _xd_accx_cmd;
+    const float norm = acc.length();
+    const bool acc_ok = norm > 1.0e-6f;
+    const float dt = constrain_float(dt_in, 0.001f, 0.1f);
+
+    if (!_xd_valid || dt_in > 0.1f) {
+        // a long gap cannot be bridged with one rate sample: start again from the accelerometer
+        _xd_grav = acc_ok ? acc / norm : Vector3f(0.0f, 0.0f, -1.0f);
+        _xd_gyro = gyro;
+        _xd_valid = true;
+        _hh_valid = false;
+        _hh_has_target = false;
+        return;
+    }
+    // a world-fixed vector seen from the rotating body: dg/dt = -omega x g
+    Vector3f g = _xd_grav - (gyro % _xd_grav) * dt;
+    g.normalize();
+    if (acc_ok) {
+        const float trust = MAX(0.0f, 1.0f - fabsf(norm / GRAVITY_MSS - 1.0f) / 0.2f);
+        const float gain = (1.0f - expf(-dt / kGravityTau)) * trust;
+        g = g * (1.0f - gain) + (acc / norm) * gain;
+        g.normalize();
+    }
+    _xd_grav = g;
+    const float keep = powf(kGyroKeep, dt / 0.01f);
+    _xd_gyro = _xd_gyro * keep + gyro * (1.0f - keep);
+
+    // heading: unwrapped yaw from the body rate and gravity, started only when standing level
+    if (!_hh_walking) {
+        _hh_valid = false;
+        _hh_has_target = false;
+    } else if (!_hh_valid) {
+        if (-_xd_grav.z >= cosf(radians(5.0f))) {
+            _hh_yaw = 0.0f;
+            _hh_valid = true;
+        }
+    } else {
+        const float den = sq(_xd_grav.y) + sq(_xd_grav.z);
+        if (den < 0.01f) {
+            _hh_valid = false;
+            _hh_has_target = false;
+        } else {
+            _hh_yaw -= (_xd_gyro.y * _xd_grav.y + _xd_gyro.z * _xd_grav.z) / den * dt;
+        }
+    }
+}
+
+// Yaw-rate command that keeps the heading while translating with no turn requested
+float AP_NNMixer::heading_hold(bool walking, const float twist[3], float kp)
+{
+    const float kMaxWz = 0.3f;              // rad/s
+    const float kDeadband = radians(3.0f);
+    if (!walking || !_hh_valid || !is_zero(twist[2]) || (is_zero(twist[0]) && is_zero(twist[1]))) {
+        _hh_has_target = false;
+        return twist[2];
+    }
+    if (!_hh_has_target) {
+        _hh_target = _hh_yaw;
+        _hh_has_target = true;
+    }
+    const float err = _hh_target - _hh_yaw;
+    return fabsf(err) > kDeadband ? constrain_float(kp * err, -kMaxWz, kMaxWz) : 0.0f;
+}
+
+// ---------------------------------------------------------------------------
+// deployment table, skills
+
+void AP_NNMixer::load_deploy_table()
+{
+    memset(&_deploy_cfg, 0, sizeof(_deploy_cfg));
+    char path[64];
+    hal.util->snprintf(path, sizeof(path), "APM/nnm/%s/skills.bin", _topo.robot_id);
+    auto *fd = AP::FS().load_file(path);
+    if (fd == nullptr) {
+        hal.util->snprintf(path, sizeof(path), "/APM/nnm/%s/skills.bin", _topo.robot_id);
+        fd = AP::FS().load_file(path);
+    }
+    if (fd == nullptr) {
+        return;     // optional file
+    }
+    const bool ok = nnm_parse_skills_bin(fd->data, fd->length, _deploy_cfg);
+    delete fd;
+    if (!ok) {
+        GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "NNMixer: bad skills.bin for %s", _topo.robot_id);
+        return;
+    }
+    GCS_SEND_TEXT(MAV_SEVERITY_INFO, "NNMixer: %u skills, %u policy settings",
+                  unsigned(_deploy_cfg.n_skill), unsigned(_deploy_cfg.n_policy));
+}
+
+const NNM_PolicyCfg *AP_NNMixer::policy_cfg(int8_t idx) const
+{
+    for (uint8_t i = 0; i < _deploy_cfg.n_policy; i++) {
+        if (int8_t(_deploy_cfg.policy[i].policy) == idx) {
+            return &_deploy_cfg.policy[i];
+        }
+    }
+    return nullptr;
+}
+
+void AP_NNMixer::reset_history()
+{
+    memset(_last_action, 0, sizeof(_last_action));
+    memset(_act_filt, 0, sizeof(_act_filt));
+}
+
+bool AP_NNMixer::start_skill(uint8_t id)
+{
+    if (!_initialised || !_topo.valid || !_deploy_cfg.valid || !hal.util->get_soft_armed()) {
+        return false;
+    }
+    if (_getup_state != GetupState::IDLE) {
+        return false;       // recovering from a fall
+    }
+    for (uint8_t i = 0; i < _deploy_cfg.n_skill; i++) {
+        const NNM_Skill &sk = _deploy_cfg.skill[i];
+        if (sk.id != id) {
+            continue;
+        }
+        if (sk.needs != 0) {
+            // follows another skill (stand after sit)
+            if (_skill_state != SkillState::RUNNING || _deploy_cfg.skill[_skill_idx].id != sk.needs) {
+                return false;
+            }
+        } else if (_skill_state != SkillState::IDLE) {
+            return false;
+        }
+        _skill_idx = i;
+        if (int8_t(sk.policy) == _loaded_policy_idx) {
+            _skill_state = SkillState::RUNNING;
+            _skill_start_ms = AP_HAL::millis();
+            if (!(sk.flags & NNM_SKILL_KEEP_HISTORY)) {
+                reset_history();
+            }
+        } else {
+            // the policy is loaded into the free slot; the clock starts at the flip
+            _skill_state = SkillState::STARTING;
+        }
+        return true;
+    }
+    return false;
+}
+
+void AP_NNMixer::end_skill()
+{
+    if (int8_t(_policy.get()) == _loaded_policy_idx) {
+        _skill_state = SkillState::IDLE;
+        reset_history();
+    } else {
+        // back to NNM_POLICY; IDLE when the slot flips
+        _skill_state = SkillState::ENDING;
+    }
+}
+
+void AP_NNMixer::service_skill()
+{
+    if (_skill_state != SkillState::RUNNING) {
+        return;
+    }
+    const NNM_Skill &sk = _deploy_cfg.skill[_skill_idx];
+    if (is_positive(sk.duration_s) &&
+        AP_HAL::millis() - _skill_start_ms >= uint32_t(sk.duration_s * 1000.0f)) {
+        end_skill();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// output stage, joint bus, setup service
+
+static void send_float_array(const char *name, uint16_t id, const float *data, uint8_t n)
+{
+    mavlink_debug_float_array_t pkt {};
+    pkt.time_usec = AP_HAL::micros64();
+    strncpy(pkt.name, name, sizeof(pkt.name));
+    pkt.array_id = id;
+    memcpy(pkt.data, data, sizeof(float) * MIN(n, uint8_t(ARRAY_SIZE(pkt.data))));
+    gcs().send_to_active_channels(MAVLINK_MSG_ID_DEBUG_FLOAT_ARRAY, (const char *)&pkt);
+}
+
+// Drive the joints to q_des. When the outputs come on, or the bus actuators are not powered yet,
+// the command starts from the measured angles and reaches q_des with a ramp (1 s disarmed, 0.5 s
+// armed); while disarmed a change of the pose to hold is ramped as well.
+void AP_NNMixer::drive_outputs(const float *q_des, bool armed)
+{
+    const uint8_t n = uint8_t(_topo.n_joints);
+    const uint32_t now = AP_HAL::millis();
+    bool have_meas = false;
+    bool powered = true;
+    float meas[NNM_MAX_JOINTS] {};
+#if AP_JOINTBUS_ENABLED
+    if (_bus_ready) {
+        AP_JointBus::Feedback fb;
+        if (_bus.get_feedback(fb) && fb.count >= n) {
+            memcpy(meas, fb.pos, sizeof(float) * n);
+            have_meas = true;
+        }
+        powered = _bus.torque_enabled();
+    }
+#endif
+    if (!_out_active || !powered) {
+        if (have_meas) {
+            memcpy(_ramp_from, meas, sizeof(float) * n);
+            _ramp_ms = armed ? 500 : 1000;
+            _ramp_start_ms = now;
+        } else if (!_out_active) {
+            _ramp_ms = 0;
+        }
+    } else if (!armed && (_out_armed || _hold_idx != _loaded_policy_idx)) {
+        // just disarmed, or the disarmed pose changed with the policy: move there from the
+        // last command
+        memcpy(_ramp_from, _out_q, sizeof(float) * n);
+        _ramp_ms = 1000;
+        _ramp_start_ms = now;
+    }
+    _hold_idx = _loaded_policy_idx;
+    _out_armed = armed;
+
+    float q[NNM_MAX_JOINTS];
+    float k = 1.0f;
+    if (_ramp_ms != 0) {
+        k = constrain_float(float(now - _ramp_start_ms) / float(_ramp_ms), 0.0f, 1.0f);
+        if (k >= 1.0f) {
+            _ramp_ms = 0;
+        }
+    }
+    for (uint8_t i = 0; i < n; i++) {
+        q[i] = (k < 1.0f) ? _ramp_from[i] + k * (q_des[i] - _ramp_from[i]) : q_des[i];
+        _out_q[i] = q[i];
+    }
+    _out_active = true;
+    write_servos(q);
+#if AP_JOINTBUS_ENABLED
+    if (_bus_ready) {
+        _bus.write(q, n, true);
+    }
+#endif
+}
+
+void AP_NNMixer::outputs_off()
+{
+    write_idle_servos();
+#if AP_JOINTBUS_ENABLED
+    if (_bus_ready) {
+        _bus.write(nullptr, 0, false);
+    }
+#endif
+    _out_active = false;
+    _ramp_ms = 0;
+}
+
+void AP_NNMixer::send_service_reply(uint16_t seq, uint8_t op, bool ok, uint8_t id)
+{
+    float d[11] {};
+    d[0] = seq;
+    d[1] = op;
+    d[2] = ok ? 1.0f : 0.0f;
+    d[3] = id;
+    d[10] = 1.0f;       // answered by the autopilot
+    send_float_array("NNM_SRVR", seq, d, ARRAY_SIZE(d));
+}
+
+void AP_NNMixer::handle_service(const float *data)
+{
+    if (data == nullptr || !isfinite(data[0]) || !isfinite(data[1]) || !isfinite(data[2])) {
+        return;
+    }
+    const uint16_t seq = uint16_t(constrain_float(data[0], 0.0f, 65535.0f));
+    const uint8_t op = uint8_t(constrain_float(data[1], 0.0f, 255.0f));
+    const uint8_t id = uint8_t(constrain_float(data[2], 0.0f, 255.0f));
+    const bool armed = hal.util->get_soft_armed();
+    if (op == 1 || op == 2) {
+        // release torque / back to the disarmed pose
+        if (!armed) {
+            _torque_off = (op == 1);
+        }
+        send_service_reply(seq, op, !armed, id);
+        return;
+    }
+#if AP_JOINTBUS_ENABLED
+    if (_bus_ready && !armed) {
+        AP_JointBus::Request req {};
+        req.seq = seq;
+        req.op = op;
+        req.id = id;
+        req.arg[0] = data[3];
+        req.arg[1] = data[4];
+        _bus.request(req);
+        return;
+    }
+#endif
+    send_service_reply(seq, op, false, id);
+}
+
+void AP_NNMixer::set_aux_cmd(float deg)
+{
+    const float lim = _deploy_cfg.valid ? MAX(_deploy_cfg.aux_max, 0.0f) : 0.0f;
+    _aux_cmd = isfinite(deg) ? constrain_float(deg, 0.0f, lim) : 0.0f;
+}
+
+// setup replies and joint telemetry for the web pages
+void AP_NNMixer::service_bus()
+{
+#if AP_JOINTBUS_ENABLED
+    if (!_bus_ready) {
+        return;
+    }
+    AP_JointBus::Reply r;
+    while (_bus.pop_reply(r)) {
+        float d[11] {};
+        d[0] = r.seq;
+        d[1] = r.op;
+        d[2] = r.ok;
+        d[3] = r.id;
+        d[4] = r.raw_pos;
+        d[5] = r.center_pos;
+        d[6] = r.kp;
+        d[7] = r.kd;
+        d[8] = r.protection;
+        d[9] = r.current;
+        d[10] = r.source;
+        send_float_array("NNM_SRVR", r.seq, d, ARRAY_SIZE(d));
+    }
+    const uint32_t now = AP_HAL::millis();
+    if (now - _last_jnt_ms < 100) {
+        return;
+    }
+    _last_jnt_ms = now;
+    AP_JointBus::Telemetry t;
+    _bus.get_telemetry(t);
+    // NNM_JNT: [0] status bits (AP_JointBus::Status, 64 = torque released on request),
+    // [1] present mask, [2] held mask, [3..17] angle deg, [18..32] target deg, [33..47] raw encoder,
+    // [48] slots, [49] state rate Hz, [50] commands refused by the MCU, [51] CRC errors,
+    // [52] policy in use, [53] running skill id, [54] get-up state, [55] deployment chain,
+    // [56] auxiliary actuator command deg, [57] 1 while armed
+    float d[58] {};
+    d[0] = float(t.status | (_torque_off ? 64U : 0U));
+    d[1] = t.present_mask;
+    d[2] = t.held_mask;
+    const uint8_t ns = MIN(t.n_slots, uint8_t(15));
+    for (uint8_t i = 0; i < ns; i++) {
+        d[3 + i] = t.angle_deg[i];
+        d[18 + i] = t.target_deg[i];
+        d[33 + i] = t.raw_pos[i];
+    }
+    d[48] = ns;
+    d[49] = t.rx_hz;
+    d[50] = float(t.rejected_commands);
+    d[51] = float(t.crc_errors);
+    d[52] = float(_loaded_policy_idx);
+    d[53] = _skill_state != SkillState::IDLE ? float(_deploy_cfg.skill[_skill_idx].id) : 0.0f;
+    d[54] = float(uint8_t(_getup_state));
+    d[55] = float(_chain);
+    d[56] = _aux_cmd;
+    d[57] = hal.util->get_soft_armed() ? 1.0f : 0.0f;
+    send_float_array("NNM_JNT", uint16_t(_tick), d, ARRAY_SIZE(d));
+
+    if (t.volt_ms != 0 && now - _last_vlt_ms >= 1000) {
+        // NNM_VLT: [0] mask, [1..15] volts, [16] age of the reading in seconds
+        _last_vlt_ms = now;
+        float v[17] {};
+        v[0] = t.volt_mask;
+        for (uint8_t i = 0; i < ns; i++) {
+            v[1 + i] = t.deci_volt[i] * 0.1f;
+        }
+        v[16] = float(now - t.volt_ms) * 0.001f;
+        send_float_array("NNM_VLT", uint16_t(_tick), v, ARRAY_SIZE(v));
+    }
+#endif
+}
+
 void AP_NNMixer::update()
 {
     if (!enabled()) {
@@ -848,9 +1389,26 @@ void AP_NNMixer::update()
         init();
     }
     _tick++;
+    {
+        // measured rate of this task and its longest interval, for the telemetry
+        const uint32_t now_us = AP_HAL::micros();
+        if (_rate_last_us != 0) {
+            _rate_gap_us = MAX(_rate_gap_us, now_us - _rate_last_us);
+        }
+        _rate_last_us = now_us;
+        _rate_count++;
+    }
+
+    const bool armed = hal.util->get_soft_armed();
+    if (!armed) {
+        // the deployment chain changes only at rest
+        _chain = uint8_t(constrain_int16(_deploy.get(), 0, 1));
+    }
 
     service_getup();
+    service_skill();
     service_policy_switch();
+    service_bus();
 
     if (!_topo.valid) {
         _fail_reason = 5;
@@ -862,16 +1420,97 @@ void AP_NNMixer::update()
         return;
     }
 
-    if (!hal.util->get_soft_armed()) {
-        memset(_last_action, 0, sizeof(_last_action));
+    const bool xd = (_chain == 1);
+    float aux = _aux_cmd;
+#if AP_JOINTBUS_ENABLED
+    if (_bus_ready) {
+        // XDuck chain: joint velocity smoothed as in the original receive filter
+        _bus.set_velocity_alpha(xd ? 0.4f : 0.0f);
+    }
+#endif
+
+    if (!armed) {
+        reset_history();
         _fail_reason = 1;
-        write_idle_servos();
+        _skill_state = SkillState::IDLE;
+        _hh_walking = false;
+        _xd_accx_cmd = 0.0f;
+        bool setup = false;
+#if AP_JOINTBUS_ENABLED
+        if (_bus_ready) {
+            _bus.set_aux_deg(aux);
+            setup = _bus.exclusive();
+        }
+#endif
+        if (_dis_pose == 1 && !_torque_off && !setup) {
+            // stand in the default pose of the selected policy
+            drive_outputs(default_pose(), false);
+        } else {
+            outputs_off();
+        }
         send_telemetry();
         return;
     }
+    _torque_off = false;
+#if AP_JOINTBUS_ENABLED
+    if (_bus_ready && _bus.exclusive()) {
+        _bus.end_exclusive();
+    }
+#endif
+
+    const uint32_t now_ms = AP_HAL::millis();
+    const NNM_PolicyCfg *pc = policy_cfg(_loaded_policy_idx);
+    const bool skill_on = _skill_state == SkillState::RUNNING || _skill_state == SkillState::ENDING;
+    const NNM_Skill *skill = skill_on ? &_deploy_cfg.skill[_skill_idx] : nullptr;
+    const bool recovering = _getup_state != GetupState::IDLE;
 
     float twist[3];
     read_twist(twist);
+    if (pc != nullptr && is_positive(pc->wz_max)) {
+        twist[2] = constrain_float(twist[2], -pc->wz_max, pc->wz_max);
+    }
+    bool zero_pose = pc != nullptr && (pc->flags & NNM_POLICY_ZERO_POSE) != 0;
+    if (xd) {
+        // trim and heading hold only while plainly walking, on the pilot's own twist
+        const bool walking = !recovering && _skill_state == SkillState::IDLE;
+        float trim = 0.0f;
+        if (walking && !(pc != nullptr && (pc->flags & NNM_POLICY_NO_ACCX))) {
+            if (is_positive(twist[0])) {
+                trim = _xd_accx;
+            } else if (is_negative(twist[0]) || !is_zero(twist[2])) {
+                trim = -_xd_accx;
+            }
+        }
+        _xd_accx_cmd = trim;
+        _hh_walking = walking;
+        twist[2] = heading_hold(walking, twist, (pc != nullptr && is_positive(pc->heading_kp)) ? pc->heading_kp : 1.5f);
+        if (recovering) {
+            twist[0] = twist[1] = twist[2] = 0.0f;
+            zero_pose = true;
+        }
+    }
+    if (skill != nullptr) {
+        // the skill owns the command channels
+        float phase = 0.0f;
+        if (is_positive(skill->duration_s)) {
+            phase = constrain_float(float(now_ms - _skill_start_ms) * 0.001f / skill->duration_s, 0.0f, 1.0f);
+        }
+        if (skill->flags & NNM_SKILL_CIRCLE) {
+            twist[0] = cosf(M_2PI * phase);
+            twist[1] = sinf(M_2PI * phase);
+            twist[2] = 0.0f;
+        } else {
+            twist[0] = skill->cmd[0];
+            twist[1] = skill->cmd[1];
+            twist[2] = skill->cmd[2];
+        }
+        if (skill->flags & NNM_SKILL_ZERO_POSE) {
+            zero_pose = true;
+        }
+        if (skill->flags & NNM_SKILL_AUX) {
+            aux = (phase < skill->aux_until) ? skill->aux_deg : 0.0f;
+        }
+    }
 
     const bool joints_ok = read_joint_feedback();
     const bool hil_state_ok = _hil_state_ms != 0 &&
@@ -888,6 +1527,9 @@ void AP_NNMixer::update()
         WITH_SEMAPHORE(_joint_sem);
         memcpy(&o[0], _hil_gyro_flu, sizeof(_hil_gyro_flu));
         memcpy(&o[3], _hil_gravity_flu, sizeof(_hil_gravity_flu));
+    } else if (xd) {
+        o[0] = _xd_gyro.x;  o[1] = _xd_gyro.y;  o[2] = _xd_gyro.z;
+        gravity_body_flu(&o[3]);
     } else {
         o[0] = gyro.x;  o[1] = -gyro.y;  o[2] = -gyro.z;
         gravity_body_flu(&o[3]);
@@ -944,29 +1586,31 @@ void AP_NNMixer::update()
     }
     // pose teleop: channels after the clock (twist_off+5 ..). Fresh NNM_POSE is filtered in;
     // when the watchdog expires the same filter eases to zero (rest), never a hard jump.
+    // The XDuck chain feeds the command as received; a policy or a skill can force it to zero.
     if (twist_off + 6 <= od) {
         const uint16_t n_pose = MIN((uint16_t)(od - (twist_off + 5)), (uint16_t)8);
         const float dt = float(rate_div) / 50.0f;
         const float tau = MAX(_pose_tau, 0.02f);
-        const float alpha = MIN(1.0f, dt / tau);
+        const float alpha = xd ? 1.0f : MIN(1.0f, dt / tau);
         float target[8] {};
         {
             WITH_SEMAPHORE(_pose_sem);
             const bool fresh = (_pose_ms != 0) &&
                                (AP_HAL::millis() - _pose_ms <= (uint32_t)MAX(int16_t(_pose_wd_ms), 50));
-            if (fresh) {
+            if (fresh && !zero_pose) {
                 for (uint16_t i = 0; i < n_pose; i++) {
                     target[i] = _pose_cmd[i];
                 }
             }
         }
         for (uint16_t i = 0; i < n_pose; i++) {
-            _pose_filt[i] += alpha * (target[i] - _pose_filt[i]);
+            _pose_filt[i] = zero_pose ? 0.0f : _pose_filt[i] + alpha * (target[i] - _pose_filt[i]);
             o[twist_off + 5 + i] = _pose_filt[i];
         }
     }
 
-    bool ok = joints_ok && (use_hil_att || _down_valid) && (_use_sd_policy || _use_baked_mlp);
+    const bool att_ok = use_hil_att || (xd ? _xd_valid : _down_valid);
+    bool ok = joints_ok && att_ok && (_use_sd_policy || _use_baked_mlp);
     if (ok) {
         const uint32_t t0 = wall_micros();
         if (_use_sd_policy && _slot[_active_slot].ready) {
@@ -1006,13 +1650,42 @@ void AP_NNMixer::update()
     } else {
         memset(_act, 0, sizeof(_act));
     }
+    if (xd && _getup_state == GetupState::FALLING) {
+        // after a fall: default pose, action and history at zero, until the get-up starts
+        memset(_act, 0, sizeof(_act));
+        reset_history();
+    }
 
     float q_target[NNM_MAX_JOINTS];
-    for (uint16_t i = 0; i < nj; i++) {
-        q_target[i] = q0[i] + _act[i];
-        _last_action[i] = _act[i];
+    if (xd) {
+        // the history takes the action as computed; the joints take a low-passed copy, with the
+        // head joints on their own constant
+        float keep_leg = _deploy_cfg.valid ? _deploy_cfg.alpha_leg : 0.35f;
+        float keep_head = _deploy_cfg.valid ? _deploy_cfg.alpha_head : 0.45f;
+        if (pc != nullptr) {
+            keep_leg = pc->alpha_leg;
+            keep_head = pc->alpha_head;
+        }
+        const uint16_t head0 = _deploy_cfg.head_first;
+        const uint16_t head1 = uint16_t(head0 + _deploy_cfg.head_count);
+        for (uint16_t i = 0; i < nj; i++) {
+            const float keep = constrain_float((i >= head0 && i < head1) ? keep_head : keep_leg, 0.0f, 0.99f);
+            _last_action[i] = _act[i];
+            _act_filt[i] = keep * _act_filt[i] + (1.0f - keep) * _act[i];
+            q_target[i] = q0[i] + _act_filt[i];
+        }
+    } else {
+        for (uint16_t i = 0; i < nj; i++) {
+            q_target[i] = q0[i] + _act[i];
+            _last_action[i] = _act[i];
+        }
     }
-    write_servos(q_target);
+#if AP_JOINTBUS_ENABLED
+    if (_bus_ready) {
+        _bus.set_aux_deg(aux);
+    }
+#endif
+    drive_outputs(q_target, true);
 
     if (hil_state_ok) {
         static float hil_action[58] {};
@@ -1058,7 +1731,18 @@ void AP_NNMixer::send_telemetry()
     if (now - _last_telem_ms < 500) {
         return;
     }
+    const float window_s = (_last_telem_ms != 0) ? float(now - _last_telem_ms) * 1.0e-3f : 0.0f;
     _last_telem_ms = now;
+    // policy task: measured rate and longest interval since the last report; attitude task the same
+    _rate_hz = window_s > 0.0f ? float(_rate_count) / window_s : 0.0f;
+    gcs().send_named_float("PPO_HZ", _rate_hz);
+    gcs().send_named_float("PPO_GAP", _rate_gap_us * 1.0e-3f);
+    gcs().send_named_float("PPO_LHZ", window_s > 0.0f ? float(_loop_count) / window_s : 0.0f);
+    gcs().send_named_float("PPO_LGAP", _loop_gap_us * 1.0e-3f);
+    _rate_count = 0;
+    _rate_gap_us = 0;
+    _loop_count = 0;
+    _loop_gap_us = 0;
     gcs().send_named_float("PPO_MS", _forward_us * 1.0e-3f);
     gcs().send_named_float("PPO_PGZ", _obs[5]);
     const uint16_t twist_off = _topo.valid ? uint16_t(6 + 3 * _topo.n_joints) : 48;
@@ -1068,6 +1752,11 @@ void AP_NNMixer::send_telemetry()
     // first filtered pose-command channel (right shoulder pitch): shows the NNM_POSE stream and
     // the watchdog decay from the GCS
     gcs().send_named_float("PPO_POSE0", _pose_filt[0]);
+    // policy in use, running skill (0 = none), get-up state, deployment chain
+    gcs().send_named_float("PPO_POL", float(_loaded_policy_idx));
+    gcs().send_named_float("PPO_SKILL", _skill_state != SkillState::IDLE ? float(_deploy_cfg.skill[_skill_idx].id) : 0.0f);
+    gcs().send_named_float("PPO_GETUP", float(uint8_t(_getup_state)));
+    gcs().send_named_float("PPO_CHAIN", float(_chain));
 }
 
 namespace AP {

@@ -469,6 +469,20 @@ MAV_RESULT GCS_MAVLINK_Rover::handle_command_int_packet(const mavlink_command_in
     case MAV_CMD_DO_REPOSITION:
         return handle_command_int_do_reposition(packet);
 
+#if AP_NNMIXER_ENABLED
+    case MAV_CMD_USER_1: {
+        // NNMixer skill from the robot's skills.bin: param1 = skill id
+        AP_NNMixer *nnmixer = AP::nnmixer();
+        if (nnmixer == nullptr || !nnmixer->enabled()) {
+            return MAV_RESULT_UNSUPPORTED;
+        }
+        if (packet.param1 < 1.0f || packet.param1 > 255.0f) {
+            return MAV_RESULT_DENIED;
+        }
+        return nnmixer->start_skill(uint8_t(packet.param1)) ? MAV_RESULT_ACCEPTED : MAV_RESULT_DENIED;
+    }
+#endif
+
     case MAV_CMD_DO_SET_REVERSE:
         // param1 : Direction (0=Forward, 1=Reverse)
         rover.control_mode->set_reversed(is_equal(packet.param1,1.0f));
@@ -583,6 +597,14 @@ void GCS_MAVLINK_Rover::handle_message(const mavlink_message_t &msg)
             if (n > 0) {
                 nnmixer->set_pose_cmd(packet.data, n);
             }
+        } else if (strncmp(packet.name, "NNM_SRVR", 8) == 0) {
+            // our own answer coming back on a routed link
+        } else if (strncmp(packet.name, "NNM_SRV", 7) == 0) {
+            // setup request: torque, joint centering, single-servo setup
+            nnmixer->handle_service(packet.data);
+        } else if (strncmp(packet.name, "NNM_AUX", 7) == 0) {
+            // auxiliary actuator (mouth), degrees
+            nnmixer->set_aux_cmd(packet.data[0]);
         }
         break;
     }

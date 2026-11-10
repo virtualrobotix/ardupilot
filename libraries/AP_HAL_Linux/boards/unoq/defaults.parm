@@ -1,0 +1,62 @@
+# ArduRover on Arduino Uno Q driving the XGO Duck (robot 21) through the joint bus.
+# Bench defaults: no GPS, no compass, no RC receiver; the web gateway arms over MAVLink.
+
+# policy task
+NNM_ENABLE 1
+NNM_ROBOT 21
+NNM_POLICY 0
+NNM_OUT 1
+NNM_DIS_POSE 1
+NNM_DEPLOY 1
+NNM_VX_MAX 0.2
+NNM_VY_MAX 0.3
+NNM_WZ_MAX 1.0
+NNM_WD_MS 60
+NNM_GETUP_IDX 1
+NNM_GETUP_TILT 55
+NNM_GETUP_OK 15
+NNM_GETUP_HOLD 1.0
+NNM_GETUP_S 1
+
+# joint bus on serial2 (ardurover --serial2 udp:127.0.0.1:9003)
+SERIAL2_PROTOCOL 51
+
+# 50 Hz main loop, the policy rate: two IMU samples of the 100 Hz state packet per loop, so the
+# loop never waits for one. At 100 Hz it would, every time a packet is a little late.
+SCHED_LOOP_RATE 50
+# the policies were trained on the raw IMU; Rover defaults to 4 Hz and 10 Hz low-pass filters
+INS_GYRO_FILTER 0
+INS_ACCEL_FILTER 0
+# no gyro calibration at boot: the robot is rarely still then. Calibrate from the web page.
+INS_GYR_CAL 0
+
+# sensors that are not there
+COMPASS_ENABLE 0
+GPS1_TYPE 0
+AHRS_EKF_TYPE 0
+EK3_ENABLE 0
+
+# arming from the web page, no failsafe action on the bench
+ARMING_SKIPCHK -1
+ARMING_NEED_LOC 0
+FS_ACTION 0
+FS_THR_ENABLE 0
+FS_GCS_ENABLE 0
+FS_CRASH_CHECK 0
+INITIAL_MODE 0
+
+# twist from RC_CHANNELS_OVERRIDE; it is dropped one second after the last message
+RC_OVERRIDE_TIME 1
+RC1_MIN 1000
+RC1_MAX 2000
+RC1_DZ 20
+RC2_MIN 1000
+RC2_MAX 2000
+RC2_DZ 20
+RC3_MIN 1000
+RC3_MAX 2000
+RC4_MIN 1000
+RC4_MAX 2000
+RC4_DZ 20
+
+LOG_DISARMED 0

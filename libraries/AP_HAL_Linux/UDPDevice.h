@@ -21,4 +21,10 @@ private:
     bool _bcast;
     bool _input;
     bool _connected = false;
+
+    // a datagram that did not fit the reader's buffer is delivered over two calls
+    void note_sender();
+    uint8_t _carry[2048];
+    uint16_t _carry_len = 0;
+    uint16_t _carry_pos = 0;
 };

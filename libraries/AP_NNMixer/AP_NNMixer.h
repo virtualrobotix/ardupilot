@@ -17,6 +17,7 @@
 #include "AP_NNMixer_Policy.h"
 #include <AP_Param/AP_Param.h>
 #include <AP_Math/AP_Math.h>
+#include <AP_JointBus/AP_JointBus.h>
 
 class AP_NNMixer {
 public:
@@ -42,6 +43,18 @@ public:
 
     // Called by Rover for GUIDED/AUTO/RTL/SMART_RTL desired body twist (SI).
     void set_nav_twist(float vx, float vy, float wz);
+
+    // Setup request from the GCS (DEBUG_FLOAT_ARRAY name NNM_SRV):
+    // data[0] sequence, data[1] operation, data[2] actuator, data[3..4] arguments.
+    // 1 releases torque and 2 restores the disarmed pose; the others are AP_JointBus::Op.
+    // The answer goes out as NNM_SRVR.
+    void handle_service(const float *data);
+
+    // Auxiliary actuator (the duck's mouth) from the GCS (DEBUG_FLOAT_ARRAY name NNM_AUX), degrees.
+    void set_aux_cmd(float deg);
+
+    // Timed skill from the robot's skills.bin (MAV_CMD_USER_1, param1 = skill id).
+    bool start_skill(uint8_t id);
 
     bool enabled() const { return _enable != 0; }
 
@@ -80,6 +93,10 @@ private:
     AP_Float _getup_ok;      // leave get-up when tilt is below this (deg)
     AP_Float _getup_s;       // oneshot clip duration (s)
     AP_Float _getup_hold;    // upright hold before returning to previous policy (s)
+    AP_Int8  _out;           // 0: servo PWM only, 1: also the joint bus
+    AP_Int8  _dis_pose;      // 1: hold the default pose while disarmed
+    AP_Int8  _deploy;        // 0: standard chain, 1: XDuck chain
+    AP_Float _xd_accx;       // XDuck chain: accelerometer-x trim while a twist is commanded (m/s/s)
 
     bool _initialised;
     float _clock_phase;
@@ -110,6 +127,14 @@ private:
     uint32_t _nav_twist_ms;
     uint32_t _forward_us;
     uint32_t _last_telem_ms;
+    // timing of the policy task (update) and of the attitude task, reported in the telemetry
+    uint32_t _rate_last_us;
+    uint32_t _rate_gap_us;
+    uint16_t _rate_count;
+    float _rate_hz;
+    uint32_t _loop_last_us;
+    uint32_t _loop_gap_us;
+    uint16_t _loop_count;
     uint32_t _tick;
     uint8_t _fail_reason;
     int8_t _loaded_policy_idx;
@@ -134,6 +159,51 @@ private:
     bool _io_registered;
     bool _force_switch;      // get-up may switch while armed in MANUAL
 
+    // per-robot deployment table (skills.bin), optional
+    NNM_Deploy _deploy_cfg;
+
+    // output stage: PWM always, the joint bus with NNM_OUT 1
+#if AP_JOINTBUS_ENABLED
+    AP_JointBus _bus;
+#endif
+    bool _bus_ready;
+    uint32_t _bus_fb_ms;          // timestamp of the last bus sample handed to the observation
+    bool _torque_off;             // released on request while disarmed; cleared by arming
+    bool _out_active;             // outputs were driven on the previous tick
+    bool _out_armed;              // armed state of the last drive_outputs() call
+    float _out_q[NNM_MAX_JOINTS]; // last commanded pose
+    float _ramp_from[NNM_MAX_JOINTS];
+    uint32_t _ramp_start_ms;
+    uint16_t _ramp_ms;            // 0 = no ramp running
+    int8_t _hold_idx;             // policy whose default pose is being held
+    float _aux_cmd;               // degrees
+    uint32_t _last_jnt_ms;
+    uint32_t _last_vlt_ms;
+
+    uint8_t _chain;               // NNM_DEPLOY as latched while disarmed
+
+    // XDuck chain (NNM_DEPLOY 1)
+    float _act_filt[NNM_MAX_JOINTS];
+    Vector3f _xd_grav;            // unit gravity, robot frame (x forward, y left, z up)
+    Vector3f _xd_gyro;            // smoothed rate, same frame
+    bool _xd_valid;
+    uint32_t _xd_src_us;          // sender time of the last link IMU sample
+    uint32_t _xd_src_ms;
+    bool _xd_src_valid;
+    float _xd_accx_cmd;           // trim applied by the attitude task
+    uint32_t _xd_prehold_ms;      // start of the default-pose hold before get-up
+    bool _hh_walking;             // heading hold may run
+    bool _hh_valid;
+    bool _hh_has_target;
+    float _hh_yaw;
+    float _hh_target;
+
+    // skills
+    enum class SkillState : uint8_t { IDLE, STARTING, RUNNING, ENDING };
+    SkillState _skill_state;
+    uint8_t _skill_idx;           // index into _deploy_cfg.skill while not IDLE
+    uint32_t _skill_start_ms;
+
     NNM_RobotTopology _topo;
     NNM_PolicySlot _slot[2];
     uint8_t _active_slot;   // 0 or 1
@@ -157,6 +227,18 @@ private:
     void log_tick(const float twist[3]);
     void send_telemetry();
     const float *default_pose() const;
+    void load_deploy_table();
+    bool bus_ready() const { return _bus_ready; }
+    const NNM_PolicyCfg *policy_cfg(int8_t idx) const;
+    void update_attitude_xduck(const Vector3f &gyro, const Vector3f &accel, float dt);
+    float heading_hold(bool walking, const float twist[3], float kp);
+    void service_skill();
+    void end_skill();
+    void reset_history();
+    void drive_outputs(const float *q_des, bool armed);
+    void outputs_off();
+    void service_bus();
+    void send_service_reply(uint16_t seq, uint8_t op, bool ok, uint8_t id);
 };
 
 namespace AP {

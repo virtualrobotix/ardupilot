@@ -1,0 +1,30 @@
+# Arduino Uno Q: Qualcomm QRB2210 running Debian (arm64) next to an STM32U585.
+#
+# ArduRover with AP_NNMixer runs on the Linux side. The microcontroller runs the XDuck sketch:
+# it polls the servo bus and the IMU at 100 Hz and exchanges state and command packets with the
+# autopilot through AP_JointBus, on the serial port with SERIALn_PROTOCOL 51. Linux itself has
+# no sensor attached.
+#
+#   ./waf configure --board unoq --static
+#   ./waf rover
+#   ardurover --serial0 udp:127.0.0.1:14550 --serial2 udp:127.0.0.1:9003
+
+env TOOLCHAIN aarch64-linux-gnu
+
+define HAL_BOARD_LOG_DIRECTORY "logs"
+define HAL_BOARD_TERRAIN_DIRECTORY "terrain"
+define HAL_BOARD_STORAGE_DIRECTORY "."
+
+# IMU: none on a Linux bus. The samples arrive in the joint-bus state packet.
+define HAL_INS_DEFAULT HAL_INS_NONE
+define AP_INERTIALSENSOR_JOINTBUS_ENABLED 1
+
+# barometer: none. A constant-pressure sensor stands in so the altitude consumers start.
+define HAL_BARO_DUMMY_IF_NONE 1
+
+# policy task and actuator link
+define AP_NNMIXER_ENABLED 1
+define AP_JOINTBUS_ENABLED 1
+
+# the board clock belongs to the Linux image
+define AP_HAL_LINUX_SET_HW_RTC_ENABLED 0

@@ -18,6 +18,19 @@ public:
     }
 
     bool is_initialized() override;
+
+
+    /*
+
+      each write() is handed to the device at once, as one datagram on UDP. For
+
+      packet protocols that are not MAVLink: the buffered path cuts UDP writes on
+
+      MAVLink boundaries, which holds other data back
+
+     */
+
+    bool set_unbuffered_writes(bool on) override;
     bool tx_pending() override;
 
     uint32_t txspace() override;
@@ -68,6 +81,7 @@ private:
     char *_flag;
     bool _connected; // true if a client has connected
     bool _packetise; // true if writes should try to be on mavlink boundaries
+    bool _unbuffered_writes; // write() goes straight to the device, from the caller's thread
 
     void _allocate_buffers(uint16_t rxS, uint16_t txS);
     void _deallocate_buffers();

@@ -35,6 +35,7 @@ const char *nnm_robot_name(NNM_RobotId id)
     case NNM_RobotId::PHONEBOT:  return "phonebot";
     case NNM_RobotId::PHONEBOT_REV: return "phonebot_rev";
     case NNM_RobotId::OPEN_SPRITE: return "open_sprite";
+    case NNM_RobotId::XGODUCK:   return "xgoduck";
     default:                     return nullptr;
     }
 }
@@ -49,6 +50,59 @@ static float rd_f32(const uint8_t *p)
     float f;
     memcpy(&f, p, 4);
     return f;
+}
+
+bool nnm_parse_skills_bin(const uint8_t *data, uint32_t len, NNM_Deploy &out)
+{
+    memset(&out, 0, sizeof(out));
+    const uint32_t header = 8 + 4 + 8 + 32 + 4;
+    if (data == nullptr || len < header || memcmp(data, "NNMS", 4) != 0 || data[4] != 1) {
+        return false;
+    }
+    const uint8_t n_policy = data[5];
+    const uint8_t n_skill = data[6];
+    if (n_policy > NNM_MAX_POLICY_CFG || n_skill > NNM_MAX_SKILLS ||
+        len != header + n_policy * 20u + n_skill * 28u) {
+        return false;
+    }
+    const uint8_t *p = data + 8;
+    out.head_first = p[0];
+    out.head_count = p[1];
+    p += 4;
+    out.alpha_leg = rd_f32(p); p += 4;
+    out.alpha_head = rd_f32(p); p += 4;
+    for (uint8_t i = 0; i < 8; i++) {
+        out.pose_limit[i] = rd_f32(p); p += 4;
+    }
+    out.aux_max = rd_f32(p); p += 4;
+    for (uint8_t i = 0; i < n_policy; i++) {
+        NNM_PolicyCfg &c = out.policy[i];
+        c.policy = p[0];
+        c.flags = p[1];
+        c.alpha_leg = rd_f32(p + 4);
+        c.alpha_head = rd_f32(p + 8);
+        c.heading_kp = rd_f32(p + 12);
+        c.wz_max = rd_f32(p + 16);
+        p += 20;
+    }
+    for (uint8_t i = 0; i < n_skill; i++) {
+        NNM_Skill &s = out.skill[i];
+        s.id = p[0];
+        s.policy = p[1];
+        s.flags = p[2];
+        s.needs = p[3];
+        s.duration_s = rd_f32(p + 4);
+        s.cmd[0] = rd_f32(p + 8);
+        s.cmd[1] = rd_f32(p + 12);
+        s.cmd[2] = rd_f32(p + 16);
+        s.aux_deg = rd_f32(p + 20);
+        s.aux_until = rd_f32(p + 24);
+        p += 28;
+    }
+    out.n_policy = n_policy;
+    out.n_skill = n_skill;
+    out.valid = true;
+    return true;
 }
 
 bool nnm_parse_robot_bin(const uint8_t *data, uint32_t len, NNM_RobotTopology &out)

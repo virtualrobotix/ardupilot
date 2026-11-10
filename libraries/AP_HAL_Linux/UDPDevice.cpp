@@ -2,9 +2,11 @@
 
 #include <fcntl.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/ioctl.h>
 
 #include <AP_HAL/AP_HAL.h>
+#include <AP_Math/AP_Math.h>
 
 // UDP read() will give up after receiving this many packets
 // including ones that are discarded (e.g. our own multicasts)
@@ -40,10 +42,28 @@ ssize_t UDPDevice::write(const uint8_t *buf, uint16_t n)
     return socket.sendto(buf, n, _ip, _port);
 }
 
+void UDPDevice::note_sender()
+{
+    if (!_connected) {
+        const char *ip;
+        uint16_t port;
+        socket.last_recv_address(ip, port);
+        _connected = socket.connect(ip, port);
+    }
+}
+
 ssize_t UDPDevice::read(uint8_t *buf, uint16_t n)
 {
     ssize_t bytes_read = 0;
     ssize_t packets_read = 0;
+
+    // rest of a datagram that did not fit the caller's buffer on the previous call
+    if (_carry_pos < _carry_len) {
+        const uint16_t k = MIN(n, uint16_t(_carry_len - _carry_pos));
+        memcpy(buf, &_carry[_carry_pos], k);
+        _carry_pos += k;
+        bytes_read = k;
+    }
 
     // recv() only retrieves a single datagram on UDP sockets
     // peek & read multiple until the buffer full
@@ -55,23 +75,33 @@ ssize_t UDPDevice::read(uint8_t *buf, uint16_t n)
             return -1;
         }
 
-        // read the first packet unconditionally
-        // read subsequent packets if they fit into the remaining buffer
-        // this ensures that if the incoming packet is somehow larger than
-        // the entire RX ring-buffer, we get a truncated packet rather
-        // than end up being unable to read any further
-        // NOTE: Linux HAL allocates a 8192 byte RX buffer so this should
-        // not happen unless the buffer size is redefined
+        if (in_size > n - bytes_read && in_size <= int(sizeof(_carry))) {
+            // the datagram is larger than what is left of the caller's buffer (the RX
+            // ring-buffer hands out its free space in two pieces): recv() would drop the
+            // excess, so take the datagram whole and keep the rest for the next call
+            const ssize_t ret = socket.recv(_carry, sizeof(_carry), 0);
+            packets_read++;
+            if (ret <= 0) {
+                continue;
+            }
+            note_sender();
+            const uint16_t k = MIN(uint16_t(n - bytes_read), uint16_t(ret));
+            memcpy(&buf[bytes_read], _carry, k);
+            bytes_read += k;
+            _carry_pos = k;
+            _carry_len = uint16_t(ret);
+            break;
+        }
+
+        // a datagram larger than the carry buffer: read the first one unconditionally, so
+        // that we get a truncated packet rather than end up being unable to read any further
         if (bytes_read > 0 && in_size > n - bytes_read) {
             break;
         }
 
         ssize_t ret = socket.recv(&buf[bytes_read], n - bytes_read, 0);
-        if (!_connected && ret > 0) {
-            const char *ip;
-            uint16_t port;
-            socket.last_recv_address(ip, port);
-            _connected = socket.connect(ip, port);
+        if (ret > 0) {
+            note_sender();
         }
 
         // socket.read() may return -1 if we're reading ourselves on multicast

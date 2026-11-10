@@ -288,6 +288,11 @@ size_t UARTDriver::_write(const uint8_t *buffer, size_t size)
     if (!_initialised) {
         return 0;
     }
+    if (_unbuffered_writes) {
+        WITH_SEMAPHORE(_write_mutex);
+        const int n = _write_fd(buffer, uint16_t(MIN(size, size_t(UINT16_MAX))));
+        return n > 0 ? size_t(n) : 0;
+    }
     if (!_write_mutex.take_nonblocking()) {
         return 0;
     }
@@ -295,6 +300,12 @@ size_t UARTDriver::_write(const uint8_t *buffer, size_t size)
     size_t ret = _writebuf.write(buffer, size);
     _write_mutex.give();
     return ret;
+}
+
+bool UARTDriver::set_unbuffered_writes(bool on)
+{
+    _unbuffered_writes = on;
+    return true;
 }
 
 /*

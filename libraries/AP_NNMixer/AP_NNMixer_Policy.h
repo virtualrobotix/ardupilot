@@ -53,7 +53,8 @@ enum class NNM_RobotId : uint8_t {
     PHONEBOT = 18,
     PHONEBOT_REV = 19,
     OPEN_SPRITE = 20,
-    COUNT = 21
+    XGODUCK = 21,
+    COUNT = 22
 };
 
 const char *nnm_robot_name(NNM_RobotId id);
@@ -85,6 +86,60 @@ struct NNM_PolicySlot {
 };
 
 bool nnm_parse_robot_bin(const uint8_t *data, uint32_t len, NNM_RobotTopology &out);
+
+// Optional deployment table, /APM/nnm/<robot>/skills.bin (tools/robots/pack_robot_bin.py):
+// limits of the pose-command channels, per-policy settings and timed skills.
+#define NNM_MAX_POLICY_CFG 8
+#define NNM_MAX_SKILLS 12
+
+enum NNM_PolicyFlags : uint8_t {
+    NNM_POLICY_ZERO_POSE = 1,       // pose-command channels forced to zero
+    NNM_POLICY_NO_ACCX = 2,         // no accelerometer-x trim (NNM_DEPLOY 1)
+};
+
+enum NNM_SkillFlags : uint8_t {
+    NNM_SKILL_CIRCLE = 1,           // twist = (cos, sin, 0) of the skill phase
+    NNM_SKILL_ZERO_POSE = 2,
+    NNM_SKILL_NO_GETUP = 4,         // automatic get-up suspended while the skill runs
+    NNM_SKILL_KEEP_HISTORY = 8,     // action history kept on entry
+    NNM_SKILL_AUX = 16,             // drives the auxiliary actuator
+};
+
+struct NNM_PolicyCfg {
+    uint8_t policy;
+    uint8_t flags;
+    float alpha_leg;
+    float alpha_head;
+    float heading_kp;               // 0 = default
+    float wz_max;                   // 0 = NNM_WZ_MAX
+};
+
+struct NNM_Skill {
+    uint8_t id;
+    uint8_t policy;
+    uint8_t flags;
+    uint8_t needs;                  // skill id that must be running, 0 = none
+    float duration_s;               // 0 = until another skill replaces it
+    float cmd[3];
+    float aux_deg;
+    float aux_until;                // aux_deg while phase < aux_until, then 0
+};
+
+struct NNM_Deploy {
+    bool valid;
+    uint8_t head_first;             // joints [head_first, head_first + head_count) use alpha_head
+    uint8_t head_count;
+    float alpha_leg;
+    float alpha_head;
+    float pose_limit[8];
+    float aux_max;
+    uint8_t n_policy;
+    uint8_t n_skill;
+    NNM_PolicyCfg policy[NNM_MAX_POLICY_CFG];
+    NNM_Skill skill[NNM_MAX_SKILLS];
+};
+
+bool nnm_parse_skills_bin(const uint8_t *data, uint32_t len, NNM_Deploy &out);
 
 // Copy .nnm into slot.blob and build view. Rejects wrong robot_id / dims.
 bool nnm_parse_policy_nnm(const uint8_t *data, uint32_t len,

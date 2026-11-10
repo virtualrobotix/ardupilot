@@ -740,6 +740,13 @@ void AP_Baro::init(void)
     }
 #endif
 
+#if AP_BARO_DUMMY_ENABLED && defined(HAL_BARO_DUMMY_IF_NONE)
+    // board without a barometer: a constant-pressure sensor keeps the altitude consumers running
+    if (_num_drivers == 0) {
+        _add_backend(AP_Baro_Dummy::probe(*this));
+    }
+#endif
+
 #if !defined(HAL_BARO_ALLOW_INIT_NO_BARO) // most boards requires external baro
 #if AP_SIM_BARO_ENABLED
     if (sitl->baro_count == 0) {

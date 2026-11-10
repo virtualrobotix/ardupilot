@@ -17,9 +17,11 @@
 #include "Thread.h"
 
 #include <alloca.h>
+#include <errno.h>
 #include <limits.h>
 #include <sys/types.h>
 #include <stdio.h>
+#include <sys/mman.h>
 #include <unistd.h>
 #include <utility>
 
@@ -191,6 +193,34 @@ bool Thread::start(const char *name, int policy, int prio)
     }
 
     r = pthread_create(&_ctx, &attr, &Thread::_run_trampoline, this);
+    if (r == EPERM && geteuid() == 0) {
+        /*
+          root without CAP_SYS_NICE, as in an unprivileged container:
+          run with the scheduling of the parent rather than not at all
+         */
+        static bool warned;
+        if (!warned) {
+            warned = true;
+            fprintf(stderr, "No permission for realtime scheduling: threads run with the default policy\n");
+        }
+        if ((r = pthread_attr_setinheritsched(&attr, PTHREAD_INHERIT_SCHED)) == 0) {
+            r = pthread_create(&_ctx, &attr, &Thread::_run_trampoline, this);
+        }
+    }
+    if (r == EAGAIN) {
+        /*
+          the stack of the new thread could not be locked in memory: mlockall() is in force
+          and RLIMIT_MEMLOCK is small, as for an ordinary user. Run without locked memory
+          rather than not at all
+         */
+        static bool unlocked;
+        if (!unlocked) {
+            unlocked = true;
+            fprintf(stderr, "Memory lock limit reached: running without locked memory\n");
+            munlockall();
+        }
+        r = pthread_create(&_ctx, &attr, &Thread::_run_trampoline, this);
+    }
     if (r != 0) {
         AP_HAL::panic("Failed to create thread '%s': %s",
                       name, strerror(r));
