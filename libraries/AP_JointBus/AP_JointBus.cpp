@@ -75,6 +75,13 @@ void AP_JointBus::set_aux_deg(float deg)
     }
 }
 
+void AP_JointBus::set_run_gains(uint16_t mask, const uint8_t *kp, const uint8_t *kd, uint8_t n)
+{
+    if (_backend != nullptr) {
+        _backend->set_run_gains(mask, kp, kd, n);
+    }
+}
+
 void AP_JointBus::request(const Request &req)
 {
     if (_backend != nullptr) {

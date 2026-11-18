@@ -23,6 +23,7 @@ public:
     virtual void write(const float *q_rad, uint8_t n, bool enable) = 0;
     virtual void set_aux_deg(float deg) = 0;
     virtual void request(const AP_JointBus::Request &req) = 0;
+    virtual void set_run_gains(uint16_t mask, const uint8_t *kp, const uint8_t *kd, uint8_t n) = 0;
     virtual bool pop_reply(AP_JointBus::Reply &reply) = 0;
     virtual bool exclusive() = 0;
     virtual void end_exclusive() = 0;

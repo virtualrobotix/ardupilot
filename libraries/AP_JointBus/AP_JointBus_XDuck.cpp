@@ -42,7 +42,9 @@ enum ServoOp : uint8_t {
     MCU_SERVO_PING = 7,
     MCU_SERVO_RESET_MID = 8,
     MCU_SERVO_SET_PROTECTION = 9,
+    MCU_SERVO_GOTO = 4,
     MCU_SERVO_SET_PROTECTION_CURRENT = 10,
+    MCU_SERVO_SET_RUN_GAINS = 11,       // answers the DQG1 table frame in DQS3
 };
 
 struct PACKED CommandPacket {
@@ -111,6 +113,15 @@ struct PACKED ServoPacket {
     uint16_t protection_current;
 };
 
+// host -> MCU: the run-gain table of all servos in one frame, so the MCU never holds a partial table
+struct PACKED RunGainsPacket {
+    char magic[4];
+    uint32_t seq;
+    uint16_t mask;
+    uint8_t kp[15];
+    uint8_t kd[15];
+};
+
 struct PACKED RawPacket {
     char magic[4];
     uint16_t mask;
@@ -138,6 +149,7 @@ static_assert(sizeof(CalReplyPacket) == 10, "cal reply ABI");
 static_assert(sizeof(ServoPacket) == 12, "servo ABI");
 static_assert(sizeof(RawPacket) == 38, "raw ABI");
 static_assert(sizeof(ServoReplyPacket) == 14, "servo reply ABI");
+static_assert(sizeof(RunGainsPacket) == 40, "run gains ABI");
 
 // packets from the MCU, by magic. DQD1 (diagnostics) is recognised so it is skipped whole.
 const struct {
@@ -174,6 +186,7 @@ const uint32_t LINK_TIMEOUT_MS = 150;       // state packets
 const uint32_t HOST_TIMEOUT_MS = 150;       // write() calls from the joint controller
 const uint32_t SESSION_TIMEOUT_MS = 2000;   // ground-station calls during a setup session
 const uint32_t IDLE_TX_MS = 100;            // DISARM keep-alive when nobody calls write()
+const uint32_t SERVO_REPLY_TIMEOUT_MS = 1000;   // a run-gain table without an answer may be sent again
 
 }  // namespace
 
@@ -321,6 +334,8 @@ void AP_JointBus_XDuck::dispatch(const uint8_t *frame, uint16_t len)
             { MCU_SERVO_RESET_MID, AP_JointBus::Op::SERVO_RESET_MID },
             { MCU_SERVO_SET_PROTECTION, AP_JointBus::Op::SERVO_SET_PROTECTION },
             { MCU_SERVO_SET_PROTECTION_CURRENT, AP_JointBus::Op::SERVO_SET_PROTECTION_CURRENT },
+            { MCU_SERVO_SET_RUN_GAINS, AP_JointBus::Op::SERVO_SET_RUN_GAINS },
+            { MCU_SERVO_GOTO, AP_JointBus::Op::SERVO_GOTO },
         };
         WITH_SEMAPHORE(_sem);
         for (const auto &m : map) {
@@ -545,6 +560,34 @@ void AP_JointBus_XDuck::queue_servo(uint8_t op, uint8_t target_id, uint8_t new_i
     _out.push(f);
 }
 
+void AP_JointBus_XDuck::queue_run_gains(uint16_t seq)
+{
+    RunGainsPacket p {};
+    memcpy(p.magic, "DQG1", 4);
+    p.seq = seq;
+    p.mask = _run_mask;
+    memcpy(p.kp, _run_kp, sizeof(p.kp));
+    memcpy(p.kd, _run_kd, sizeof(p.kd));
+    OutFrame f {};
+    f.len = sizeof(p);
+    memcpy(f.data, &p, sizeof(p));
+    _out.push(f);
+}
+
+void AP_JointBus_XDuck::set_run_gains(uint16_t mask, const uint8_t *kp, const uint8_t *kd, uint8_t n)
+{
+    WITH_SEMAPHORE(_sem);
+    _run_mask = uint16_t(mask & ((1U << NUM_SLOTS) - 1U));
+    memset(_run_kp, 0, sizeof(_run_kp));
+    memset(_run_kd, 0, sizeof(_run_kd));
+    n = MIN(n, NUM_SLOTS);
+    if (kp != nullptr && kd != nullptr && n > 0) {
+        memcpy(_run_kp, kp, n);
+        memcpy(_run_kd, kd, n);
+    }
+    _run_valid = kp != nullptr && kd != nullptr && n > 0 && _run_mask != 0;
+}
+
 void AP_JointBus_XDuck::local_reply(const AP_JointBus::Request &req, bool ok)
 {
     AP_JointBus::Reply reply {};
@@ -609,6 +652,19 @@ void AP_JointBus_XDuck::request(const AP_JointBus::Request &req)
         local_reply(req, true);
         return;
 
+    case Op::SERVO_SET_RUN_GAINS:
+        // no setup session needed: the table is published while disarmed. One in flight.
+        if (!link || _exclusive != Exclusive::NONE || !_run_valid ||
+            (_servo_op != 0 && now - _servo_ms < SERVO_REPLY_TIMEOUT_MS)) {
+            local_reply(req, false);
+            return;
+        }
+        queue_run_gains(req.seq);
+        _servo_seq = req.seq;
+        _servo_op = req.op;
+        _servo_ms = now;
+        return;
+
     case Op::CAL_CENTER:
         if (_exclusive != Exclusive::CAL || !link || req.id >= NUM_SLOTS) {
             local_reply(req, false);
@@ -650,6 +706,12 @@ void AP_JointBus_XDuck::request(const AP_JointBus::Request &req)
     case Op::SERVO_READ:
         if (ok) {
             queue_servo(MCU_SERVO_READ, req.id, 0, 0, 0, 0, 0);
+        }
+        break;
+    case Op::SERVO_GOTO:
+        ok = ok && a0 >= 0 && a0 <= 4095;
+        if (ok) {
+            queue_servo(MCU_SERVO_GOTO, req.id, 0, 0, 0, 0, uint16_t(a0));
         }
         break;
     case Op::SERVO_PING:

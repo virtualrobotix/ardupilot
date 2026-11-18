@@ -125,8 +125,17 @@ struct NNM_Skill {
     float aux_until;                // aux_deg while phase < aux_until, then 0
 };
 
+// Gain table of the bus servos, skills.bin version 2 (tools/robots/pack_robot_bin.py). One entry per
+// bus slot, in MCU order; bit i of servo_mask says slot i has a value (else the servo keeps its EEPROM).
+#define NNM_SERVO_GAINS 15
+
 struct NNM_Deploy {
     bool valid;
+    bool servo_gains_valid;         // skills.bin version 2 carried a gain table
+    uint16_t servo_mask;
+    uint8_t n_servo_gains;
+    uint8_t servo_kp[NNM_SERVO_GAINS];
+    uint8_t servo_kd[NNM_SERVO_GAINS];
     uint8_t head_first;             // joints [head_first, head_first + head_count) use alpha_head
     uint8_t head_count;
     float alpha_leg;

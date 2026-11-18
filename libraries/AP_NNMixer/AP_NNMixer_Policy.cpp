@@ -56,13 +56,29 @@ bool nnm_parse_skills_bin(const uint8_t *data, uint32_t len, NNM_Deploy &out)
 {
     memset(&out, 0, sizeof(out));
     const uint32_t header = 8 + 4 + 8 + 32 + 4;
-    if (data == nullptr || len < header || memcmp(data, "NNMS", 4) != 0 || data[4] != 1) {
+    if (data == nullptr || len < header || memcmp(data, "NNMS", 4) != 0 || (data[4] != 1 && data[4] != 2)) {
         return false;
     }
     const uint8_t n_policy = data[5];
     const uint8_t n_skill = data[6];
-    if (n_policy > NNM_MAX_POLICY_CFG || n_skill > NNM_MAX_SKILLS ||
-        len != header + n_policy * 20u + n_skill * 28u) {
+    if (n_policy > NNM_MAX_POLICY_CFG || n_skill > NNM_MAX_SKILLS) {
+        return false;
+    }
+    const uint32_t body = header + n_policy * 20u + n_skill * 28u;
+    // version 2 adds the gain tail: n u8, mask u16, kp[n], kd[n]
+    uint32_t tail = 0;
+    uint8_t n_gains = 0;
+    if (data[4] == 2) {
+        if (len < body + 3) {
+            return false;
+        }
+        n_gains = data[body];
+        if (n_gains > NNM_SERVO_GAINS) {
+            return false;
+        }
+        tail = 3 + 2u * n_gains;
+    }
+    if (len != body + tail) {
         return false;
     }
     const uint8_t *p = data + 8;
@@ -98,6 +114,16 @@ bool nnm_parse_skills_bin(const uint8_t *data, uint32_t len, NNM_Deploy &out)
         s.aux_deg = rd_f32(p + 20);
         s.aux_until = rd_f32(p + 24);
         p += 28;
+    }
+    if (data[4] == 2) {
+        const uint8_t *g = data + body;
+        out.servo_mask = uint16_t(g[1]) | (uint16_t(g[2]) << 8);
+        out.n_servo_gains = n_gains;
+        for (uint8_t i = 0; i < n_gains; i++) {
+            out.servo_kp[i] = g[3 + i];
+            out.servo_kd[i] = g[3 + n_gains + i];
+        }
+        out.servo_gains_valid = out.servo_mask != 0;
     }
     out.n_policy = n_policy;
     out.n_skill = n_skill;

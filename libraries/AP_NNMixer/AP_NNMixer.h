@@ -97,6 +97,7 @@ private:
     AP_Int8  _dis_pose;      // 1: hold the default pose while disarmed
     AP_Int8  _deploy;        // 0: standard chain, 1: XDuck chain
     AP_Float _xd_accx;       // XDuck chain: accelerometer-x trim while a twist is commanded (m/s/s)
+    AP_Int8  _gains;         // 1: publish the robot's per-servo KP/KD table to the bus while disarmed
 
     bool _initialised;
     float _clock_phase;
@@ -179,6 +180,9 @@ private:
     float _aux_cmd;               // degrees
     uint32_t _last_jnt_ms;
     uint32_t _last_vlt_ms;
+    bool _gains_done;             // the MCU confirmed the run-gain table since the link came up
+    uint32_t _gains_ms;           // last table sent (retry interval)
+    uint16_t _gains_seq;
 
     uint8_t _chain;               // NNM_DEPLOY as latched while disarmed
 
@@ -238,6 +242,7 @@ private:
     void drive_outputs(const float *q_des, bool armed);
     void outputs_off();
     void service_bus();
+    void publish_run_gains();
     void send_service_reply(uint16_t seq, uint8_t op, bool ok, uint8_t id);
 };
 

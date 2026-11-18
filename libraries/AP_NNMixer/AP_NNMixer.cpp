@@ -193,6 +193,13 @@ const AP_Param::GroupInfo AP_NNMixer::var_info[] = {
     // @User: Advanced
     AP_GROUPINFO("XD_ACCX", 31, AP_NNMixer, _xd_accx, 1.5f),
 
+    // @Param: GAINS
+    // @DisplayName: Publish servo gains
+    // @Description: With a skills.bin version 2 table, sends the per-servo KP/KD to the joint bus MCU while disarmed; the MCU applies them at ARM. 0 never sends the table: the servos keep their values, except the mouth which the MCU sets to 10/20.
+    // @Values: 0:Off,1:On
+    // @User: Advanced
+    AP_GROUPINFO("GAINS", 32, AP_NNMixer, _gains, 1),
+
     AP_GROUPEND
 };
 
@@ -240,6 +247,9 @@ AP_NNMixer::AP_NNMixer()
     _getup_preload_pending = false;
     _force_switch = false;
     _bus_ready = false;
+    _gains_done = false;
+    _gains_ms = 0;
+    _gains_seq = 0;
     _bus_fb_ms = 0;
     _torque_off = false;
     _out_active = false;
@@ -1271,6 +1281,29 @@ void AP_NNMixer::send_service_reply(uint16_t seq, uint8_t op, bool ok, uint8_t i
     send_float_array("NNM_SRVR", seq, d, ARRAY_SIZE(d));
 }
 
+// Sends the run-gain table of the robot (skills.bin version 2) while disarmed, until the MCU answers
+// ok. The MCU keeps it in RAM and applies it at ARM, so a table sent before arming is what runs.
+void AP_NNMixer::publish_run_gains()
+{
+#if AP_JOINTBUS_ENABLED
+    if (!_bus_ready || _gains == 0 || _gains_done || !_deploy_cfg.servo_gains_valid ||
+        hal.util->get_soft_armed()) {
+        return;
+    }
+    const uint32_t now = AP_HAL::millis();
+    if (_gains_ms != 0 && now - _gains_ms < 1000) {
+        return;
+    }
+    _gains_ms = now;
+    _bus.set_run_gains(_deploy_cfg.servo_mask, _deploy_cfg.servo_kp, _deploy_cfg.servo_kd,
+                       _deploy_cfg.n_servo_gains);
+    AP_JointBus::Request req {};
+    req.seq = _gains_seq++;
+    req.op = uint8_t(AP_JointBus::Op::SERVO_SET_RUN_GAINS);
+    _bus.request(req);
+#endif
+}
+
 void AP_NNMixer::handle_service(const float *data)
 {
     if (data == nullptr || !isfinite(data[0]) || !isfinite(data[1]) || !isfinite(data[2])) {
@@ -1318,6 +1351,9 @@ void AP_NNMixer::service_bus()
     }
     AP_JointBus::Reply r;
     while (_bus.pop_reply(r)) {
+        if (r.op == uint8_t(AP_JointBus::Op::SERVO_SET_RUN_GAINS)) {
+            _gains_done = r.ok != 0;
+        }
         float d[11] {};
         d[0] = r.seq;
         d[1] = r.op;
@@ -1339,6 +1375,10 @@ void AP_NNMixer::service_bus()
     _last_jnt_ms = now;
     AP_JointBus::Telemetry t;
     _bus.get_telemetry(t);
+    if (!(t.status & AP_JointBus::STATUS_LINK)) {
+        // the MCU may have restarted: the table goes out again when the link is back
+        _gains_done = false;
+    }
     // NNM_JNT: [0] status bits (AP_JointBus::Status, 64 = torque released on request),
     // [1] present mask, [2] held mask, [3..17] angle deg, [18..32] target deg, [33..47] raw encoder,
     // [48] slots, [49] state rate Hz, [50] commands refused by the MCU, [51] CRC errors,
@@ -1409,6 +1449,7 @@ void AP_NNMixer::update()
     service_skill();
     service_policy_switch();
     service_bus();
+    publish_run_gains();
 
     if (!_topo.valid) {
         _fail_reason = 5;

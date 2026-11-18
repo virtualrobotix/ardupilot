@@ -83,6 +83,8 @@ public:
         SERVO_RESET_MID = 27,
         SERVO_SET_PROTECTION = 28,      // arg0 = 0 off, 1 on (all servos)
         SERVO_SET_PROTECTION_CURRENT = 29,  // arg0 = limit in bus units (all servos)
+        SERVO_SET_RUN_GAINS = 30,       // sends the table set with set_run_gains(): one frame, all servos
+        SERVO_GOTO = 31,                // id = bus id, arg0 = goal 0..4095: torque on, soft gains, slow
     };
 
     struct Request {
@@ -128,6 +130,10 @@ public:
     // is queued like the ones from the bus; collect all of them with pop_reply().
     void request(const Request &req);
     bool pop_reply(Reply &reply);
+
+    // per-servo KP/KD table for the running servos (bit i of mask = slot i). It is stored, not sent:
+    // Op SERVO_SET_RUN_GAINS sends it. The MCU applies it at ARM.
+    void set_run_gains(uint16_t mask, const uint8_t *kp, const uint8_t *kd, uint8_t n);
 
     // true while a calibration or servo-setup session owns the bus
     bool exclusive();

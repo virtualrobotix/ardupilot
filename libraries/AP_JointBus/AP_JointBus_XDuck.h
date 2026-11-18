@@ -36,6 +36,7 @@ public:
     void write(const float *q_rad, uint8_t n, bool enable) override;
     void set_aux_deg(float deg) override;
     void request(const AP_JointBus::Request &req) override;
+    void set_run_gains(uint16_t mask, const uint8_t *kp, const uint8_t *kd, uint8_t n) override;
     bool pop_reply(AP_JointBus::Reply &reply) override;
     bool exclusive() override;
     void end_exclusive() override;
@@ -50,7 +51,7 @@ private:
 
     struct OutFrame {
         uint8_t len;
-        uint8_t data[16];
+        uint8_t data[48];
     };
 
     AP_HAL::UARTDriver *_uart;
@@ -104,11 +105,18 @@ private:
     uint32_t _seq;
     uint32_t _last_tx_ms;
 
+    // run gains: the whole table in one frame, applied by the MCU at ARM
+    bool _run_valid = false;
+    uint16_t _run_mask = 0;
+    uint8_t _run_kp[NUM_SLOTS] {};
+    uint8_t _run_kd[NUM_SLOTS] {};
+
     // setup sessions
     Exclusive _exclusive;
     uint32_t _exclusive_ms;         // last ground-station call while in a session
     uint16_t _servo_seq;            // request waiting for a servo reply
     uint8_t _servo_op;              // its AP_JointBus::Op, 0 = none
+    uint32_t _servo_ms = 0;         // when _servo_op was sent
     ObjectBuffer<OutFrame> _out{8};
     ObjectBuffer<AP_JointBus::Reply> _replies{8};
 
@@ -121,6 +129,7 @@ private:
     void queue_cal(uint8_t op, uint8_t index, uint32_t seq);
     void queue_servo(uint8_t op, uint8_t target_id, uint8_t new_id, uint8_t kp, uint8_t kd,
                      uint8_t protection, uint16_t current);
+    void queue_run_gains(uint16_t seq);
     void local_reply(const AP_JointBus::Request &req, bool ok);
     void close_session_locked();
 };
