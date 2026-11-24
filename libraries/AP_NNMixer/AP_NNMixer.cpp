@@ -59,8 +59,8 @@ const AP_Param::GroupInfo AP_NNMixer::var_info[] = {
 
     // @Param: ROBOT
     // @DisplayName: Robot topology (boot)
-    // @Description: Selects /APM/nnm/<name>/robot.bin. Requires reboot. 0 MicroDuck, 1 Microban, 2 Zeroth, 3 Bimo, 4 Legolas, 5 Upkie, 6 Rex, 7 Yertle, 8 AlbertPro, 9 Open Duck Mini v2, 10 Freenove Robot Dog, 11 Petoi Bittle, 12 Booster T1, 13 flybody (Drosophila, simulation only), 14 UBTECH Yanshee, 15 UBTECH TienKung (Walker), 16 ToddlerBot, 17 Jumper, 18 PhoneBot, 19 PhoneBot reversed (pelvis and legs turned 180 deg), 20 Sprite (31 joints, over NNM_MAX_JOINTS), 21 XGO Duck (XDuck policies, servos on the Arduino Uno Q joint bus), 22 Q8bot (8 Dynamixel, closed-chain legs)
-    // @Values: 0:MicroDuck,1:Microban,2:Zeroth,3:Bimo,4:Legolas,5:Upkie,6:Rex,7:Yertle,8:AlbertPro,9:OpenDuckMini,10:FreenoveDog,11:Bittle,12:BoosterT1,13:Flybody,14:Yanshee,15:TienKung,16:ToddlerBot,17:Jumper,18:PhoneBot,19:PhoneBotReversed,20:Sprite,21:XGODuck,22:Q8bot
+    // @Description: Selects /APM/nnm/<name>/robot.bin. Requires reboot. 0 MicroDuck, 1 Microban, 2 Zeroth, 3 Bimo, 4 Legolas, 5 Upkie, 6 Rex, 7 Yertle, 8 AlbertPro, 9 Open Duck Mini v2, 10 Freenove Robot Dog, 11 Petoi Bittle, 12 Booster T1, 13 flybody (Drosophila, simulation only), 14 UBTECH Yanshee, 15 UBTECH TienKung (Walker), 16 ToddlerBot, 17 Jumper, 18 PhoneBot, 19 PhoneBot reversed (pelvis and legs turned 180 deg), 20 Sprite (31 joints, over NNM_MAX_JOINTS), 21 XGO Duck (XDuck policies, servos on the Arduino Uno Q joint bus), 22 Q8bot (8 Dynamixel, closed-chain legs), 23 Flying ArduDuck (ArduDuck legs with a 4-EDF flight pack; the EDFs run on the autopilot motor outputs, not on the network)
+    // @Values: 0:MicroDuck,1:Microban,2:Zeroth,3:Bimo,4:Legolas,5:Upkie,6:Rex,7:Yertle,8:AlbertPro,9:OpenDuckMini,10:FreenoveDog,11:Bittle,12:BoosterT1,13:Flybody,14:Yanshee,15:TienKung,16:ToddlerBot,17:Jumper,18:PhoneBot,19:PhoneBotReversed,20:Sprite,21:XGODuck,22:Q8bot,23:FlyingArduDuck
     // @User: Advanced
     // @RebootRequired: True
     AP_GROUPINFO("ROBOT", 17, AP_NNMixer, _robot, 0),

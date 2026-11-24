@@ -37,6 +37,7 @@ const char *nnm_robot_name(NNM_RobotId id)
     case NNM_RobotId::OPEN_SPRITE: return "open_sprite";
     case NNM_RobotId::XGODUCK:   return "xgoduck";
     case NNM_RobotId::Q8BOT:     return "q8bot";
+    case NNM_RobotId::FLYING_ARDUDUCK: return "flying_arduduck";
     default:                     return nullptr;
     }
 }
